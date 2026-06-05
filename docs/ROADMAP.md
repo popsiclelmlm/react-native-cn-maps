@@ -2,12 +2,32 @@
 
 > 目标:对标 `react-native-maps` 的完整 API,适配国内地图 SDK(高德 / 百度 / 腾讯),让用户**只需修改 import 路径**就能完成迁移。仅适配 React Native 新架构(Fabric)。
 
+## 进度总览
+
+> 图例:✅ 完成 · 🚧 进行中 · ⏸ 暂缓 · ⬜ 未开始
+> native 代码均已三层落地 + 过 typecheck / lint / jest / codegen schema 校验,但**尚未在真机/模拟器编译验证**(统一测试阶段进行)。
+
+| 里程碑 | 状态 | 备注 |
+|--------|------|------|
+| M1 — API 表面 shim | ✅ | sentinel-stub + 全量类型 |
+| M2 — MapView prop & 事件 | ✅ | 全 prop 矩阵演示页 |
+| M3 — Marker host-component | ✅ | PR1-5;见 [M3_DESIGN](M3_DESIGN.md) |
+| M4 — Callout + CalloutSubview | ✅ | 见 [M4_DESIGN](M4_DESIGN.md) |
+| M5 — Polyline/Polygon/Circle | ✅ | 见 [M5_DESIGN](M5_DESIGN.md) |
+| M6 — MapView 命令式 API | ✅ | command + onCommandResult Promise 回传 |
+| M7 — Web stub | ✅ | `.web.tsx` 占位,真实 web 地图待接入 |
+| M8 — 百度 provider | ⏸ | 需真实 SDK + key,留待基线测试后 |
+| M9 — 腾讯 provider | ⏸ | 同 M8 |
+| M10 — Animated + 文档 + CI | ✅ | `AnimatedRegion` 驱动 + [迁移文档](MIGRATION_FROM_RN_MAPS.md) |
+
+迁移支持状态明细见 [MIGRATION_FROM_RN_MAPS.md](MIGRATION_FROM_RN_MAPS.md)。
+
 ## 现状评估(M0,已具备)
 
 - JS 层:`MapView` + `Marker`(stub 组件,靠 `__MAP_MARKER` 哨兵识别)。
 - iOS:`MAMapKit`(高德 iOS SDK)跑通 Fabric 通路。
 - Android:AMap SDK 跑通 codegen `RNMapsMapViewManagerInterface`。
-- Markers 当前以**序列化数组 prop** 传递(尚未做成真正的子 host view)。
+- Markers 当前以**序列化数组 prop** 传递(尚未做成真正的子 host view)。_（已被 M3 取代:marker 现为真正的子 host component。）_
 - 坐标系:GCJ-02 ↔ WGS-84 在 JS 层完成,native 端只收 gcj02。
 
 **已经做对的关键决策**:坐标转换前置到 JS 层;Fabric codegen 直接走 `codegenNativeComponent` + `codegenNativeCommands`。
@@ -23,7 +43,7 @@
 
 ---
 
-## M1 — API 表面 shim(没有 native 也能编译通过)
+## M1 — API 表面 shim(没有 native 也能编译通过) ✅
 
 **目标**:让一个用 react-native-maps 的项目把 import 改成 `react-native-cn-maps` 后,**TypeScript 立刻通过编译**,运行时即使功能没实现也只是 warn,不崩。
 
@@ -37,7 +57,7 @@
 
 ---
 
-## M2 — MapView 基础 prop & 事件全量对齐
+## M2 — MapView 基础 prop & 事件全量对齐 ✅
 
 **目标**:`<MapView>` 本身的所有 RNM prop 都接住,常用事件全发。
 
@@ -49,7 +69,7 @@
 
 ---
 
-## M3 — Marker 切换为 React-children 模型 + 进阶能力
+## M3 — Marker 切换为 React-children 模型 + 进阶能力 ✅
 
 **目标**:把 markers 从"序列化数组 prop"改造成**真正的 Fabric child host components**,以支持自定义 marker view、callout、drag 事件。
 
@@ -66,7 +86,7 @@
 
 ---
 
-## M4 — Callout(气泡)+ CalloutSubview
+## M4 — Callout(气泡)+ CalloutSubview ✅
 
 **目标**:让 `<Marker><Callout>...</Callout></Marker>` 这个用得最多的组合直接工作,以及 `<CalloutSubview onPress>` 的部分点击。
 
@@ -77,7 +97,7 @@
 
 ---
 
-## M5 — 覆盖物:Polyline / Polygon / Circle
+## M5 — 覆盖物:Polyline / Polygon / Circle ✅
 
 **目标**:三大几何覆盖物按 RNM API 接入。
 
@@ -90,7 +110,7 @@
 
 ---
 
-## M6 — MapView 命令式 API(ref methods)全量
+## M6 — MapView 命令式 API(ref methods)全量 ✅
 
 **目标**:RNM 用户依赖很重的 ref 命令全部可用。
 
@@ -102,7 +122,7 @@
 
 ---
 
-## M7 — Web stub(react-native-web)
+## M7 — Web stub(react-native-web) ✅
 
 **目标**:`vite` 已经在依赖里,补一个最小可用的 web 端 fallback,至少 import 不崩、能渲染占位或 Leaflet / Mapbox / AMap-JS。
 
@@ -112,7 +132,7 @@
 
 ---
 
-## M8 — 第二个 provider:百度地图
+## M8 — 第二个 provider:百度地图 ⏸
 
 **目标**:验证多 provider 架构。这一阶段会反向暴露设计问题,所以越早做越好。
 
@@ -124,7 +144,7 @@
 
 ---
 
-## M9 — 第三个 provider:腾讯地图 + Provider 抽象稳定
+## M9 — 第三个 provider:腾讯地图 + Provider 抽象稳定 ⏸
 
 - 同 M8,接 `TencentMap`,坐标系仍是 gcj02。
 - 至此可以反过来重构 native 端的 provider 抽象层(三家都跑过之后才知道接口该怎么抽,避免过早抽象)。
@@ -132,7 +152,7 @@
 
 ---
 
-## M10 — Animated API + 收尾打磨
+## M10 — Animated API + 收尾打磨 ✅
 
 - `AnimatedRegion`:实现成 RNM 那种"四个 `Animated.Value` 组合"的类,`MapView` 内部识别并桥到原生(或退化为 `animateToRegion(toJSON())`)。
 - 性能 & 生命周期:Fabric `prepareForRecycle`、Android `onHostPause / Resume / Destroy` 做一轮压力测试 — 切页面、横竖屏、快速 mount / unmount。
