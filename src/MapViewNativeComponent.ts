@@ -43,16 +43,6 @@ export type NativePoint = Readonly<{
   y: CodegenTypes.Double;
 }>;
 
-export type NativeMarker = Readonly<{
-  identifier: string;
-  latitude: CodegenTypes.Double;
-  longitude: CodegenTypes.Double;
-  title?: string;
-  description?: string;
-  pinColor?: string;
-  draggable?: CodegenTypes.WithDefault<boolean, false>;
-}>;
-
 export type NativeRegionChangeEvent = Readonly<{
   region: Readonly<{
     latitude: CodegenTypes.Double;
@@ -61,14 +51,6 @@ export type NativeRegionChangeEvent = Readonly<{
     longitudeDelta: CodegenTypes.Double;
   }>;
   isGesture?: boolean;
-}>;
-
-export type NativeMarkerPressEvent = Readonly<{
-  identifier: string;
-  coordinate: Readonly<{
-    latitude: CodegenTypes.Double;
-    longitude: CodegenTypes.Double;
-  }>;
 }>;
 
 // Shared by onPress / onLongPress / onDoublePress / onPanDrag.
@@ -105,8 +87,6 @@ export interface NativeProps extends ViewProps {
   region?: NativeRegion;
   initialCamera?: NativeCamera;
   camera?: NativeCamera;
-
-  markers?: ReadonlyArray<NativeMarker>;
 
   // Appearance
   mapType?: CodegenTypes.WithDefault<string, 'standard'>;
@@ -167,8 +147,6 @@ export interface NativeProps extends ViewProps {
 
   // User location
   onUserLocationChange?: CodegenTypes.DirectEventHandler<NativeUserLocationChangeEvent>;
-
-  onMarkerPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
 }
 
 type ComponentType = HostComponent<NativeProps>;

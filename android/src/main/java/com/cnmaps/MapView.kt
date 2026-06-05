@@ -1,26 +1,21 @@
 package com.cnmaps
 
-import android.graphics.Color
 import android.graphics.Point
 import android.location.Location
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
 import android.widget.FrameLayout
 import com.amap.api.maps.AMap
 import com.amap.api.maps.CameraUpdate
 import com.amap.api.maps.CameraUpdateFactory
 import com.amap.api.maps.MapView as AMapView
-import com.amap.api.maps.model.BitmapDescriptorFactory
 import com.amap.api.maps.model.CameraPosition
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.LatLngBounds
-import com.amap.api.maps.model.Marker
-import com.amap.api.maps.model.MarkerOptions
 import com.amap.api.maps.model.Poi
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.LifecycleEventListener
-import com.facebook.react.bridge.ReadableArray
-import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
@@ -53,7 +48,11 @@ class MapView(private val reactContext: ThemedReactContext) :
   LifecycleEventListener {
   private val mapView = AMapView(reactContext)
   private val aMap: AMap
-  private val markerByIdentifier = LinkedHashMap<String, Marker>()
+  // Child host components (<Marker> et al.) mounted under this map. Fabric
+  // reconciles them through the manager's ViewGroup overrides, which delegate to
+  // addFeature/removeFeatureAt/getFeature* here. They are NOT added to the
+  // FrameLayout — only the AMap surface is.
+  private val features = ArrayList<View>()
   private val gestureDetector: GestureDetector
   private var pendingInitialRegion: MapRegion? = null
   private var pendingInitialCamera: MapCamera? = null
@@ -107,37 +106,30 @@ class MapView(private val reactContext: ThemedReactContext) :
     moveToRegion(region, animated = true, duration = duration)
   }
 
-  fun setMarkers(markers: ReadableArray?) {
-    markerByIdentifier.values.forEach { it.remove() }
-    markerByIdentifier.clear()
+  // Child host-component management (called from the ViewGroupManager) ---------
 
-    if (markers == null) {
+  fun addFeature(child: View, index: Int) {
+    if (child is MarkerView) {
+      child.attachTo(aMap)
+      val insertionIndex = index.coerceIn(0, features.size)
+      features.add(insertionIndex, child)
+    }
+  }
+
+  fun removeFeatureAt(index: Int) {
+    if (index < 0 || index >= features.size) {
       return
     }
 
-    for (index in 0 until markers.size()) {
-      val markerMap = markers.getMap(index) ?: continue
-      val identifier = markerMap.getOptionalString("identifier") ?: index.toString()
-      val latitude = markerMap.getOptionalDouble("latitude") ?: continue
-      val longitude = markerMap.getOptionalDouble("longitude") ?: continue
-
-      val options = MarkerOptions()
-        .position(LatLng(latitude, longitude))
-        .draggable(markerMap.getOptionalBoolean("draggable") ?: false)
-
-      markerMap.getOptionalString("title")?.let { options.title(it) }
-      markerMap.getOptionalString("description")?.let { options.snippet(it) }
-      markerMap.getOptionalString("pinColor")?.let { pinColor ->
-        markerHue(pinColor)?.let { hue ->
-          options.icon(BitmapDescriptorFactory.defaultMarker(hue))
-        }
-      }
-
-      val marker = aMap.addMarker(options)
-      marker.`object` = identifier
-      markerByIdentifier[identifier] = marker
+    val child = features.removeAt(index)
+    if (child is MarkerView) {
+      child.detach()
     }
   }
+
+  fun getFeatureCount(): Int = features.size
+
+  fun getFeatureAt(index: Int): View = features[index]
 
   // Appearance ----------------------------------------------------------------
 
@@ -238,8 +230,8 @@ class MapView(private val reactContext: ThemedReactContext) :
 
     didDestroy = true
     reactContext.removeLifecycleEventListener(this)
-    markerByIdentifier.values.forEach { it.remove() }
-    markerByIdentifier.clear()
+    features.forEach { if (it is MarkerView) it.detach() }
+    features.clear()
     mapView.onDestroy()
   }
 
@@ -317,8 +309,9 @@ class MapView(private val reactContext: ThemedReactContext) :
     }
 
     aMap.setOnMarkerClickListener { marker ->
-      val identifier = marker.`object` as? String ?: return@setOnMarkerClickListener false
-      sendMarkerPressEvent(identifier, marker.position)
+      // The owning child MarkerView is stashed in marker.object; route the
+      // map-level click back to it so it emits its own onPress (RNM model).
+      (marker.`object` as? MarkerView)?.emitPress()
       false
     }
   }
@@ -488,18 +481,6 @@ class MapView(private val reactContext: ThemedReactContext) :
     dispatchEvent(UserLocationChangeEvent(surfaceId(), id, location))
   }
 
-  private fun sendMarkerPressEvent(identifier: String, coordinate: LatLng) {
-    dispatchEvent(
-      MarkerPressEvent(
-        surfaceId(),
-        id,
-        identifier,
-        coordinate.latitude,
-        coordinate.longitude
-      )
-    )
-  }
-
   private fun currentRegion(): MapRegion? {
     val bounds = runCatching {
       aMap.projection.visibleRegion.latLngBounds
@@ -535,26 +516,6 @@ class MapView(private val reactContext: ThemedReactContext) :
     val delta = max(max(latitudeDelta, longitudeDelta), MIN_DELTA)
     val zoom = ln(360.0 / delta) / ln(2.0)
     return zoom.toFloat().coerceIn(3f, 20f)
-  }
-
-  private fun markerHue(color: String): Float? {
-    return runCatching {
-      val hsv = FloatArray(3)
-      Color.colorToHSV(Color.parseColor(color), hsv)
-      hsv[0]
-    }.getOrNull()
-  }
-
-  private fun ReadableMap.getOptionalString(key: String): String? {
-    return if (hasKey(key) && !isNull(key)) getString(key) else null
-  }
-
-  private fun ReadableMap.getOptionalDouble(key: String): Double? {
-    return if (hasKey(key) && !isNull(key)) getDouble(key) else null
-  }
-
-  private fun ReadableMap.getOptionalBoolean(key: String): Boolean? {
-    return if (hasKey(key) && !isNull(key)) getBoolean(key) else null
   }
 
   private class RegionEvent(
@@ -681,30 +642,6 @@ class MapView(private val reactContext: ThemedReactContext) :
             putDouble("speed", location.speed.toDouble())
             putDouble("heading", location.bearing.toDouble())
             putBoolean("isFromMockProvider", location.isFromMockProvider)
-          }
-        )
-      }
-  }
-
-  private class MarkerPressEvent(
-    surfaceId: Int,
-    viewId: Int,
-    private val identifier: String,
-    private val latitude: Double,
-    private val longitude: Double
-  ) : Event<MarkerPressEvent>(surfaceId, viewId) {
-    override fun getEventName(): String = "topMarkerPress"
-
-    override fun canCoalesce(): Boolean = false
-
-    override fun getEventData(): WritableMap =
-      Arguments.createMap().apply {
-        putString("identifier", identifier)
-        putMap(
-          "coordinate",
-          Arguments.createMap().apply {
-            putDouble("latitude", latitude)
-            putDouble("longitude", longitude)
           }
         )
       }

@@ -1,4 +1,5 @@
 #import "RNMapsMapView.h"
+#import "RNMapsMarker.h"
 
 #import <MAMapKit/MAMapKit.h>
 #import <React/RCTConversions.h>
@@ -25,26 +26,8 @@ typedef NS_ENUM(NSInteger, RNMapsPressKind) {
   RNMapsPressKindPanDrag,
 };
 
-@interface RNMapsMarkerAnnotation : MAPointAnnotation
-@property (nonatomic, copy) NSString *identifier;
-@property (nonatomic, copy, nullable) NSString *pinColor;
-@property (nonatomic, assign) BOOL draggable;
-@end
-
-@implementation RNMapsMarkerAnnotation
-@end
-
 @interface RNMapsMapView () <MAMapViewDelegate, UIGestureRecognizerDelegate, RCTRNMapsMapViewViewProtocol>
 @end
-
-static NSString *RNMapsNSStringFromString(const std::string &value)
-{
-  if (value.empty()) {
-    return nil;
-  }
-
-  return [NSString stringWithUTF8String:value.c_str()];
-}
 
 static std::string RNMapsStdStringFromNSString(NSString *value)
 {
@@ -140,7 +123,10 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 
 @implementation RNMapsMapView {
   MAMapView *_mapView;
-  NSMutableDictionary<NSString *, RNMapsMarkerAnnotation *> *_annotationsByIdentifier;
+  // Child <Marker> host components currently attached to the map. They are kept
+  // in mount order so get/unmount can index into them; the annotation's weak
+  // `marker` back-ref handles delegate routing.
+  NSMutableArray<RNMapsMarker *> *_markers;
   BOOL _initialRegionApplied;
   BOOL _initialCameraApplied;
   BOOL _isGesture;
@@ -165,7 +151,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     _mapView.rotateEnabled = YES;
     _mapView.rotateCameraEnabled = YES;
 
-    _annotationsByIdentifier = [NSMutableDictionary new];
+    _markers = [NSMutableArray new];
     self.contentView = _mapView;
 
     [self installGestureRecognizers];
@@ -199,8 +185,10 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 - (void)prepareForRecycle
 {
   [super prepareForRecycle];
-  [_mapView removeAnnotations:_annotationsByIdentifier.allValues];
-  [_annotationsByIdentifier removeAllObjects];
+  for (RNMapsMarker *marker in _markers) {
+    [marker removeFromMap];
+  }
+  [_markers removeAllObjects];
   _initialRegionApplied = NO;
   _initialCameraApplied = NO;
   _isGesture = NO;
@@ -228,6 +216,36 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
 {
   RCTRNMapsMapViewHandleCommand(self, commandName, args);
+}
+
+#pragma mark - Child mounting
+
+// Marker children are intercepted: they never enter the UIView hierarchy (no
+// super call), they register their annotation on the MAMapView instead. Any
+// other child falls through to the default RCTViewComponentView behavior.
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
+    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
+    NSUInteger insertionIndex = MIN((NSUInteger)index, _markers.count);
+    [_markers insertObject:marker atIndex:insertionIndex];
+    [marker addToMap:_mapView];
+    return;
+  }
+
+  [super mountChildComponentView:childComponentView index:index];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
+    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
+    [marker removeFromMap];
+    [_markers removeObject:marker];
+    return;
+  }
+
+  [super unmountChildComponentView:childComponentView index:index];
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -290,7 +308,8 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   // showsMyLocationButton have no clean MAMapKit equivalent and are intentionally
   // ignored on iOS for M2; the JS facade warns where appropriate.
 
-  [self updateMarkers:newViewProps.markers];
+  // Markers are no longer a prop — they mount as child host components (see
+  // mountChildComponentView:).
 
   [super updateProps:props oldProps:oldProps];
 }
@@ -303,30 +322,6 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   }
   _mapView.rotationDegree = camera.heading;
   _mapView.cameraDegree = camera.pitch;
-}
-
-- (void)updateMarkers:(const std::vector<RNMapsMapViewMarkersStruct> &)markers
-{
-  [_mapView removeAnnotations:_annotationsByIdentifier.allValues];
-  [_annotationsByIdentifier removeAllObjects];
-
-  for (const auto &marker : markers) {
-    NSString *identifier = RNMapsNSStringFromString(marker.identifier);
-    if (identifier == nil) {
-      continue;
-    }
-
-    RNMapsMarkerAnnotation *annotation = [RNMapsMarkerAnnotation new];
-    annotation.identifier = identifier;
-    annotation.coordinate = CLLocationCoordinate2DMake(marker.latitude, marker.longitude);
-    annotation.title = RNMapsNSStringFromString(marker.title);
-    annotation.subtitle = RNMapsNSStringFromString(marker.description);
-    annotation.pinColor = RNMapsNSStringFromString(marker.pinColor);
-    annotation.draggable = marker.draggable;
-
-    _annotationsByIdentifier[identifier] = annotation;
-    [_mapView addAnnotation:annotation];
-  }
 }
 
 #pragma mark - Event emission
@@ -565,18 +560,14 @@ regionDidChangeAnimated:(BOOL)animated
 
 - (void)mapView:(MAMapView *)mapView didSelectAnnotationView:(MAAnnotationView *)view
 {
-  auto mapViewEventEmitter = [self eventEmitterOrNull];
-  if (!mapViewEventEmitter || ![view.annotation isKindOfClass:[RNMapsMarkerAnnotation class]]) {
+  if (![view.annotation isKindOfClass:[RNMapsMarkerAnnotation class]]) {
     return;
   }
 
-  RNMapsMarkerAnnotation *marker = (RNMapsMarkerAnnotation *)view.annotation;
-  RNMapsMapViewEventEmitter::OnMarkerPress event = {
-    .identifier = std::string([marker.identifier UTF8String]),
-    .coordinate.latitude = marker.coordinate.latitude,
-    .coordinate.longitude = marker.coordinate.longitude,
-  };
-  mapViewEventEmitter->onMarkerPress(event);
+  // Route the AMap map-level callback back to the child marker view, which owns
+  // its own event emitter (RNM host-component model).
+  RNMapsMarkerAnnotation *annotation = (RNMapsMarkerAnnotation *)view.annotation;
+  [annotation.marker emitPress];
 }
 
 @end

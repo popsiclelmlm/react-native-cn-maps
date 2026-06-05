@@ -1,17 +1,20 @@
 package com.cnmaps
 
-import com.facebook.react.bridge.ReadableArray
+import android.view.View
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
-import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.uimanager.annotations.ReactProp
 import com.facebook.react.viewmanagers.RNMapsMapViewManagerDelegate
 import com.facebook.react.viewmanagers.RNMapsMapViewManagerInterface
 
+// ViewGroupManager (not SimpleViewManager) so Fabric mounts <Marker> children as
+// real child host components: addView/removeViewAt/getChild* below redirect them
+// to MapView's internal feature list instead of the FrameLayout.
 @ReactModule(name = MapViewManager.REACT_CLASS)
-class MapViewManager : SimpleViewManager<MapView>(),
+class MapViewManager : ViewGroupManager<MapView>(),
   RNMapsMapViewManagerInterface<MapView> {
   private val delegate: ViewManagerDelegate<MapView> = RNMapsMapViewManagerDelegate(this)
 
@@ -27,6 +30,23 @@ class MapViewManager : SimpleViewManager<MapView>(),
     view.destroy()
     super.onDropViewInstance(view)
   }
+
+  // Child host-component plumbing. Fabric's SurfaceMountingManager reconciles
+  // children through these manager hooks; getChildCount/getChildAt MUST mirror
+  // exactly what add/removeView leaves behind or it crashes with "view not
+  // found". MapView keeps the backing list (the AMap surface is hidden from it).
+
+  override fun addView(parent: MapView, child: View, index: Int) {
+    parent.addFeature(child, index)
+  }
+
+  override fun removeViewAt(parent: MapView, index: Int) {
+    parent.removeFeatureAt(index)
+  }
+
+  override fun getChildCount(parent: MapView): Int = parent.getFeatureCount()
+
+  override fun getChildAt(parent: MapView, index: Int): View = parent.getFeatureAt(index)
 
   @ReactProp(name = "provider")
   override fun setProvider(view: MapView, value: String?) {
@@ -58,11 +78,6 @@ class MapViewManager : SimpleViewManager<MapView>(),
   @ReactProp(name = "camera")
   override fun setCamera(view: MapView, value: ReadableMap?) {
     view.setCamera(value?.toMapCamera())
-  }
-
-  @ReactProp(name = "markers")
-  override fun setMarkers(view: MapView, value: ReadableArray?) {
-    view.setMarkers(value)
   }
 
   // Appearance ----------------------------------------------------------------
