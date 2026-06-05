@@ -21,6 +21,8 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.max
@@ -105,6 +107,152 @@ class MapView(private val reactContext: ThemedReactContext) :
 
   fun animateToRegion(region: MapRegion, duration: Int) {
     moveToRegion(region, animated = true, duration = duration)
+  }
+
+  // Imperative commands (M6) ---------------------------------------------------
+
+  fun applyCamera(camera: MapCamera, animated: Boolean, duration: Int) {
+    // A zero/zero center means "keep current center".
+    val resolved = if (camera.latitude == 0.0 && camera.longitude == 0.0) {
+      val target = aMap.cameraPosition.target
+      camera.copy(latitude = target.latitude, longitude = target.longitude)
+    } else {
+      camera
+    }
+    moveToCamera(resolved, animated, duration)
+  }
+
+  fun fitToCoordinates(coordinatesJSON: String?, edgePaddingJSON: String?, animated: Boolean) {
+    val bounds = boundsFromJSON(coordinatesJSON) ?: return
+    applyBounds(bounds, edgePaddingJSON, animated)
+  }
+
+  fun fitToElements(animated: Boolean) {
+    val builder = LatLngBounds.Builder()
+    var any = false
+    features.forEach { if (it is MarkerView) { builder.include(it.position()); any = true } }
+    if (any) {
+      applyBounds(builder.build(), null, animated)
+    }
+  }
+
+  fun fitToSuppliedMarkers(markerIDsJSON: String?, edgePaddingJSON: String?, animated: Boolean) {
+    val ids = runCatching {
+      val arr = JSONArray(markerIDsJSON ?: "[]")
+      (0 until arr.length()).map { arr.getString(it) }.toSet()
+    }.getOrDefault(emptySet())
+    if (ids.isEmpty()) {
+      return
+    }
+
+    val builder = LatLngBounds.Builder()
+    var any = false
+    features.forEach {
+      if (it is MarkerView && it.identifier != null && ids.contains(it.identifier)) {
+        builder.include(it.position())
+        any = true
+      }
+    }
+    if (any) {
+      applyBounds(builder.build(), edgePaddingJSON, animated)
+    }
+  }
+
+  fun getCameraResult(requestId: Int) {
+    val position = aMap.cameraPosition
+    dispatchCommandResult(
+      requestId,
+      JSONObject()
+        .put("latitude", position.target.latitude)
+        .put("longitude", position.target.longitude)
+        .put("heading", position.bearing.toDouble())
+        .put("pitch", position.tilt.toDouble())
+        .put("zoom", position.zoom.toDouble())
+        .put("altitude", 0.0)
+    )
+  }
+
+  fun getMapBoundariesResult(requestId: Int) {
+    val bounds = runCatching { aMap.projection.visibleRegion.latLngBounds }.getOrNull()
+    val data = JSONObject()
+    if (bounds != null) {
+      data.put(
+        "northEast",
+        JSONObject()
+          .put("latitude", bounds.northeast.latitude)
+          .put("longitude", bounds.northeast.longitude)
+      )
+      data.put(
+        "southWest",
+        JSONObject()
+          .put("latitude", bounds.southwest.latitude)
+          .put("longitude", bounds.southwest.longitude)
+      )
+    }
+    dispatchCommandResult(requestId, data)
+  }
+
+  fun pointForCoordinateResult(requestId: Int, latitude: Double, longitude: Double) {
+    val density = resources.displayMetrics.density
+    val point = runCatching {
+      aMap.projection.toScreenLocation(LatLng(latitude, longitude))
+    }.getOrNull()
+    dispatchCommandResult(
+      requestId,
+      JSONObject()
+        .put("x", (point?.x ?: 0) / density)
+        .put("y", (point?.y ?: 0) / density)
+    )
+  }
+
+  fun coordinateForPointResult(requestId: Int, x: Double, y: Double) {
+    val density = resources.displayMetrics.density
+    val coordinate = runCatching {
+      aMap.projection.fromScreenLocation(Point((x * density).toInt(), (y * density).toInt()))
+    }.getOrNull()
+    dispatchCommandResult(
+      requestId,
+      JSONObject()
+        .put("latitude", coordinate?.latitude ?: 0.0)
+        .put("longitude", coordinate?.longitude ?: 0.0)
+    )
+  }
+
+  private fun applyBounds(bounds: LatLngBounds, edgePaddingJSON: String?, animated: Boolean) {
+    val density = resources.displayMetrics.density
+    val padding = runCatching {
+      val o = JSONObject(edgePaddingJSON ?: "{}")
+      val max = maxOf(
+        o.optDouble("top", 0.0),
+        o.optDouble("left", 0.0),
+        o.optDouble("bottom", 0.0),
+        o.optDouble("right", 0.0)
+      )
+      (max * density).toInt()
+    }.getOrDefault(0)
+
+    val update = CameraUpdateFactory.newLatLngBounds(bounds, padding)
+    val apply = Runnable { applyCameraUpdate(update, animated, 300) }
+    if (width <= 0 || height <= 0) post(apply) else apply.run()
+  }
+
+  private fun boundsFromJSON(json: String?): LatLngBounds? {
+    return runCatching {
+      val arr = JSONArray(json ?: "[]")
+      if (arr.length() == 0) {
+        return null
+      }
+      val builder = LatLngBounds.Builder()
+      for (i in 0 until arr.length()) {
+        val o = arr.getJSONObject(i)
+        builder.include(LatLng(o.getDouble("latitude"), o.getDouble("longitude")))
+      }
+      builder.build()
+    }.getOrNull()
+  }
+
+  private fun dispatchCommandResult(requestId: Int, data: JSONObject) {
+    dispatchEvent(CommandResultEvent(surfaceId(), id, requestId, data.toString()))
   }
 
   // Child host-component management (called from the ViewGroupManager) ---------
@@ -586,6 +734,24 @@ class MapView(private val reactContext: ThemedReactContext) :
           }
         )
         putBoolean("isGesture", isGesture)
+      }
+  }
+
+  // M6 query result: JSON payload keyed by the JS request id.
+  private class CommandResultEvent(
+    surfaceId: Int,
+    viewId: Int,
+    private val requestId: Int,
+    private val data: String
+  ) : Event<CommandResultEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = "topCommandResult"
+
+    override fun canCoalesce(): Boolean = false
+
+    override fun getEventData(): WritableMap =
+      Arguments.createMap().apply {
+        putInt("id", requestId)
+        putString("data", data)
       }
   }
 

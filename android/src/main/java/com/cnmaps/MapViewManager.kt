@@ -265,6 +265,80 @@ class MapViewManager : ViewGroupManager<MapView>(),
     )
   }
 
+  override fun animateCamera(
+    view: MapView,
+    latitude: Double,
+    longitude: Double,
+    heading: Double,
+    pitch: Double,
+    zoom: Double,
+    duration: Int
+  ) {
+    view.applyCamera(
+      MapCamera(latitude, longitude, heading, pitch, zoom, 0.0),
+      animated = true,
+      duration = duration
+    )
+  }
+
+  override fun setCamera(
+    view: MapView,
+    latitude: Double,
+    longitude: Double,
+    heading: Double,
+    pitch: Double,
+    zoom: Double
+  ) {
+    view.applyCamera(
+      MapCamera(latitude, longitude, heading, pitch, zoom, 0.0),
+      animated = false,
+      duration = 0
+    )
+  }
+
+  override fun fitToCoordinates(
+    view: MapView,
+    coordinatesJSON: String?,
+    edgePaddingJSON: String?,
+    animated: Boolean
+  ) {
+    view.fitToCoordinates(coordinatesJSON, edgePaddingJSON, animated)
+  }
+
+  override fun fitToElements(view: MapView, animated: Boolean) {
+    view.fitToElements(animated)
+  }
+
+  override fun fitToSuppliedMarkers(
+    view: MapView,
+    markerIDsJSON: String?,
+    edgePaddingJSON: String?,
+    animated: Boolean
+  ) {
+    view.fitToSuppliedMarkers(markerIDsJSON, edgePaddingJSON, animated)
+  }
+
+  override fun getCamera(view: MapView, requestId: Int) {
+    view.getCameraResult(requestId)
+  }
+
+  override fun getMapBoundaries(view: MapView, requestId: Int) {
+    view.getMapBoundariesResult(requestId)
+  }
+
+  override fun pointForCoordinate(
+    view: MapView,
+    requestId: Int,
+    latitude: Double,
+    longitude: Double
+  ) {
+    view.pointForCoordinateResult(requestId, latitude, longitude)
+  }
+
+  override fun coordinateForPoint(view: MapView, requestId: Int, x: Double, y: Double) {
+    view.coordinateForPointResult(requestId, x, y)
+  }
+
   private fun ReadableMap.toMapRegion(): MapRegion {
     return MapRegion(
       latitude = getDouble("latitude"),

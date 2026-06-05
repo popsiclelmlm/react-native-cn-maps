@@ -3,25 +3,32 @@ import { Animated, type NativeSyntheticEvent } from 'react-native';
 import NativeMapView, { Commands } from './MapViewNativeComponent';
 import { MapCoordinateSystemContext } from './MapContext';
 import {
+  fromProviderCamera,
   fromProviderCoordinate,
   fromProviderRegion,
   toProviderCamera,
+  toProviderCoordinate,
   toProviderRegion,
 } from './coordinate';
 import type {
+  NativeCommandResultEvent,
   NativeMapPressEvent,
   NativePoiClickEvent,
   NativeRegionChangeEvent,
   NativeUserLocationChangeEvent,
 } from './MapViewNativeComponent';
 import type {
+  BoundingBox,
+  Camera,
   CoordinateSystem,
+  LatLng,
   LongPressEvent,
   MapPressEvent,
   MapProvider,
   MapViewHandle,
   MapViewProps,
   PanDragEvent,
+  Point,
   PoiClickEvent,
   RegionChangeEvent,
   UserLocationChangeEvent,
@@ -55,6 +62,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
   ) {
     const nativeRef =
       React.useRef<React.ElementRef<typeof NativeMapView>>(null);
+    // Pending Promise resolvers for query commands, keyed by request id.
+    const pendingRequests = React.useRef(
+      new Map<number, (data: Record<string, unknown>) => void>()
+    );
+    const nextRequestId = React.useRef(1);
 
     if (__DEV__ && provider !== SUPPORTED_PROVIDER) {
       console.warn(
@@ -69,12 +81,24 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       );
     }
 
-    React.useImperativeHandle(
-      ref,
-      () => ({
+    React.useImperativeHandle(ref, () => {
+      // Allocate a request id, register the resolver, and fire the query
+      // command; onCommandResult resolves it with the parsed JSON payload.
+      const query = <T,>(
+        parse: (data: Record<string, unknown>) => T,
+        send: (requestId: number) => void
+      ): Promise<T> =>
+        new Promise<T>((resolve) => {
+          const id = nextRequestId.current++;
+          pendingRequests.current.set(id, (data) => resolve(parse(data)));
+          if (nativeRef.current) {
+            send(id);
+          }
+        });
+
+      return {
         animateToRegion(nextRegion, duration = 500) {
           const providerRegion = toProviderRegion(nextRegion, coordinateSystem);
-
           if (providerRegion && nativeRef.current) {
             Commands.animateToRegion(
               nativeRef.current,
@@ -86,8 +110,162 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             );
           }
         },
-      }),
-      [coordinateSystem]
+
+        animateCamera(nextCamera, opts) {
+          if (!nativeRef.current) {
+            return;
+          }
+          const center = nextCamera.center
+            ? toProviderCoordinate(nextCamera.center, coordinateSystem)
+            : { latitude: 0, longitude: 0 };
+          Commands.animateCamera(
+            nativeRef.current,
+            center.latitude,
+            center.longitude,
+            nextCamera.heading ?? 0,
+            nextCamera.pitch ?? 0,
+            nextCamera.zoom ?? 0,
+            opts?.duration ?? 500
+          );
+        },
+
+        setCamera(nextCamera) {
+          if (!nativeRef.current) {
+            return;
+          }
+          const center = nextCamera.center
+            ? toProviderCoordinate(nextCamera.center, coordinateSystem)
+            : { latitude: 0, longitude: 0 };
+          Commands.setCamera(
+            nativeRef.current,
+            center.latitude,
+            center.longitude,
+            nextCamera.heading ?? 0,
+            nextCamera.pitch ?? 0,
+            nextCamera.zoom ?? 0
+          );
+        },
+
+        fitToCoordinates(coordinates, options) {
+          if (!nativeRef.current) {
+            return;
+          }
+          const providerCoordinates = (coordinates ?? []).map((c) =>
+            toProviderCoordinate(c, coordinateSystem)
+          );
+          Commands.fitToCoordinates(
+            nativeRef.current,
+            JSON.stringify(providerCoordinates),
+            JSON.stringify(options?.edgePadding ?? {}),
+            options?.animated ?? true
+          );
+        },
+
+        fitToElements(options) {
+          if (nativeRef.current) {
+            Commands.fitToElements(
+              nativeRef.current,
+              options?.animated ?? true
+            );
+          }
+        },
+
+        fitToSuppliedMarkers(markerIDs, options) {
+          if (nativeRef.current) {
+            Commands.fitToSuppliedMarkers(
+              nativeRef.current,
+              JSON.stringify(markerIDs ?? []),
+              JSON.stringify(options?.edgePadding ?? {}),
+              options?.animated ?? true
+            );
+          }
+        },
+
+        getCamera: () =>
+          query<Camera>(
+            (data) =>
+              fromProviderCamera(
+                {
+                  latitude: Number(data.latitude) || 0,
+                  longitude: Number(data.longitude) || 0,
+                  heading: Number(data.heading) || 0,
+                  pitch: Number(data.pitch) || 0,
+                  zoom: Number(data.zoom) || 0,
+                  altitude: Number(data.altitude) || 0,
+                },
+                coordinateSystem
+              ),
+            (id) => Commands.getCamera(nativeRef.current!, id)
+          ),
+
+        getMapBoundaries: () =>
+          query<BoundingBox>(
+            (data) => {
+              const ne = (data.northEast ?? {}) as LatLng;
+              const sw = (data.southWest ?? {}) as LatLng;
+              return {
+                northEast: fromProviderCoordinate(
+                  { latitude: ne.latitude ?? 0, longitude: ne.longitude ?? 0 },
+                  coordinateSystem
+                ),
+                southWest: fromProviderCoordinate(
+                  { latitude: sw.latitude ?? 0, longitude: sw.longitude ?? 0 },
+                  coordinateSystem
+                ),
+              };
+            },
+            (id) => Commands.getMapBoundaries(nativeRef.current!, id)
+          ),
+
+        pointForCoordinate(coordinate) {
+          const providerCoordinate = toProviderCoordinate(
+            coordinate,
+            coordinateSystem
+          );
+          return query<Point>(
+            (data) => ({ x: Number(data.x) || 0, y: Number(data.y) || 0 }),
+            (id) =>
+              Commands.pointForCoordinate(
+                nativeRef.current!,
+                id,
+                providerCoordinate.latitude,
+                providerCoordinate.longitude
+              )
+          );
+        },
+
+        coordinateForPoint(point) {
+          return query<LatLng>(
+            (data) =>
+              fromProviderCoordinate(
+                {
+                  latitude: Number(data.latitude) || 0,
+                  longitude: Number(data.longitude) || 0,
+                },
+                coordinateSystem
+              ),
+            (id) =>
+              Commands.coordinateForPoint(
+                nativeRef.current!,
+                id,
+                point.x,
+                point.y
+              )
+          );
+        },
+      };
+    }, [coordinateSystem]);
+
+    const handleCommandResult = React.useCallback(
+      (event: NativeSyntheticEvent<NativeCommandResultEvent>) => {
+        const { id, data } = event.nativeEvent;
+        const resolver = pendingRequests.current.get(id);
+        if (resolver) {
+          pendingRequests.current.delete(id);
+          resolver(data ? JSON.parse(data) : {});
+        }
+      },
+      []
     );
 
     const handleRegionChange = React.useCallback(
@@ -226,6 +404,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         onUserLocationChange={
           onUserLocationChange ? handleUserLocationChange : undefined
         }
+        onCommandResult={handleCommandResult}
       >
         {/* Children (<Marker> et al.) mount as native child host components and
             read the coordinate system from context to convert to gcj02. */}

@@ -147,10 +147,21 @@ export interface NativeProps extends ViewProps {
 
   // User location
   onUserLocationChange?: CodegenTypes.DirectEventHandler<NativeUserLocationChangeEvent>;
+
+  // M6: result channel for Promise-returning ref methods. Native serializes the
+  // result to JSON keyed by the JS-generated request id (RNM's Fabric pattern).
+  onCommandResult?: CodegenTypes.DirectEventHandler<NativeCommandResultEvent>;
 }
+
+export type NativeCommandResultEvent = Readonly<{
+  id: CodegenTypes.Int32;
+  data: string;
+}>;
 
 type ComponentType = HostComponent<NativeProps>;
 
+// Geometry args that codegen commands can't pass as objects cross as JSON
+// strings (coordinates, edgePadding, marker id lists).
 interface NativeCommands {
   animateToRegion: (
     viewRef: React.ElementRef<ComponentType>,
@@ -160,10 +171,75 @@ interface NativeCommands {
     longitudeDelta: CodegenTypes.Double,
     duration: CodegenTypes.Int32
   ) => void;
+  animateCamera: (
+    viewRef: React.ElementRef<ComponentType>,
+    latitude: CodegenTypes.Double,
+    longitude: CodegenTypes.Double,
+    heading: CodegenTypes.Double,
+    pitch: CodegenTypes.Double,
+    zoom: CodegenTypes.Double,
+    duration: CodegenTypes.Int32
+  ) => void;
+  setCamera: (
+    viewRef: React.ElementRef<ComponentType>,
+    latitude: CodegenTypes.Double,
+    longitude: CodegenTypes.Double,
+    heading: CodegenTypes.Double,
+    pitch: CodegenTypes.Double,
+    zoom: CodegenTypes.Double
+  ) => void;
+  fitToCoordinates: (
+    viewRef: React.ElementRef<ComponentType>,
+    coordinatesJSON: string,
+    edgePaddingJSON: string,
+    animated: boolean
+  ) => void;
+  fitToElements: (
+    viewRef: React.ElementRef<ComponentType>,
+    animated: boolean
+  ) => void;
+  fitToSuppliedMarkers: (
+    viewRef: React.ElementRef<ComponentType>,
+    markerIDsJSON: string,
+    edgePaddingJSON: string,
+    animated: boolean
+  ) => void;
+  // Queries — result delivered via onCommandResult keyed by requestId.
+  getCamera: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32
+  ) => void;
+  getMapBoundaries: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32
+  ) => void;
+  pointForCoordinate: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32,
+    latitude: CodegenTypes.Double,
+    longitude: CodegenTypes.Double
+  ) => void;
+  coordinateForPoint: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32,
+    x: CodegenTypes.Double,
+    y: CodegenTypes.Double
+  ) => void;
 }
 
 export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
-  supportedCommands: ['animateToRegion'],
+  supportedCommands: [
+    'animateToRegion',
+    'animateCamera',
+    'setCamera',
+    'fitToCoordinates',
+    'fitToElements',
+    'fitToSuppliedMarkers',
+    'getCamera',
+    'getMapBoundaries',
+    'pointForCoordinate',
+    'coordinateForPoint',
+  ],
 });
 
 export default codegenNativeComponent<NativeProps>(

@@ -30,6 +30,33 @@ typedef NS_ENUM(NSInteger, RNMapsPressKind) {
 @interface RNMapsMapView () <MAMapViewDelegate, UIGestureRecognizerDelegate, RCTRNMapsMapViewViewProtocol>
 @end
 
+static NSArray *RNMapsJSONArray(NSString *json)
+{
+  if (json.length == 0) {
+    return @[];
+  }
+  id parsed = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding]
+                                              options:0
+                                                error:nil];
+  return [parsed isKindOfClass:[NSArray class]] ? parsed : @[];
+}
+
+static UIEdgeInsets RNMapsEdgeInsets(NSString *json)
+{
+  if (json.length == 0) {
+    return UIEdgeInsetsZero;
+  }
+  id parsed = [NSJSONSerialization JSONObjectWithData:[json dataUsingEncoding:NSUTF8StringEncoding]
+                                              options:0
+                                                error:nil];
+  if (![parsed isKindOfClass:[NSDictionary class]]) {
+    return UIEdgeInsetsZero;
+  }
+  NSDictionary *d = parsed;
+  return UIEdgeInsetsMake([d[@"top"] doubleValue], [d[@"left"] doubleValue],
+                          [d[@"bottom"] doubleValue], [d[@"right"] doubleValue]);
+}
+
 static std::string RNMapsStdStringFromNSString(NSString *value)
 {
   if (value.length == 0) {
@@ -225,6 +252,156 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
 {
   RCTRNMapsMapViewHandleCommand(self, commandName, args);
+}
+
+#pragma mark - Imperative commands (M6)
+
+- (void)applyCameraLatitude:(double)latitude
+                  longitude:(double)longitude
+                    heading:(double)heading
+                      pitch:(double)pitch
+                       zoom:(double)zoom
+                   animated:(BOOL)animated
+                   duration:(NSTimeInterval)duration
+{
+  if (latitude != 0.0 || longitude != 0.0) {
+    [_mapView setCenterCoordinate:CLLocationCoordinate2DMake(latitude, longitude) animated:animated];
+  }
+  if (std::isfinite(zoom) && zoom > 0) {
+    [_mapView setZoomLevel:zoom animated:animated];
+  }
+  [_mapView setRotationDegree:heading animated:animated duration:duration];
+  [_mapView setCameraDegree:pitch animated:animated duration:duration];
+}
+
+- (void)animateCamera:(double)latitude
+            longitude:(double)longitude
+              heading:(double)heading
+                pitch:(double)pitch
+                 zoom:(double)zoom
+             duration:(NSInteger)duration
+{
+  [self applyCameraLatitude:latitude longitude:longitude heading:heading pitch:pitch zoom:zoom
+                   animated:duration > 0 duration:duration / 1000.0];
+}
+
+- (void)setCamera:(double)latitude
+        longitude:(double)longitude
+          heading:(double)heading
+            pitch:(double)pitch
+             zoom:(double)zoom
+{
+  [self applyCameraLatitude:latitude longitude:longitude heading:heading pitch:pitch zoom:zoom
+                   animated:NO duration:0];
+}
+
+- (void)fitToCoordinates:(NSString *)coordinatesJSON
+         edgePaddingJSON:(NSString *)edgePaddingJSON
+                animated:(BOOL)animated
+{
+  NSArray *coords = RNMapsJSONArray(coordinatesJSON);
+  if (coords.count == 0) {
+    return;
+  }
+
+  MAMapRect zoomRect = MAMapRectNull;
+  for (NSDictionary *c in coords) {
+    if (![c isKindOfClass:[NSDictionary class]]) {
+      continue;
+    }
+    MAMapPoint point = MAMapPointForCoordinate(
+      CLLocationCoordinate2DMake([c[@"latitude"] doubleValue], [c[@"longitude"] doubleValue]));
+    MAMapRect pointRect = MAMapRectMake(point.x, point.y, 0.1, 0.1);
+    zoomRect = MAMapRectIsNull(zoomRect) ? pointRect : MAMapRectUnion(zoomRect, pointRect);
+  }
+  if (MAMapRectIsNull(zoomRect)) {
+    return;
+  }
+  [_mapView setVisibleMapRect:zoomRect edgePadding:RNMapsEdgeInsets(edgePaddingJSON) animated:animated];
+}
+
+- (void)fitToElements:(BOOL)animated
+{
+  [_mapView showAnnotations:_mapView.annotations animated:animated];
+}
+
+- (void)fitToSuppliedMarkers:(NSString *)markerIDsJSON
+             edgePaddingJSON:(NSString *)edgePaddingJSON
+                    animated:(BOOL)animated
+{
+  NSArray *ids = RNMapsJSONArray(markerIDsJSON);
+  if (ids.count == 0) {
+    return;
+  }
+  NSMutableArray *annotations = [NSMutableArray array];
+  for (RNMapsMarker *marker in _markers) {
+    if (marker.annotation.identifier != nil && [ids containsObject:marker.annotation.identifier]) {
+      [annotations addObject:marker.annotation];
+    }
+  }
+  if (annotations.count > 0) {
+    [_mapView showAnnotations:annotations animated:animated];
+  }
+}
+
+#pragma mark - Query commands (M6)
+
+- (void)emitCommandResult:(NSInteger)requestId data:(NSDictionary *)data
+{
+  auto emitter = [self eventEmitterOrNull];
+  if (!emitter) {
+    return;
+  }
+  NSData *json = [NSJSONSerialization dataWithJSONObject:data options:0 error:nil];
+  NSString *string = json ? [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] : @"{}";
+
+  RNMapsMapViewEventEmitter::OnCommandResult event{};
+  event.id = (int)requestId;
+  event.data = std::string(string.UTF8String);
+  emitter->onCommandResult(event);
+}
+
+- (void)getCamera:(NSInteger)requestId
+{
+  [self emitCommandResult:requestId
+                     data:@{
+                       @"latitude" : @(_mapView.centerCoordinate.latitude),
+                       @"longitude" : @(_mapView.centerCoordinate.longitude),
+                       @"heading" : @(_mapView.rotationDegree),
+                       @"pitch" : @(_mapView.cameraDegree),
+                       @"zoom" : @(_mapView.zoomLevel),
+                       @"altitude" : @(0),
+                     }];
+}
+
+- (void)getMapBoundaries:(NSInteger)requestId
+{
+  MACoordinateRegion region = _mapView.region;
+  [self emitCommandResult:requestId
+                     data:@{
+                       @"northEast" : @{
+                         @"latitude" : @(region.center.latitude + region.span.latitudeDelta / 2.0),
+                         @"longitude" : @(region.center.longitude + region.span.longitudeDelta / 2.0),
+                       },
+                       @"southWest" : @{
+                         @"latitude" : @(region.center.latitude - region.span.latitudeDelta / 2.0),
+                         @"longitude" : @(region.center.longitude - region.span.longitudeDelta / 2.0),
+                       },
+                     }];
+}
+
+- (void)pointForCoordinate:(NSInteger)requestId latitude:(double)latitude longitude:(double)longitude
+{
+  CGPoint point = [_mapView convertCoordinate:CLLocationCoordinate2DMake(latitude, longitude)
+                                toPointToView:_mapView];
+  [self emitCommandResult:requestId data:@{ @"x" : @(point.x), @"y" : @(point.y) }];
+}
+
+- (void)coordinateForPoint:(NSInteger)requestId x:(double)x y:(double)y
+{
+  CLLocationCoordinate2D coordinate = [_mapView convertPoint:CGPointMake(x, y) toCoordinateFromView:_mapView];
+  [self emitCommandResult:requestId
+                     data:@{ @"latitude" : @(coordinate.latitude), @"longitude" : @(coordinate.longitude) }];
 }
 
 #pragma mark - Child mounting

@@ -188,6 +188,9 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     marker = null
   }
 
+  // Current position (provider system), for map fit commands.
+  fun position(): LatLng = marker?.position ?: LatLng(markerLatitude, markerLongitude)
+
   // Fabric child reconciliation (driven by MarkerManager's ViewGroup overrides) --
 
   fun addReactChild(child: View, index: Int) {
