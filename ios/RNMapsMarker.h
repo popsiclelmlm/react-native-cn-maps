@@ -39,7 +39,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)addToMap:(MAMapView *)map;
 - (void)removeFromMap;
+
+// Called by the parent map's delegate, which receives AMap's map-level callbacks
+// and routes them to the matching child marker (annotation → weak `marker` ref).
 - (void)emitPress;
+- (void)emitSelect;
+- (void)emitDeselect;
+- (void)emitCalloutPress;
+- (void)emitDragStart;
+- (void)emitDrag;
+- (void)emitDragEnd;
 
 @end
 

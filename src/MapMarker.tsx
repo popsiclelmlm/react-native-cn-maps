@@ -1,10 +1,15 @@
 import React from 'react';
 import { Animated, Image, type NativeSyntheticEvent } from 'react-native';
-import NativeMarker from './MarkerNativeComponent';
+import NativeMarker, { Commands } from './MarkerNativeComponent';
 import type { NativeMarkerPressEvent } from './MarkerNativeComponent';
 import { MapCoordinateSystemContext } from './MapContext';
 import { fromProviderCoordinate, toProviderCoordinate } from './coordinate';
-import type { MarkerImageSource, MarkerPressEvent, MarkerProps } from './types';
+import type {
+  CalloutPressEvent,
+  MapMarkerHandle,
+  MarkerImageSource,
+  MarkerProps,
+} from './types';
 
 // RNM default marker anchor: bottom-center. Native applies it as-is, so we send
 // the explicit default whenever the user did not supply one.
@@ -34,9 +39,10 @@ function resolveImageUri(source: MarkerImageSource | undefined) {
  * the internal transport switched from a serialized `markers` array prop on the
  * MapView to this per-marker child.
  */
-function MarkerComponent(props: MarkerProps) {
-  // PR-1 + PR-2 + PR-3 surface. Drag/select events and ref commands arrive in
-  // PR-4; props not destructured here are still ignored for now.
+function MarkerComponent(
+  props: MarkerProps,
+  ref: React.ForwardedRef<MapMarkerHandle>
+) {
   const {
     coordinate,
     identifier,
@@ -57,31 +63,78 @@ function MarkerComponent(props: MarkerProps) {
     tracksInfoWindowChanges,
     children,
     onPress,
+    onSelect,
+    onDeselect,
+    onCalloutPress,
+    onDragStart,
+    onDrag,
+    onDragEnd,
   } = props;
 
+  const nativeRef = React.useRef<React.ElementRef<typeof NativeMarker>>(null);
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
   const providerCoordinate = toProviderCoordinate(coordinate, coordinateSystem);
   // RNM keeps `image` and `icon` as aliases for the same custom marker bitmap.
   // Custom React children, when present, take precedence over `image` natively.
   const imageUri = resolveImageUri(image ?? icon);
 
-  const handlePress = React.useCallback(
-    (event: NativeSyntheticEvent<NativeMarkerPressEvent>) => {
-      onPress?.({
-        nativeEvent: {
-          identifier: identifier ?? '',
-          coordinate: fromProviderCoordinate(
-            event.nativeEvent.coordinate,
-            coordinateSystem
-          ),
-        },
-      } satisfies MarkerPressEvent);
-    },
-    [coordinateSystem, identifier, onPress]
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      showCallout() {
+        if (nativeRef.current) {
+          Commands.showCallout(nativeRef.current);
+        }
+      },
+      hideCallout() {
+        if (nativeRef.current) {
+          Commands.hideCallout(nativeRef.current);
+        }
+      },
+      redrawCallout() {
+        if (nativeRef.current) {
+          Commands.redrawCallout(nativeRef.current);
+        }
+      },
+      redraw() {
+        if (nativeRef.current) {
+          Commands.redraw(nativeRef.current);
+        }
+      },
+      animateMarkerToCoordinate(target, duration = 500) {
+        if (nativeRef.current) {
+          const providerTarget = toProviderCoordinate(target, coordinateSystem);
+          Commands.animateMarkerToCoordinate(
+            nativeRef.current,
+            providerTarget.latitude,
+            providerTarget.longitude,
+            duration
+          );
+        }
+      },
+    }),
+    [coordinateSystem]
+  );
+
+  // onPress / onSelect / onDeselect / onDragStart / onDrag / onDragEnd all carry
+  // the marker's `{ coordinate }`; rebuild the RNM `{ coordinate, identifier }`
+  // shape, converting the coordinate back out of the provider system.
+  const buildCoordEvent = React.useCallback(
+    (event: NativeSyntheticEvent<NativeMarkerPressEvent>) => ({
+      nativeEvent: {
+        identifier: identifier ?? '',
+        coordinate: fromProviderCoordinate(
+          event.nativeEvent.coordinate,
+          coordinateSystem
+        ),
+      },
+    }),
+    [coordinateSystem, identifier]
   );
 
   return (
     <NativeMarker
+      ref={nativeRef}
       identifier={identifier}
       latitude={providerCoordinate.latitude}
       longitude={providerCoordinate.longitude}
@@ -99,21 +152,47 @@ function MarkerComponent(props: MarkerProps) {
       zIndex={zIndex}
       tracksViewChanges={tracksViewChanges}
       tracksInfoWindowChanges={tracksInfoWindowChanges}
-      onPress={onPress ? handlePress : undefined}
+      onPress={onPress ? (event) => onPress(buildCoordEvent(event)) : undefined}
+      onSelect={
+        onSelect ? (event) => onSelect(buildCoordEvent(event)) : undefined
+      }
+      onDeselect={
+        onDeselect ? (event) => onDeselect(buildCoordEvent(event)) : undefined
+      }
+      onDragStart={
+        onDragStart ? (event) => onDragStart(buildCoordEvent(event)) : undefined
+      }
+      onDrag={onDrag ? (event) => onDrag(buildCoordEvent(event)) : undefined}
+      onDragEnd={
+        onDragEnd ? (event) => onDragEnd(buildCoordEvent(event)) : undefined
+      }
+      onCalloutPress={
+        onCalloutPress
+          ? () =>
+              onCalloutPress({
+                nativeEvent: {
+                  identifier: identifier ?? '',
+                  action: 'callout-press',
+                },
+              } satisfies CalloutPressEvent)
+          : undefined
+      }
     >
       {children}
     </NativeMarker>
   );
 }
 
-export type MarkerComponentType = ((
-  props: MarkerProps
-) => React.ReactElement) & {
+export type MarkerComponentType = React.ForwardRefExoticComponent<
+  MarkerProps & React.RefAttributes<MapMarkerHandle>
+> & {
   __MAP_MARKER: true;
   Animated: ReturnType<typeof Animated.createAnimatedComponent>;
 };
 
-export const Marker = MarkerComponent as unknown as MarkerComponentType;
+export const Marker = React.forwardRef(
+  MarkerComponent
+) as unknown as MarkerComponentType;
 
 // Sentinel kept for parity with the M2 stub so any remaining `__MAP_MARKER`
 // checks (and future tooling) still recognize the component.

@@ -96,6 +96,7 @@ export type {
   LocalTileProps,
   LongPressEvent,
   MapEvent,
+  MapMarkerHandle,
   MapPressEvent,
   MapProvider,
   MapStyleElement,

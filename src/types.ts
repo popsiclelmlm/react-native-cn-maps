@@ -358,6 +358,16 @@ export type MarkerProps = ViewProps & {
   children?: ReactNode;
 };
 
+// ---------- Marker imperative handle ----------
+
+export type MapMarkerHandle = {
+  showCallout: () => void;
+  hideCallout: () => void;
+  redrawCallout: () => void;
+  redraw: () => void;
+  animateMarkerToCoordinate: (coordinate: LatLng, duration?: number) => void;
+};
+
 // ---------- Callout props ----------
 
 export type CalloutProps = ViewProps & {

@@ -1,4 +1,5 @@
 import {
+  codegenNativeCommands,
   codegenNativeComponent,
   type CodegenTypes,
   type HostComponent,
@@ -52,9 +53,43 @@ export interface NativeProps extends ViewProps {
   tracksViewChanges?: CodegenTypes.WithDefault<boolean, true>;
   tracksInfoWindowChanges?: CodegenTypes.WithDefault<boolean, false>;
 
+  // Interaction (PR-4). All carry the marker's `{ coordinate }` (drag events
+  // report the new position); the JS facade re-attaches `identifier` and converts
+  // the coordinate back out of the provider system.
   onPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onSelect?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onDeselect?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onCalloutPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onDragStart?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onDrag?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  onDragEnd?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
 }
+
+type ComponentType = HostComponent<NativeProps>;
+
+interface NativeCommands {
+  showCallout: (viewRef: React.ElementRef<ComponentType>) => void;
+  hideCallout: (viewRef: React.ElementRef<ComponentType>) => void;
+  redrawCallout: (viewRef: React.ElementRef<ComponentType>) => void;
+  redraw: (viewRef: React.ElementRef<ComponentType>) => void;
+  animateMarkerToCoordinate: (
+    viewRef: React.ElementRef<ComponentType>,
+    latitude: CodegenTypes.Double,
+    longitude: CodegenTypes.Double,
+    duration: CodegenTypes.Int32
+  ) => void;
+}
+
+export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
+  supportedCommands: [
+    'showCallout',
+    'hideCallout',
+    'redrawCallout',
+    'redraw',
+    'animateMarkerToCoordinate',
+  ],
+});
 
 export default codegenNativeComponent<NativeProps>(
   'RNMapsMarker'
-) as HostComponent<NativeProps>;
+) as ComponentType;

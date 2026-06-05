@@ -69,6 +69,12 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   NSInteger _childCount;
   BOOL _tracksViewChanges;
   BOOL _didRasterize;
+  // animateMarkerToCoordinate interpolation state.
+  CADisplayLink *_animationLink;
+  CLLocationCoordinate2D _animationStart;
+  CLLocationCoordinate2D _animationTarget;
+  CFTimeInterval _animationStartTime;
+  CFTimeInterval _animationDuration;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -286,6 +292,7 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 
 - (void)prepareForRecycle
 {
+  [self stopCoordinateAnimation];
   [self removeFromMap];
   _imageUri = nil;
   _propImage = nil;
@@ -298,19 +305,110 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   [super prepareForRecycle];
 }
 
-#pragma mark - Events
+#pragma mark - Commands
 
-- (void)emitPress
+- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
 {
-  if (!_eventEmitter) {
+  RCTRNMapsMarkerHandleCommand(self, commandName, args);
+}
+
+- (void)showCallout
+{
+  [_map selectAnnotation:_annotation animated:YES];
+}
+
+- (void)hideCallout
+{
+  [_map deselectAnnotation:_annotation animated:YES];
+}
+
+- (void)redrawCallout
+{
+  // System callout has no React content yet (real <Callout> is M4); re-select to
+  // refresh whatever it shows.
+  if (_map != nil) {
+    [_map deselectAnnotation:_annotation animated:NO];
+    [_map selectAnnotation:_annotation animated:NO];
+  }
+}
+
+- (void)redraw
+{
+  if ([self hasCustomContent]) {
+    _didRasterize = NO;
+    [self renderToImage];
+  }
+}
+
+- (void)animateMarkerToCoordinate:(double)latitude longitude:(double)longitude duration:(NSInteger)duration
+{
+  [self stopCoordinateAnimation];
+
+  CLLocationCoordinate2D target = CLLocationCoordinate2DMake(latitude, longitude);
+  if (duration <= 0) {
+    _annotation.coordinate = target;
     return;
   }
 
-  auto emitter = std::static_pointer_cast<RNMapsMarkerEventEmitter const>(_eventEmitter);
-  RNMapsMarkerEventEmitter::OnPress event{};
-  event.coordinate.latitude = _annotation.coordinate.latitude;
-  event.coordinate.longitude = _annotation.coordinate.longitude;
-  emitter->onPress(event);
+  _animationStart = _annotation.coordinate;
+  _animationTarget = target;
+  _animationStartTime = CACurrentMediaTime();
+  _animationDuration = duration / 1000.0; // RNM duration is milliseconds
+  _animationLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(stepCoordinateAnimation:)];
+  [_animationLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
 }
+
+- (void)stepCoordinateAnimation:(CADisplayLink *)link
+{
+  double progress = (CACurrentMediaTime() - _animationStartTime) / _animationDuration;
+  if (progress >= 1.0) {
+    progress = 1.0;
+  }
+
+  _annotation.coordinate = CLLocationCoordinate2DMake(
+    _animationStart.latitude + (_animationTarget.latitude - _animationStart.latitude) * progress,
+    _animationStart.longitude + (_animationTarget.longitude - _animationStart.longitude) * progress);
+
+  if (progress >= 1.0) {
+    [self stopCoordinateAnimation];
+  }
+}
+
+- (void)stopCoordinateAnimation
+{
+  [_animationLink invalidate];
+  _animationLink = nil;
+}
+
+- (void)dealloc
+{
+  [_animationLink invalidate];
+}
+
+#pragma mark - Events
+
+// All marker events share the `{ coordinate }` payload; the JS facade re-attaches
+// the identifier and converts the coordinate back to the user's system.
+#define RNMapsEmitMarkerEvent(EventStruct, emitterMethod)                          \
+  do {                                                                             \
+    if (!_eventEmitter) {                                                          \
+      return;                                                                      \
+    }                                                                              \
+    auto emitter = std::static_pointer_cast<RNMapsMarkerEventEmitter const>(_eventEmitter); \
+    RNMapsMarkerEventEmitter::EventStruct event{};                                 \
+    event.coordinate.latitude = _annotation.coordinate.latitude;                  \
+    event.coordinate.longitude = _annotation.coordinate.longitude;                \
+    emitter->emitterMethod(event);                                                 \
+  } while (0)
+
+- (void)emitPress { RNMapsEmitMarkerEvent(OnPress, onPress); }
+- (void)emitSelect { RNMapsEmitMarkerEvent(OnSelect, onSelect); }
+- (void)emitDeselect { RNMapsEmitMarkerEvent(OnDeselect, onDeselect); }
+- (void)emitCalloutPress { RNMapsEmitMarkerEvent(OnCalloutPress, onCalloutPress); }
+- (void)emitDragStart { RNMapsEmitMarkerEvent(OnDragStart, onDragStart); }
+- (void)emitDrag { RNMapsEmitMarkerEvent(OnDrag, onDrag); }
+- (void)emitDragEnd { RNMapsEmitMarkerEvent(OnDragEnd, onDragEnd); }
+
+#undef RNMapsEmitMarkerEvent
 
 @end

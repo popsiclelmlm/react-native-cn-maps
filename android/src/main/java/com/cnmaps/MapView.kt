@@ -13,6 +13,7 @@ import com.amap.api.maps.MapView as AMapView
 import com.amap.api.maps.model.CameraPosition
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.LatLngBounds
+import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.Poi
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.LifecycleEventListener
@@ -310,9 +311,32 @@ class MapView(private val reactContext: ThemedReactContext) :
 
     aMap.setOnMarkerClickListener { marker ->
       // The owning child MarkerView is stashed in marker.object; route the
-      // map-level click back to it so it emits its own onPress (RNM model).
-      (marker.`object` as? MarkerView)?.emitPress()
+      // map-level click back to it. RNM fires both onPress and onSelect.
+      (marker.`object` as? MarkerView)?.let {
+        it.emitPress()
+        it.emitSelect()
+      }
       false
+    }
+
+    aMap.setOnMarkerDragListener(
+      object : AMap.OnMarkerDragListener {
+        override fun onMarkerDragStart(marker: Marker?) {
+          (marker?.`object` as? MarkerView)?.emitDragStart()
+        }
+
+        override fun onMarkerDrag(marker: Marker?) {
+          (marker?.`object` as? MarkerView)?.emitDrag()
+        }
+
+        override fun onMarkerDragEnd(marker: Marker?) {
+          (marker?.`object` as? MarkerView)?.emitDragEnd()
+        }
+      }
+    )
+
+    aMap.setOnInfoWindowClickListener { marker ->
+      (marker?.`object` as? MarkerView)?.emitCalloutPress()
     }
   }
 

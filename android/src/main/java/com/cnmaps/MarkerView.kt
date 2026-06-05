@@ -1,5 +1,6 @@
 package com.cnmaps
 
+import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -70,6 +71,7 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   private var renderScheduled: Boolean = false
 
   private var marker: Marker? = null
+  private var positionAnimator: ValueAnimator? = null
 
   fun setMarkerTitle(value: String?) {
     title = value
@@ -173,22 +175,84 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   }
 
   fun detach() {
+    positionAnimator?.cancel()
+    positionAnimator = null
     marker?.remove()
     marker = null
   }
 
+  // Commands -------------------------------------------------------------------
+
+  fun showCallout() {
+    marker?.showInfoWindow()
+  }
+
+  fun hideCallout() {
+    marker?.hideInfoWindow()
+  }
+
+  fun redrawCallout() {
+    marker?.let { if (it.isInfoWindowShown) it.showInfoWindow() }
+  }
+
+  fun redraw() {
+    if (hasCustomContent()) {
+      didRender = false
+      scheduleRender()
+    }
+  }
+
+  fun animateToCoordinate(latitude: Double, longitude: Double, duration: Int) {
+    val target = marker ?: return
+    positionAnimator?.cancel()
+
+    val start = target.position
+    val end = LatLng(latitude, longitude)
+    if (duration <= 0) {
+      target.position = end
+      return
+    }
+
+    positionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+      this.duration = duration.toLong()
+      addUpdateListener { animation ->
+        val t = animation.animatedValue as Float
+        marker?.position = LatLng(
+          start.latitude + (end.latitude - start.latitude) * t,
+          start.longitude + (end.longitude - start.longitude) * t
+        )
+      }
+      start()
+    }
+  }
+
   // Events ---------------------------------------------------------------------
 
-  fun emitPress() {
+  fun emitPress() = emitCoordinateEvent("topPress")
+
+  fun emitSelect() = emitCoordinateEvent("topSelect")
+
+  fun emitDeselect() = emitCoordinateEvent("topDeselect")
+
+  fun emitCalloutPress() = emitCoordinateEvent("topCalloutPress")
+
+  fun emitDragStart() = emitCoordinateEvent("topDragStart")
+
+  fun emitDrag() = emitCoordinateEvent("topDrag")
+
+  fun emitDragEnd() = emitCoordinateEvent("topDragEnd")
+
+  private fun emitCoordinateEvent(eventName: String) {
     if (id == NO_ID) {
       return
     }
 
     val position = marker?.position ?: LatLng(markerLatitude, markerLongitude)
     UIManagerHelper.getEventDispatcher(reactContext)?.dispatchEvent(
-      MarkerPressEvent(
+      MarkerCoordinateEvent(
         UIManagerHelper.getSurfaceId(this),
         id,
+        eventName,
         position.latitude,
         position.longitude
       )
@@ -321,15 +385,18 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     return if (normalized < 0f) normalized + 360f else normalized
   }
 
-  private class MarkerPressEvent(
+  // Shared by all marker events; the RNM facade re-attaches the identifier.
+  private class MarkerCoordinateEvent(
     surfaceId: Int,
     viewId: Int,
+    private val rnEventName: String,
     private val latitude: Double,
     private val longitude: Double
-  ) : Event<MarkerPressEvent>(surfaceId, viewId) {
-    override fun getEventName(): String = "topPress"
+  ) : Event<MarkerCoordinateEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = rnEventName
 
-    override fun canCoalesce(): Boolean = false
+    // onDrag fires continuously; allow coalescing to avoid flooding the bridge.
+    override fun canCoalesce(): Boolean = rnEventName == "topDrag"
 
     override fun getEventData(): WritableMap =
       Arguments.createMap().apply {

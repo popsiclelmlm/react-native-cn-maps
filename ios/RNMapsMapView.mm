@@ -571,16 +571,57 @@ regionDidChangeAnimated:(BOOL)animated
   _isGesture = NO;
 }
 
-- (void)mapView:(MAMapView *)mapView didSelectAnnotationView:(MAAnnotationView *)view
+// AMap map-level annotation callbacks are routed back to the owning child marker
+// view (annotation → weak `marker` ref), which owns its own event emitter.
+- (RNMapsMarker *)markerForAnnotationView:(MAAnnotationView *)view
 {
   if (![view.annotation isKindOfClass:[RNMapsMarkerAnnotation class]]) {
+    return nil;
+  }
+  return ((RNMapsMarkerAnnotation *)view.annotation).marker;
+}
+
+- (void)mapView:(MAMapView *)mapView didSelectAnnotationView:(MAAnnotationView *)view
+{
+  // RNM fires both onPress and onSelect on selection.
+  RNMapsMarker *marker = [self markerForAnnotationView:view];
+  [marker emitPress];
+  [marker emitSelect];
+}
+
+- (void)mapView:(MAMapView *)mapView didDeselectAnnotationView:(MAAnnotationView *)view
+{
+  [[self markerForAnnotationView:view] emitDeselect];
+}
+
+- (void)mapView:(MAMapView *)mapView didAnnotationViewCalloutTapped:(MAAnnotationView *)view
+{
+  [[self markerForAnnotationView:view] emitCalloutPress];
+}
+
+- (void)mapView:(MAMapView *)mapView
+    annotationView:(MAAnnotationView *)view
+ didChangeDragState:(MAAnnotationViewDragState)newState
+       fromOldState:(MAAnnotationViewDragState)oldState
+{
+  RNMapsMarker *marker = [self markerForAnnotationView:view];
+  if (marker == nil) {
     return;
   }
 
-  // Route the AMap map-level callback back to the child marker view, which owns
-  // its own event emitter (RNM host-component model).
-  RNMapsMarkerAnnotation *annotation = (RNMapsMarkerAnnotation *)view.annotation;
-  [annotation.marker emitPress];
+  switch (newState) {
+    case MAAnnotationViewDragStateStarting:
+      [marker emitDragStart];
+      break;
+    case MAAnnotationViewDragStateDragging:
+      [marker emitDrag];
+      break;
+    case MAAnnotationViewDragStateEnding:
+      [marker emitDragEnd];
+      break;
+    default:
+      break;
+  }
 }
 
 @end

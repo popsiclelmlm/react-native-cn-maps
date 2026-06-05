@@ -119,6 +119,33 @@ class MarkerManager : ViewGroupManager<MarkerView>(),
     view.setTracksInfoWindowChanges(value)
   }
 
+  // Commands (PR-4) ------------------------------------------------------------
+
+  override fun showCallout(view: MarkerView) {
+    view.showCallout()
+  }
+
+  override fun hideCallout(view: MarkerView) {
+    view.hideCallout()
+  }
+
+  override fun redrawCallout(view: MarkerView) {
+    view.redrawCallout()
+  }
+
+  override fun redraw(view: MarkerView) {
+    view.redraw()
+  }
+
+  override fun animateMarkerToCoordinate(
+    view: MarkerView,
+    latitude: Double,
+    longitude: Double,
+    duration: Int
+  ) {
+    view.animateToCoordinate(latitude, longitude, duration)
+  }
+
   private fun ReadableMap.pointComponent(key: String): Float {
     return if (hasKey(key) && !isNull(key)) getDouble(key).toFloat() else 0f
   }
