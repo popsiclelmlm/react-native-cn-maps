@@ -1,4 +1,5 @@
-import type { CoordinateSystem, LatLng, Region } from './types';
+import type { CoordinateSystem, Camera, LatLng, Region } from './types';
+import type { NativeCamera } from './MapViewNativeComponent';
 
 const A = 6378245.0;
 const EE = 0.00669342162296594323;
@@ -119,5 +120,53 @@ export function fromProviderRegion(
   return {
     ...region,
     ...fromProviderCoordinate(region, coordinateSystem),
+  };
+}
+
+/**
+ * Convert an RNM {@link Camera} (with a nested `center` LatLng) into the flat
+ * {@link NativeCamera} struct the codegen component expects, converting the
+ * center into the provider's coordinate system (gcj02) on the way.
+ */
+export function toProviderCamera(
+  camera: Camera | undefined,
+  coordinateSystem: CoordinateSystem
+): NativeCamera | undefined {
+  if (!camera) {
+    return undefined;
+  }
+
+  const center = toProviderCoordinate(camera.center, coordinateSystem);
+
+  return {
+    latitude: center.latitude,
+    longitude: center.longitude,
+    heading: camera.heading,
+    pitch: camera.pitch,
+    zoom: camera.zoom,
+    altitude: camera.altitude ?? 0,
+  };
+}
+
+/**
+ * Inverse of {@link toProviderCamera}: rebuild the RNM `{ center }` shape from a
+ * native camera struct, converting the center back out of gcj02. Reserved for
+ * the M6 `getCamera` command.
+ */
+export function fromProviderCamera(
+  camera: NativeCamera,
+  coordinateSystem: CoordinateSystem
+): Camera {
+  const center = fromProviderCoordinate(
+    { latitude: camera.latitude, longitude: camera.longitude },
+    coordinateSystem
+  );
+
+  return {
+    center,
+    heading: camera.heading,
+    pitch: camera.pitch,
+    zoom: camera.zoom,
+    altitude: camera.altitude,
   };
 }
