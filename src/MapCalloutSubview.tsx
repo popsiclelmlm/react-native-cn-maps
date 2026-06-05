@@ -1,16 +1,28 @@
-import { useWarnNotImplemented } from './_warnings';
+import React from 'react';
+import { View } from 'react-native';
 import type { CalloutSubviewProps } from './types';
 
-export type CalloutSubviewComponent = ((props: CalloutSubviewProps) => null) & {
+/**
+ * `<CalloutSubview>` renders its content inside the parent `<Callout>`. Because
+ * the callout is shown as a rasterized snapshot (Android InfoWindow) / image
+ * (iOS), individual subview taps are NOT independently routed in M4 — use the
+ * parent `<Callout onPress>` / `<Marker onCalloutPress>` for whole-callout taps.
+ * The `onPress` prop is accepted for API parity but is a documented no-op here.
+ */
+export type CalloutSubviewComponent = ((
+  props: CalloutSubviewProps
+) => React.ReactElement) & {
   __MAP_CALLOUT_SUBVIEW: true;
 };
 
-export const CalloutSubview: CalloutSubviewComponent = function CalloutSubview(
-  _props: CalloutSubviewProps
-) {
-  useWarnNotImplemented('CalloutSubview');
-  return null;
-} as CalloutSubviewComponent;
+function CalloutSubviewComp(props: CalloutSubviewProps) {
+  // `onPress` is intentionally not wired (see component doc); forward layout only.
+  const { children, style } = props;
+  return <View style={style}>{children}</View>;
+}
+
+export const CalloutSubview =
+  CalloutSubviewComp as unknown as CalloutSubviewComponent;
 
 CalloutSubview.__MAP_CALLOUT_SUBVIEW = true;
 

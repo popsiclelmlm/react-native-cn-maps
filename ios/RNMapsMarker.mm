@@ -1,4 +1,5 @@
 #import "RNMapsMarker.h"
+#import "RNMapsCallout.h"
 
 #import <QuartzCore/QuartzCore.h>
 
@@ -16,7 +17,8 @@ using namespace facebook::react;
 
 - (void)applyAppearanceToView:(MAAnnotationView *)view
 {
-  view.canShowCallout = YES;
+  // Suppress the system callout when the marker manages its own custom callout.
+  view.canShowCallout = !self.hasCustomCallout;
   view.draggable = self.draggable;
   view.centerOffset = self.centerOffset;
   view.calloutOffset = self.calloutOffset;
@@ -75,6 +77,10 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   CLLocationCoordinate2D _animationTarget;
   CFTimeInterval _animationStartTime;
   CFTimeInterval _animationDuration;
+  // Custom <Callout> child (kept out of the marker's view tree / icon) + its
+  // currently-presented rasterized image view.
+  RNMapsCallout *_calloutView;
+  UIImageView *_calloutImageView;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -104,6 +110,15 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 // of marker children, here we defer to super to actually host the subtree.
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
+  // A <Callout> child is intercepted: it is NOT added as a marker subview (so it
+  // stays out of the icon rasterization and the marker's bounds) — it is shown
+  // separately on selection.
+  if ([childComponentView isKindOfClass:[RNMapsCallout class]]) {
+    _calloutView = (RNMapsCallout *)childComponentView;
+    _annotation.hasCustomCallout = YES;
+    return;
+  }
+
   [super mountChildComponentView:childComponentView index:index];
   _childCount += 1;
   _didRasterize = NO;
@@ -112,6 +127,13 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
+  if (childComponentView == _calloutView) {
+    [self dismissCallout];
+    _calloutView = nil;
+    _annotation.hasCustomCallout = NO;
+    return;
+  }
+
   [super unmountChildComponentView:childComponentView index:index];
   _childCount = MAX((NSInteger)0, _childCount - 1);
   if (_childCount == 0) {
@@ -119,6 +141,50 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
     _didRasterize = NO;
     [self updateEffectiveImage];
   }
+}
+
+#pragma mark - Custom callout presentation
+
+- (void)presentCalloutInAnnotationView:(MAAnnotationView *)annotationView
+{
+  if (_calloutView == nil || annotationView == nil) {
+    return;
+  }
+
+  UIImage *image = [_calloutView renderToImage];
+  if (image == nil) {
+    return;
+  }
+
+  [self dismissCallout];
+
+  UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
+  imageView.userInteractionEnabled = YES;
+  // Centered horizontally, sitting just above the annotation view.
+  imageView.frame = CGRectMake(
+    (annotationView.bounds.size.width - image.size.width) / 2.0,
+    -image.size.height,
+    image.size.width,
+    image.size.height);
+
+  UITapGestureRecognizer *tap =
+    [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleCalloutTap)];
+  [imageView addGestureRecognizer:tap];
+
+  [annotationView addSubview:imageView];
+  _calloutImageView = imageView;
+}
+
+- (void)dismissCallout
+{
+  [_calloutImageView removeFromSuperview];
+  _calloutImageView = nil;
+}
+
+- (void)handleCalloutTap
+{
+  [self emitCalloutPress];
+  [_calloutView emitPress];
 }
 
 - (BOOL)hasCustomContent
@@ -293,6 +359,8 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 - (void)prepareForRecycle
 {
   [self stopCoordinateAnimation];
+  [self dismissCallout];
+  _calloutView = nil;
   [self removeFromMap];
   _imageUri = nil;
   _propImage = nil;

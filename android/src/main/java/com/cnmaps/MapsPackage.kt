@@ -8,7 +8,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class MapsPackage : BaseReactPackage() {
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
-    return listOf(MapViewManager(), MarkerManager())
+    return listOf(MapViewManager(), MarkerManager(), CalloutManager())
   }
 
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? = null

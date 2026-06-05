@@ -336,8 +336,19 @@ class MapView(private val reactContext: ThemedReactContext) :
     )
 
     aMap.setOnInfoWindowClickListener { marker ->
-      (marker?.`object` as? MarkerView)?.emitCalloutPress()
+      (marker?.`object` as? MarkerView)?.onInfoWindowClicked()
     }
+
+    // Custom <Callout> content (M4): hand the marker's callout view to AMap as the
+    // info window. Returning null falls back to the default title/snippet window.
+    aMap.setInfoWindowAdapter(
+      object : AMap.InfoWindowAdapter {
+        override fun getInfoWindow(marker: Marker?): View? =
+          (marker?.`object` as? MarkerView)?.getCalloutView()
+
+        override fun getInfoContents(marker: Marker?): View? = null
+      }
+    )
   }
 
   private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {

@@ -73,6 +73,13 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   private var marker: Marker? = null
   private var positionAnimator: ValueAnimator? = null
 
+  // Fabric child reconciliation list (PR-4 callout). Regular content children also
+  // live in the FrameLayout (for icon rasterization); the <Callout> child is held
+  // here but kept OUT of the FrameLayout so it can be handed, parent-less, to
+  // AMap's InfoWindowAdapter.
+  private val reactChildren = ArrayList<View>()
+  private var calloutView: CalloutView? = null
+
   fun setMarkerTitle(value: String?) {
     title = value
     marker?.title = value ?: ""
@@ -179,6 +186,47 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     positionAnimator = null
     marker?.remove()
     marker = null
+  }
+
+  // Fabric child reconciliation (driven by MarkerManager's ViewGroup overrides) --
+
+  fun addReactChild(child: View, index: Int) {
+    reactChildren.add(index.coerceIn(0, reactChildren.size), child)
+    if (child is CalloutView) {
+      // Kept out of the FrameLayout so it can be handed parent-less to the
+      // InfoWindowAdapter (and excluded from the marker-icon rasterization).
+      calloutView = child
+    } else {
+      addView(child)
+    }
+  }
+
+  fun removeReactChildAt(index: Int) {
+    if (index < 0 || index >= reactChildren.size) {
+      return
+    }
+
+    val child = reactChildren.removeAt(index)
+    if (child is CalloutView) {
+      if (child === calloutView) {
+        calloutView = null
+      }
+    } else {
+      removeView(child)
+    }
+  }
+
+  fun getReactChildCount(): Int = reactChildren.size
+
+  fun getReactChildAt(index: Int): View = reactChildren[index]
+
+  // Handed to AMap's InfoWindowAdapter; null → AMap shows the default title/snippet
+  // window.
+  fun getCalloutView(): View? = calloutView
+
+  fun onInfoWindowClicked() {
+    emitCalloutPress()
+    calloutView?.emitPress()
   }
 
   // Commands -------------------------------------------------------------------

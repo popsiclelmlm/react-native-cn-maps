@@ -587,11 +587,14 @@ regionDidChangeAnimated:(BOOL)animated
   RNMapsMarker *marker = [self markerForAnnotationView:view];
   [marker emitPress];
   [marker emitSelect];
+  [marker presentCalloutInAnnotationView:view];
 }
 
 - (void)mapView:(MAMapView *)mapView didDeselectAnnotationView:(MAAnnotationView *)view
 {
-  [[self markerForAnnotationView:view] emitDeselect];
+  RNMapsMarker *marker = [self markerForAnnotationView:view];
+  [marker dismissCallout];
+  [marker emitDeselect];
 }
 
 - (void)mapView:(MAMapView *)mapView didAnnotationViewCalloutTapped:(MAAnnotationView *)view

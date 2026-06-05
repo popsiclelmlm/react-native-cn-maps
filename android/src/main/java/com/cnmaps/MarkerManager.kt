@@ -1,5 +1,6 @@
 package com.cnmaps
 
+import android.view.View
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ThemedReactContext
@@ -22,6 +23,24 @@ class MarkerManager : ViewGroupManager<MarkerView>(),
   public override fun createViewInstance(context: ThemedReactContext): MarkerView {
     return MarkerView(context)
   }
+
+  // Marker children (custom content + a <Callout>) are reconciled through the
+  // marker's own list: content goes into the FrameLayout for icon rasterization,
+  // the callout is held out of it (see MarkerView). getChildCount/getChildAt MUST
+  // mirror add/removeView or Fabric crashes with "view not found".
+
+  override fun addView(parent: MarkerView, child: View, index: Int) {
+    parent.addReactChild(child, index)
+  }
+
+  override fun removeViewAt(parent: MarkerView, index: Int) {
+    parent.removeReactChildAt(index)
+  }
+
+  override fun getChildCount(parent: MarkerView): Int = parent.getReactChildCount()
+
+  override fun getChildAt(parent: MarkerView, index: Int): View =
+    parent.getReactChildAt(index)
 
   @ReactProp(name = "identifier")
   override fun setIdentifier(view: MarkerView, value: String?) {

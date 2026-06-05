@@ -128,6 +128,9 @@
         },
         "RNMapsMarker": {
           "className": "RNMapsMarker"
+        },
+        "RNMapsCallout": {
+          "className": "RNMapsCallout"
         }
       }
     }

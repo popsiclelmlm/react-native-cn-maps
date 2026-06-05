@@ -24,6 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) CGFloat markerOpacity;
 @property (nonatomic, assign) CGFloat rotationDegrees;
 @property (nonatomic, assign) double zIndex;
+// YES when the marker has a custom <Callout> child; suppresses the system callout
+// (the marker presents its own).
+@property (nonatomic, assign) BOOL hasCustomCallout;
 @property (nonatomic, weak, nullable) RNMapsMarker *marker;
 
 // Applies the appearance fields above onto a freshly built / reused view.
@@ -49,6 +52,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)emitDragStart;
 - (void)emitDrag;
 - (void)emitDragEnd;
+
+// Custom <Callout> presentation, driven by the map's select/deselect delegate.
+- (void)presentCalloutInAnnotationView:(MAAnnotationView *)annotationView;
+- (void)dismissCallout;
 
 @end
 

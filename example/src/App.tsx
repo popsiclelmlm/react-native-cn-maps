@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-cn-maps';
+import MapView, { Callout, Marker } from 'react-native-cn-maps';
 import type {
   Camera,
   LatLng,
@@ -199,7 +199,15 @@ export default function App() {
           description="外滩"
           pinColor="green"
           onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
-        />
+        >
+          {/* Custom <Callout> (M4): green pin + tappable custom bubble. */}
+          <Callout onPress={() => pushLog('callout onPress bund')}>
+            <View style={styles.callout}>
+              <Text style={styles.calloutTitle}>The Bund 外滩</Text>
+              <Text style={styles.calloutBody}>Custom callout — tap me</Text>
+            </View>
+          </Callout>
+        </Marker>
         <Marker
           coordinate={PEOPLES_SQUARE}
           identifier="square"
@@ -454,5 +462,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  callout: {
+    padding: 8,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    minWidth: 160,
+  },
+  calloutTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111',
+  },
+  calloutBody: {
+    fontSize: 12,
+    color: '#555',
+    marginTop: 2,
   },
 });
