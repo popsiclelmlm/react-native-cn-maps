@@ -47,6 +47,9 @@ export type { MapLocalTileProps } from './MapLocalTile';
 
 export { AnimatedRegion } from './AnimatedRegion';
 
+export { setPrivacyConsent } from './privacy';
+export type { PrivacyConsentOptions } from './privacy';
+
 /**
  * RNM parity: the package-level `Animated` export is the `Animated`-wrapped
  * MapView, NOT React Native's `Animated` namespace. Import the latter from

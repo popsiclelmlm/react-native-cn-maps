@@ -1,5 +1,6 @@
 package com.cnmaps
 
+import android.util.Log
 import android.view.View
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
@@ -23,6 +24,19 @@ class MapViewManager : ViewGroupManager<MapView>(),
   override fun getName(): String = REACT_CLASS
 
   public override fun createViewInstance(context: ThemedReactContext): MapView {
+    // AMap (since 2021) refuses to initialize until the host app declares privacy
+    // compliance; without it the SDK logs errorCode 555570 and the map renders
+    // blank. The library never auto-agrees — the host app must call the
+    // `setPrivacyConsent` JS API (after the user accepts its privacy policy)
+    // BEFORE mounting <MapView>. Warn clearly instead of failing silently.
+    if (!MapsPrivacy.consented) {
+      Log.w(
+        REACT_CLASS,
+        "Privacy consent has not been set. Call setPrivacyConsent() from " +
+          "react-native-cn-maps before mounting <MapView>, otherwise the map " +
+          "will not render (AMap errorCode 555570)."
+      )
+    }
     return MapView(context)
   }
 
