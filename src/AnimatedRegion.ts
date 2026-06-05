@@ -213,6 +213,11 @@ export class AnimatedRegion {
   __getAnimatedValue() {
     return this.__getValue();
   }
+
+  /** RNM parity: a plain {@link Region} snapshot of the current values. */
+  toJSON(): Region {
+    return this.__getValue();
+  }
 }
 
 export default AnimatedRegion;

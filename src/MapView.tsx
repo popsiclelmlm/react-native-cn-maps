@@ -1,6 +1,7 @@
 import React from 'react';
 import { Animated, type NativeSyntheticEvent } from 'react-native';
 import NativeMapView, { Commands } from './MapViewNativeComponent';
+import { AnimatedRegion } from './AnimatedRegion';
 import { MapCoordinateSystemContext } from './MapContext';
 import {
   fromProviderCamera,
@@ -30,6 +31,7 @@ import type {
   PanDragEvent,
   Point,
   PoiClickEvent,
+  Region,
   RegionChangeEvent,
   UserLocationChangeEvent,
 } from './types';
@@ -67,6 +69,30 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       new Map<number, (data: Record<string, unknown>) => void>()
     );
     const nextRequestId = React.useRef(1);
+
+    // M10: an AnimatedRegion drives the native map imperatively (degraded to
+    // animateToRegion on each value change, per RNM's fallback approach).
+    React.useEffect(() => {
+      if (!(region instanceof AnimatedRegion)) {
+        return;
+      }
+      const drive = (next: Region) => {
+        const providerRegion = toProviderRegion(next, coordinateSystem);
+        if (providerRegion && nativeRef.current) {
+          Commands.animateToRegion(
+            nativeRef.current,
+            providerRegion.latitude,
+            providerRegion.longitude,
+            providerRegion.latitudeDelta,
+            providerRegion.longitudeDelta,
+            0
+          );
+        }
+      };
+      drive(region.toJSON());
+      const id = region.addListener(drive);
+      return () => region.removeListener(id);
+    }, [region, coordinateSystem]);
 
     if (__DEV__ && provider !== SUPPORTED_PROVIDER) {
       console.warn(
@@ -386,7 +412,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         provider={SUPPORTED_PROVIDER}
         coordinateSystem={coordinateSystem}
         initialRegion={toProviderRegion(initialRegion, coordinateSystem)}
-        region={toProviderRegion(region, coordinateSystem)}
+        region={
+          region instanceof AnimatedRegion
+            ? undefined
+            : toProviderRegion(region, coordinateSystem)
+        }
         initialCamera={toProviderCamera(initialCamera, coordinateSystem)}
         camera={toProviderCamera(camera, coordinateSystem)}
         customMapStyle={

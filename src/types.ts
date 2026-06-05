@@ -5,6 +5,7 @@ import type {
   ImageURISource,
   ViewProps,
 } from 'react-native';
+import type { AnimatedRegion } from './AnimatedRegion';
 
 // ---------- Coordinate primitives ----------
 
@@ -216,9 +217,10 @@ export type MapViewProps = ViewProps & {
   provider?: MapProvider;
   coordinateSystem?: CoordinateSystem;
 
-  // Region / camera
+  // Region / camera. `region` also accepts an AnimatedRegion (RNM parity); the
+  // MapView drives the native map from its value changes.
   initialRegion?: Region;
-  region?: Region;
+  region?: Region | AnimatedRegion;
   initialCamera?: Camera;
   camera?: Camera;
 
