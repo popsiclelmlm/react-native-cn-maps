@@ -146,7 +146,7 @@ function MarkerComponent(
       opacity={opacity}
       rotation={rotation}
       flat={flat}
-      zIndex={zIndex}
+      overlayZIndex={zIndex}
       tracksViewChanges={tracksViewChanges}
       tracksInfoWindowChanges={tracksInfoWindowChanges}
       onPress={onPress ? (event) => onPress(buildCoordEvent(event)) : undefined}

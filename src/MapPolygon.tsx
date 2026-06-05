@@ -39,7 +39,7 @@ function PolygonComponent(props: PolygonProps) {
       lineDashPattern={
         lineDashPattern ? JSON.stringify(lineDashPattern) : undefined
       }
-      zIndex={zIndex}
+      overlayZIndex={zIndex}
       tappable={tappable}
       onPress={
         onPress

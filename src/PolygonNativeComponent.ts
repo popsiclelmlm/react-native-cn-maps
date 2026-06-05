@@ -20,7 +20,7 @@ export interface NativeProps extends ViewProps {
   strokeWidth?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
   fillColor?: ColorValue;
   lineDashPattern?: string;
-  zIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
+  overlayZIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
   tappable?: CodegenTypes.WithDefault<boolean, false>;
 
   onPress?: CodegenTypes.DirectEventHandler<Readonly<{}>>;

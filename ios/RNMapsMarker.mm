@@ -295,7 +295,7 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   _annotation.calloutOffset = CGPointMake(newViewProps.calloutAnchor.x, newViewProps.calloutAnchor.y);
   _annotation.markerOpacity = newViewProps.opacity;
   _annotation.rotationDegrees = newViewProps.rotation;
-  _annotation.zIndex = newViewProps.zIndex;
+  _annotation.zIndex = newViewProps.overlayZIndex;
 
   // Custom content (PR-3). When tracksViewChanges turns on, allow a re-render on
   // the next layout pass. `tracksInfoWindowChanges` is accepted for parity but
@@ -317,7 +317,7 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
     oldViewProps.calloutAnchor.y != newViewProps.calloutAnchor.y ||
     oldViewProps.opacity != newViewProps.opacity ||
     oldViewProps.rotation != newViewProps.rotation ||
-    oldViewProps.zIndex != newViewProps.zIndex;
+    oldViewProps.overlayZIndex != newViewProps.overlayZIndex;
 
   // Image changes refresh through setImageUri's async completion; non-image
   // appearance changes refresh the live view here.

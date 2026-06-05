@@ -58,8 +58,8 @@ class CircleManager : SimpleViewManager<CircleView>(),
     // AMap Android circles have no dash style; best-effort ignore.
   }
 
-  @ReactProp(name = "zIndex", defaultDouble = 0.0)
-  override fun setZIndex(view: CircleView, value: Double) {
+  @ReactProp(name = "overlayZIndex", defaultDouble = 0.0)
+  override fun setOverlayZIndex(view: CircleView, value: Double) {
     view.setZIndexValue(value.toFloat())
   }
 

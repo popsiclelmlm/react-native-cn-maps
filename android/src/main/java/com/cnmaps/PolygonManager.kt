@@ -54,8 +54,8 @@ class PolygonManager : SimpleViewManager<PolygonView>(),
     // AMap Android polygons have no dash style; best-effort ignore.
   }
 
-  @ReactProp(name = "zIndex", defaultDouble = 0.0)
-  override fun setZIndex(view: PolygonView, value: Double) {
+  @ReactProp(name = "overlayZIndex", defaultDouble = 0.0)
+  override fun setOverlayZIndex(view: PolygonView, value: Double) {
     view.setZIndexValue(value.toFloat())
   }
 

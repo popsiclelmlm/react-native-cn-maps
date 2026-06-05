@@ -36,7 +36,7 @@ function PolylineComponent(props: PolylineProps) {
         lineDashPattern ? JSON.stringify(lineDashPattern) : undefined
       }
       geodesic={geodesic}
-      zIndex={zIndex}
+      overlayZIndex={zIndex}
       tappable={tappable}
       onPress={
         onPress

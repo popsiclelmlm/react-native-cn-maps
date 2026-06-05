@@ -35,7 +35,7 @@ function CircleComponent(props: CircleProps) {
       lineDashPattern={
         lineDashPattern ? JSON.stringify(lineDashPattern) : undefined
       }
-      zIndex={zIndex}
+      overlayZIndex={zIndex}
       tappable={tappable}
       onPress={
         onPress

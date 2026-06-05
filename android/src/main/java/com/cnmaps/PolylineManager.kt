@@ -49,8 +49,8 @@ class PolylineManager : SimpleViewManager<PolylineView>(),
     view.setGeodesicValue(value)
   }
 
-  @ReactProp(name = "zIndex", defaultDouble = 0.0)
-  override fun setZIndex(view: PolylineView, value: Double) {
+  @ReactProp(name = "overlayZIndex", defaultDouble = 0.0)
+  override fun setOverlayZIndex(view: PolylineView, value: Double) {
     view.setZIndexValue(value.toFloat())
   }
 

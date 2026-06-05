@@ -121,8 +121,8 @@ class MarkerManager : ViewGroupManager<MarkerView>(),
     view.setFlatMarker(value)
   }
 
-  @ReactProp(name = "zIndex", defaultDouble = 0.0)
-  override fun setZIndex(view: MarkerView, value: Double) {
+  @ReactProp(name = "overlayZIndex", defaultDouble = 0.0)
+  override fun setOverlayZIndex(view: MarkerView, value: Double) {
     view.setZIndexValue(value.toFloat())
   }
 

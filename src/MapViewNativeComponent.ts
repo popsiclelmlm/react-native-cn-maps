@@ -33,16 +33,6 @@ export type NativeEdgePadding = Readonly<{
   left: CodegenTypes.Double;
 }>;
 
-export type NativeCoordinate = Readonly<{
-  latitude: CodegenTypes.Double;
-  longitude: CodegenTypes.Double;
-}>;
-
-export type NativePoint = Readonly<{
-  x: CodegenTypes.Double;
-  y: CodegenTypes.Double;
-}>;
-
 export type NativeRegionChangeEvent = Readonly<{
   region: Readonly<{
     latitude: CodegenTypes.Double;
@@ -55,15 +45,27 @@ export type NativeRegionChangeEvent = Readonly<{
 
 // Shared by onPress / onLongPress / onDoublePress / onPanDrag.
 export type NativeMapPressEvent = Readonly<{
-  coordinate: NativeCoordinate;
-  position: NativePoint;
+  coordinate: Readonly<{
+    latitude: CodegenTypes.Double;
+    longitude: CodegenTypes.Double;
+  }>;
+  position: Readonly<{
+    x: CodegenTypes.Double;
+    y: CodegenTypes.Double;
+  }>;
 }>;
 
 export type NativePoiClickEvent = Readonly<{
   placeId?: string;
   name?: string;
-  coordinate: NativeCoordinate;
-  position?: NativePoint;
+  coordinate: Readonly<{
+    latitude: CodegenTypes.Double;
+    longitude: CodegenTypes.Double;
+  }>;
+  position?: Readonly<{
+    x: CodegenTypes.Double;
+    y: CodegenTypes.Double;
+  }>;
 }>;
 
 export type NativeUserLocationChangeEvent = Readonly<{
