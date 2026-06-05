@@ -1,5 +1,6 @@
 #import "RNMapsMapView.h"
 #import "RNMapsMarker.h"
+#import "RNMapsOverlay.h"
 
 #import <MAMapKit/MAMapKit.h>
 #import <React/RCTConversions.h>
@@ -127,6 +128,9 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   // in mount order so get/unmount can index into them; the annotation's weak
   // `marker` back-ref handles delegate routing.
   NSMutableArray<RNMapsMarker *> *_markers;
+  // Polyline/Polygon/Circle child views; scanned in rendererForOverlay: to match
+  // an overlay back to its styling view.
+  NSMutableArray<id<RNMapsOverlayView>> *_overlayViews;
   BOOL _initialRegionApplied;
   BOOL _initialCameraApplied;
   BOOL _isGesture;
@@ -152,6 +156,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     _mapView.rotateCameraEnabled = YES;
 
     _markers = [NSMutableArray new];
+    _overlayViews = [NSMutableArray new];
     self.contentView = _mapView;
 
     [self installGestureRecognizers];
@@ -189,6 +194,10 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     [marker removeFromMap];
   }
   [_markers removeAllObjects];
+  for (id<RNMapsOverlayView> overlayView in _overlayViews) {
+    [overlayView removeFromMap];
+  }
+  [_overlayViews removeAllObjects];
   _initialRegionApplied = NO;
   _initialCameraApplied = NO;
   _isGesture = NO;
@@ -233,6 +242,13 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     return;
   }
 
+  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
+    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
+    [_overlayViews addObject:overlayView];
+    [overlayView addToMap:_mapView];
+    return;
+  }
+
   [super mountChildComponentView:childComponentView index:index];
 }
 
@@ -242,6 +258,13 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
     [marker removeFromMap];
     [_markers removeObject:marker];
+    return;
+  }
+
+  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
+    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
+    [overlayView removeFromMap];
+    [_overlayViews removeObject:overlayView];
     return;
   }
 
@@ -490,6 +513,16 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
   [marker applyAppearanceToView:annotationView];
 
   return annotationView;
+}
+
+- (MAOverlayRenderer *)mapView:(MAMapView *)mapView rendererForOverlay:(id<MAOverlay>)overlay
+{
+  for (id<RNMapsOverlayView> overlayView in _overlayViews) {
+    if (overlayView.overlay == overlay) {
+      return [overlayView overlayRenderer];
+    }
+  }
+  return nil;
 }
 
 - (void)mapInitComplete:(MAMapView *)mapView

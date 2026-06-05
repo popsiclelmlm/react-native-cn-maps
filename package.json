@@ -131,6 +131,15 @@
         },
         "RNMapsCallout": {
           "className": "RNMapsCallout"
+        },
+        "RNMapsPolyline": {
+          "className": "RNMapsPolyline"
+        },
+        "RNMapsPolygon": {
+          "className": "RNMapsPolygon"
+        },
+        "RNMapsCircle": {
+          "className": "RNMapsCircle"
         }
       }
     }

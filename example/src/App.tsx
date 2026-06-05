@@ -7,7 +7,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker } from 'react-native-cn-maps';
+import MapView, {
+  Callout,
+  Circle,
+  Marker,
+  Polygon,
+  Polyline,
+} from 'react-native-cn-maps';
 import type {
   Camera,
   LatLng,
@@ -46,6 +52,20 @@ const DRAGGABLE_MARKER: LatLng = { latitude: 31.218, longitude: 121.478 };
 const ANIMATE_TARGET: LatLng = { latitude: 31.232, longitude: 121.452 };
 
 const TINY_LOGO = 'https://reactnative.dev/img/tiny_logo.png';
+
+// M5 overlays: a line, a filled polygon fence, and a radius circle.
+const LINE: LatLng[] = [
+  { latitude: 31.2397, longitude: 121.499 },
+  { latitude: 31.2286, longitude: 121.4753 },
+  { latitude: 31.2204, longitude: 121.46 },
+];
+const FENCE: LatLng[] = [
+  { latitude: 31.245, longitude: 121.47 },
+  { latitude: 31.245, longitude: 121.49 },
+  { latitude: 31.232, longitude: 121.49 },
+  { latitude: 31.232, longitude: 121.47 },
+];
+const CIRCLE_CENTER: LatLng = { latitude: 31.2286, longitude: 121.4753 };
 
 const MAP_TYPES: MapType[] = ['standard', 'satellite', 'hybrid'];
 
@@ -265,6 +285,28 @@ export default function App() {
           onDragEnd={(e) =>
             pushLog(`marker onDragEnd ${coordText(e.nativeEvent.coordinate)}`)
           }
+        />
+
+        {/* M5 overlays. */}
+        <Polyline
+          coordinates={LINE}
+          strokeColor="#e2231a"
+          strokeWidth={4}
+          tappable
+          onPress={() => pushLog('polyline onPress')}
+        />
+        <Polygon
+          coordinates={FENCE}
+          strokeColor="#1f6feb"
+          strokeWidth={2}
+          fillColor="rgba(31,111,235,0.2)"
+        />
+        <Circle
+          center={CIRCLE_CENTER}
+          radius={800}
+          strokeColor="#2e7d32"
+          strokeWidth={2}
+          fillColor="rgba(46,125,50,0.15)"
         />
       </MapView>
 

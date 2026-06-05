@@ -110,11 +110,14 @@ class MapView(private val reactContext: ThemedReactContext) :
   // Child host-component management (called from the ViewGroupManager) ---------
 
   fun addFeature(child: View, index: Int) {
-    if (child is MarkerView) {
-      child.attachTo(aMap)
-      val insertionIndex = index.coerceIn(0, features.size)
-      features.add(insertionIndex, child)
+    when (child) {
+      is MarkerView -> child.attachTo(aMap)
+      is PolylineView -> child.attachTo(aMap)
+      is PolygonView -> child.attachTo(aMap)
+      is CircleView -> child.attachTo(aMap)
+      else -> return
     }
+    features.add(index.coerceIn(0, features.size), child)
   }
 
   fun removeFeatureAt(index: Int) {
@@ -122,9 +125,11 @@ class MapView(private val reactContext: ThemedReactContext) :
       return
     }
 
-    val child = features.removeAt(index)
-    if (child is MarkerView) {
-      child.detach()
+    when (val child = features.removeAt(index)) {
+      is MarkerView -> child.detach()
+      is PolylineView -> child.detach()
+      is PolygonView -> child.detach()
+      is CircleView -> child.detach()
     }
   }
 
@@ -231,7 +236,14 @@ class MapView(private val reactContext: ThemedReactContext) :
 
     didDestroy = true
     reactContext.removeLifecycleEventListener(this)
-    features.forEach { if (it is MarkerView) it.detach() }
+    features.forEach { child ->
+      when (child) {
+        is MarkerView -> child.detach()
+        is PolylineView -> child.detach()
+        is PolygonView -> child.detach()
+        is CircleView -> child.detach()
+      }
+    }
     features.clear()
     mapView.onDestroy()
   }
