@@ -107,6 +107,18 @@ class MarkerManager : ViewGroupManager<MarkerView>(),
     view.setZIndexValue(value.toFloat())
   }
 
+  // Custom React content (PR-3) -----------------------------------------------
+
+  @ReactProp(name = "tracksViewChanges", defaultBoolean = true)
+  override fun setTracksViewChanges(view: MarkerView, value: Boolean) {
+    view.setTracksViewChanges(value)
+  }
+
+  @ReactProp(name = "tracksInfoWindowChanges", defaultBoolean = false)
+  override fun setTracksInfoWindowChanges(view: MarkerView, value: Boolean) {
+    view.setTracksInfoWindowChanges(value)
+  }
+
   private fun ReadableMap.pointComponent(key: String): Float {
     return if (hasKey(key) && !isNull(key)) getDouble(key).toFloat() else 0f
   }

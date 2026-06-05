@@ -2,8 +2,10 @@ package com.cnmaps
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.view.View
 import android.widget.FrameLayout
 import com.amap.api.maps.AMap
 import com.amap.api.maps.model.BitmapDescriptor
@@ -58,6 +60,14 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   private var zIndexValue: Float = 0.0f
   private var imageUri: String? = null
   private var iconBitmap: Bitmap? = null
+
+  // Custom React content (PR-3): children render into this FrameLayout offscreen
+  // and are rasterized into the marker icon.
+  private var tracksViewChanges: Boolean = true
+  private var tracksInfoWindowChanges: Boolean = false
+  private var customBitmap: Bitmap? = null
+  private var didRender: Boolean = false
+  private var renderScheduled: Boolean = false
 
   private var marker: Marker? = null
 
@@ -123,6 +133,21 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     loadImage(normalized)
   }
 
+  fun setTracksViewChanges(value: Boolean) {
+    if (value && !tracksViewChanges) {
+      // Re-enabling: allow at least one fresh render again.
+      didRender = false
+    }
+    tracksViewChanges = value
+    scheduleRender()
+  }
+
+  fun setTracksInfoWindowChanges(value: Boolean) {
+    // Accepted for RNM parity; the system info window has no React content to
+    // re-rasterize in this milestone (real <Callout> content lands in M4).
+    tracksInfoWindowChanges = value
+  }
+
   // Parent-driven attachment ---------------------------------------------------
 
   fun attachTo(aMap: AMap) {
@@ -174,13 +199,11 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     target.setIcon(currentDescriptor())
   }
 
-  // A loaded custom bitmap wins; otherwise a hue-tinted default pin; otherwise the
-  // plain default marker.
+  // Priority: rasterized custom React content > loaded `image` bitmap >
+  // hue-tinted default pin > plain default marker.
   private fun currentDescriptor(): BitmapDescriptor {
-    val bitmap = iconBitmap
-    if (bitmap != null) {
-      return BitmapDescriptorFactory.fromBitmap(bitmap)
-    }
+    customBitmap?.let { return BitmapDescriptorFactory.fromBitmap(it) }
+    iconBitmap?.let { return BitmapDescriptorFactory.fromBitmap(it) }
 
     val hue = markerHue(pinColor)
     return if (hue != null) {
@@ -188,6 +211,67 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     } else {
       BitmapDescriptorFactory.defaultMarker()
     }
+  }
+
+  private fun hasCustomContent(): Boolean = childCount > 0
+
+  override fun onViewAdded(child: View) {
+    super.onViewAdded(child)
+    didRender = false
+    scheduleRender()
+  }
+
+  override fun onViewRemoved(child: View) {
+    super.onViewRemoved(child)
+    if (!hasCustomContent()) {
+      // Reverted to a plain marker: drop the rasterized icon.
+      customBitmap = null
+      didRender = false
+      marker?.let { applyIcon(it) }
+    } else {
+      didRender = false
+      scheduleRender()
+    }
+  }
+
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+    super.onLayout(changed, l, t, r, b)
+    scheduleRender()
+  }
+
+  override fun requestLayout() {
+    super.requestLayout()
+    // A child's content/size change requests layout; re-rasterize afterwards.
+    scheduleRender()
+  }
+
+  // Debounce: collapse the layout/requestLayout bursts into a single render that
+  // runs once the subtree has settled for this frame.
+  private fun scheduleRender() {
+    if (renderScheduled || !hasCustomContent()) {
+      return
+    }
+
+    renderScheduled = true
+    post {
+      renderScheduled = false
+      renderCustomIfNeeded()
+    }
+  }
+
+  private fun renderCustomIfNeeded() {
+    if (!hasCustomContent() || width <= 0 || height <= 0) {
+      return
+    }
+    if (!tracksViewChanges && didRender) {
+      return
+    }
+
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    draw(Canvas(bitmap))
+    customBitmap = bitmap
+    didRender = true
+    marker?.let { applyIcon(it) }
   }
 
   // Best-effort, dependency-free decode: http(s) over the network (covers the

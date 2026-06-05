@@ -45,6 +45,13 @@ export interface NativeProps extends ViewProps {
   flat?: CodegenTypes.WithDefault<boolean, false>;
   zIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
 
+  // Custom React content (PR-3). When the marker has children they render
+  // offscreen and are rasterized into the marker icon. `tracksViewChanges`
+  // re-rasterizes on every layout (RNM default true — costly with many markers);
+  // `tracksInfoWindowChanges` is accepted for parity (system callout only here).
+  tracksViewChanges?: CodegenTypes.WithDefault<boolean, true>;
+  tracksInfoWindowChanges?: CodegenTypes.WithDefault<boolean, false>;
+
   onPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
 }
 

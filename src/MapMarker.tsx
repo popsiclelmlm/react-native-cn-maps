@@ -35,8 +35,8 @@ function resolveImageUri(source: MarkerImageSource | undefined) {
  * MapView to this per-marker child.
  */
 function MarkerComponent(props: MarkerProps) {
-  // PR-1 + PR-2 surface. Custom React content (children), drag/select events and
-  // ref commands arrive in later M3 PRs; props not listed here are still ignored.
+  // PR-1 + PR-2 + PR-3 surface. Drag/select events and ref commands arrive in
+  // PR-4; props not destructured here are still ignored for now.
   const {
     coordinate,
     identifier,
@@ -53,12 +53,16 @@ function MarkerComponent(props: MarkerProps) {
     rotation,
     flat,
     zIndex,
+    tracksViewChanges,
+    tracksInfoWindowChanges,
+    children,
     onPress,
   } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
   const providerCoordinate = toProviderCoordinate(coordinate, coordinateSystem);
   // RNM keeps `image` and `icon` as aliases for the same custom marker bitmap.
+  // Custom React children, when present, take precedence over `image` natively.
   const imageUri = resolveImageUri(image ?? icon);
 
   const handlePress = React.useCallback(
@@ -93,8 +97,12 @@ function MarkerComponent(props: MarkerProps) {
       rotation={rotation}
       flat={flat}
       zIndex={zIndex}
+      tracksViewChanges={tracksViewChanges}
+      tracksInfoWindowChanges={tracksInfoWindowChanges}
       onPress={onPress ? handlePress : undefined}
-    />
+    >
+      {children}
+    </NativeMarker>
   );
 }
 

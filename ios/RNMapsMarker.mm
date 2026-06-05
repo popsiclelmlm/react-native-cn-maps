@@ -64,6 +64,11 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 @implementation RNMapsMarker {
   __weak MAMapView *_map;
   NSString *_imageUri;
+  UIImage *_propImage;     // resolved from the `image` prop
+  UIImage *_renderedImage; // rasterized from custom React children
+  NSInteger _childCount;
+  BOOL _tracksViewChanges;
+  BOOL _didRasterize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -76,12 +81,68 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsMarkerProps>();
     _props = defaultProps;
+    _tracksViewChanges = YES;
 
     _annotation = [RNMapsMarkerAnnotation new];
     _annotation.marker = self;
   }
 
   return self;
+}
+
+#pragma mark - Custom React content
+
+// Marker children DO render (offscreen): they are mounted as real subviews of
+// this orphan view — the view itself is never added to the map's UIView tree —
+// then rasterized into the annotation image. So, unlike the map's interception
+// of marker children, here we defer to super to actually host the subtree.
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [super mountChildComponentView:childComponentView index:index];
+  _childCount += 1;
+  _didRasterize = NO;
+  [self setNeedsLayout];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  [super unmountChildComponentView:childComponentView index:index];
+  _childCount = MAX((NSInteger)0, _childCount - 1);
+  if (_childCount == 0) {
+    _renderedImage = nil;
+    _didRasterize = NO;
+    [self updateEffectiveImage];
+  }
+}
+
+- (BOOL)hasCustomContent
+{
+  return _childCount > 0;
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  if ([self hasCustomContent] && (_tracksViewChanges || !_didRasterize)) {
+    [self renderToImage];
+  }
+}
+
+// Offscreen rasterization: the view is not in a window, so render its layer into
+// an image context rather than using -drawViewHierarchyInRect: (unreliable here).
+- (void)renderToImage
+{
+  CGSize size = self.bounds.size;
+  if (size.width <= 0 || size.height <= 0) {
+    return;
+  }
+
+  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+  _renderedImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
+    [self.layer renderInContext:rendererContext.CGContext];
+  }];
+  _didRasterize = YES;
+  [self updateEffectiveImage];
 }
 
 #pragma mark - Parent-driven map attachment
@@ -112,6 +173,33 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   [map addAnnotation:_annotation];
 }
 
+// Custom children win over the `image` prop, which wins over the default pin.
+- (void)updateEffectiveImage
+{
+  _annotation.image = [self hasCustomContent] ? _renderedImage : _propImage;
+  [self markerImageDidChange];
+}
+
+// Refresh the on-map view for an image change: swap the view class (pin↔image)
+// by rebuilding, otherwise update the image in place to avoid flicker.
+- (void)markerImageDidChange
+{
+  if (_map == nil) {
+    return;
+  }
+
+  MAAnnotationView *current = [_map viewForAnnotation:_annotation];
+  BOOL wantsImageView = _annotation.image != nil;
+  BOOL isImageView = current != nil && ![current isKindOfClass:[MAPinAnnotationView class]];
+
+  if (current == nil || wantsImageView != isImageView) {
+    [self reapplyOnMap];
+  } else if (wantsImageView) {
+    current.image = _annotation.image;
+    [_annotation applyAppearanceToView:current];
+  }
+}
+
 #pragma mark - Props
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -136,6 +224,15 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   _annotation.markerOpacity = newViewProps.opacity;
   _annotation.rotationDegrees = newViewProps.rotation;
   _annotation.zIndex = newViewProps.zIndex;
+
+  // Custom content (PR-3). When tracksViewChanges turns on, allow a re-render on
+  // the next layout pass. `tracksInfoWindowChanges` is accepted for parity but
+  // the system callout has nothing to re-rasterize here.
+  if (newViewProps.tracksViewChanges && !oldViewProps.tracksViewChanges) {
+    _didRasterize = NO;
+    [self setNeedsLayout];
+  }
+  _tracksViewChanges = newViewProps.tracksViewChanges;
 
   [self setImageUri:RNMapsMarkerNSStringFromString(newViewProps.image)];
 
@@ -169,8 +266,8 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
   _imageUri = normalized;
 
   if (normalized == nil) {
-    _annotation.image = nil;
-    [self reapplyOnMap];
+    _propImage = nil;
+    [self updateEffectiveImage];
     return;
   }
 
@@ -182,8 +279,8 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
       return;
     }
 
-    strongSelf.annotation.image = image;
-    [strongSelf reapplyOnMap];
+    strongSelf->_propImage = image;
+    [strongSelf updateEffectiveImage];
   });
 }
 
@@ -191,6 +288,11 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 {
   [self removeFromMap];
   _imageUri = nil;
+  _propImage = nil;
+  _renderedImage = nil;
+  _childCount = 0;
+  _didRasterize = NO;
+  _tracksViewChanges = YES;
   _annotation = [RNMapsMarkerAnnotation new];
   _annotation.marker = self;
   [super prepareForRecycle];
