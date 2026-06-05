@@ -263,6 +263,8 @@ class MapView(private val reactContext: ThemedReactContext) :
       is PolylineView -> child.attachTo(aMap)
       is PolygonView -> child.attachTo(aMap)
       is CircleView -> child.attachTo(aMap)
+      is UrlTileView -> child.attachTo(aMap)
+      is LocalTileView -> child.attachTo(aMap)
       else -> return
     }
     features.add(index.coerceIn(0, features.size), child)
@@ -278,6 +280,8 @@ class MapView(private val reactContext: ThemedReactContext) :
       is PolylineView -> child.detach()
       is PolygonView -> child.detach()
       is CircleView -> child.detach()
+      is UrlTileView -> child.detach()
+      is LocalTileView -> child.detach()
     }
   }
 
@@ -390,6 +394,8 @@ class MapView(private val reactContext: ThemedReactContext) :
         is PolylineView -> child.detach()
         is PolygonView -> child.detach()
         is CircleView -> child.detach()
+        is UrlTileView -> child.detach()
+        is LocalTileView -> child.detach()
       }
     }
     features.clear()
