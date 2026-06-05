@@ -4,6 +4,7 @@ import NativeMarker, { Commands } from './MarkerNativeComponent';
 import type { NativeMarkerPressEvent } from './MarkerNativeComponent';
 import { MapCoordinateSystemContext } from './MapContext';
 import { fromProviderCoordinate, toProviderCoordinate } from './coordinate';
+import { markerColorToString } from './markerUtils';
 import type {
   CalloutPressEvent,
   MapMarkerHandle,
@@ -14,10 +15,6 @@ import type {
 // RNM default marker anchor: bottom-center. Native applies it as-is, so we send
 // the explicit default whenever the user did not supply one.
 const DEFAULT_ANCHOR = { x: 0.5, y: 1 } as const;
-
-function markerColorToString(color: MarkerProps['pinColor']) {
-  return typeof color === 'string' ? color : undefined;
-}
 
 // Resolve an RNM image source (require()'d asset, { uri }, or an array of
 // resolutions) into the plain uri string the native layer loads.

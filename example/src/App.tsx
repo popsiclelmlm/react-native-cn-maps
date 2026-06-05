@@ -11,6 +11,7 @@ import MapView, { Marker } from 'react-native-cn-maps';
 import type {
   Camera,
   LatLng,
+  MapMarkerHandle,
   MapType,
   MapViewHandle,
   Region,
@@ -35,6 +36,16 @@ const BEIJING_CAMERA: Camera = {
 
 const THE_BUND: LatLng = { latitude: 31.2397, longitude: 121.499 };
 const PEOPLES_SQUARE: LatLng = { latitude: 31.2286, longitude: 121.4753 };
+
+// M3 marker gallery: one of each marker flavor (default / colored / image /
+// custom React view / draggable) plus ref-command targets.
+const DEFAULT_PIN: LatLng = { latitude: 31.2204, longitude: 121.46 };
+const IMAGE_MARKER: LatLng = { latitude: 31.235, longitude: 121.468 };
+const CUSTOM_MARKER: LatLng = { latitude: 31.2246, longitude: 121.49 };
+const DRAGGABLE_MARKER: LatLng = { latitude: 31.218, longitude: 121.478 };
+const ANIMATE_TARGET: LatLng = { latitude: 31.232, longitude: 121.452 };
+
+const TINY_LOGO = 'https://reactnative.dev/img/tiny_logo.png';
 
 const MAP_TYPES: MapType[] = ['standard', 'satellite', 'hybrid'];
 
@@ -80,6 +91,8 @@ const coordText = (c: LatLng) => `${fmt(c.latitude)}, ${fmt(c.longitude)}`;
 export default function App() {
   const mapRef = useRef<MapViewHandle>(null);
   const panCount = useRef(0);
+  const customMarkerRef = useRef<MapMarkerHandle>(null);
+  const draggableMarkerRef = useRef<MapMarkerHandle>(null);
 
   const [mapType, setMapType] = useState<MapType>('standard');
   const [dark, setDark] = useState(false);
@@ -88,6 +101,9 @@ export default function App() {
   const [log, setLog] = useState<string[]>([]);
   const [pan, setPan] = useState('onPanDrag —');
   const [regionText, setRegionText] = useState('region —');
+  // Bumping this re-renders the custom marker's content; with tracksViewChanges
+  // on, the marker re-rasterizes to reflect it.
+  const [customLabel, setCustomLabel] = useState(0);
 
   const pushLog = useCallback((line: string) => {
     setLog((prev) => [line, ...prev].slice(0, 7));
@@ -140,7 +156,9 @@ export default function App() {
         pitchEnabled={flags.pitchEnabled}
         onMapReady={() => pushLog('onMapReady')}
         onMapLoaded={() => pushLog('onMapLoaded')}
-        onPress={(e) => pushLog(`onPress ${coordText(e.nativeEvent.coordinate)}`)}
+        onPress={(e) =>
+          pushLog(`onPress ${coordText(e.nativeEvent.coordinate)}`)
+        }
         onLongPress={(e) =>
           pushLog(`onLongPress ${coordText(e.nativeEvent.coordinate)}`)
         }
@@ -190,6 +208,56 @@ export default function App() {
           pinColor="purple"
           onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
         />
+
+        {/* Default pin (no pinColor / image). */}
+        <Marker
+          coordinate={DEFAULT_PIN}
+          identifier="default"
+          title="Default pin"
+          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
+        />
+
+        {/* Image marker resolved from a remote uri. */}
+        <Marker
+          coordinate={IMAGE_MARKER}
+          identifier="image"
+          title="Image marker"
+          image={{ uri: TINY_LOGO }}
+          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
+        />
+
+        {/* Custom React content rasterized into the icon; ref drives commands. */}
+        <Marker
+          ref={customMarkerRef}
+          coordinate={CUSTOM_MARKER}
+          identifier="custom"
+          title="Custom view"
+          tracksViewChanges
+          onSelect={(e) =>
+            pushLog(`marker onSelect ${e.nativeEvent.identifier}`)
+          }
+          onCalloutPress={() => pushLog('marker onCalloutPress custom')}
+        >
+          <View style={styles.customMarker}>
+            <Text style={styles.customMarkerText}>🚇 {customLabel}</Text>
+          </View>
+        </Marker>
+
+        {/* Draggable marker; drag + animate-command target. */}
+        <Marker
+          ref={draggableMarkerRef}
+          coordinate={DRAGGABLE_MARKER}
+          identifier="draggable"
+          title="Drag me"
+          pinColor="#1f6feb"
+          draggable
+          onDragStart={(e) =>
+            pushLog(`marker onDragStart ${coordText(e.nativeEvent.coordinate)}`)
+          }
+          onDragEnd={(e) =>
+            pushLog(`marker onDragEnd ${coordText(e.nativeEvent.coordinate)}`)
+          }
+        />
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -202,7 +270,10 @@ export default function App() {
         ))}
       </View>
 
-      <ScrollView style={styles.panel} contentContainerStyle={styles.panelInner}>
+      <ScrollView
+        style={styles.panel}
+        contentContainerStyle={styles.panelInner}
+      >
         <Text style={styles.sectionTitle}>Camera / region</Text>
         <View style={styles.buttonRow}>
           <Pressable style={styles.button} onPress={flyToBeijing}>
@@ -210,6 +281,43 @@ export default function App() {
           </Pressable>
           <Pressable style={styles.button} onPress={backToShanghai}>
             <Text style={styles.buttonText}>Back to Shanghai (animate)</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>Markers (M3)</Text>
+        <View style={styles.buttonRow}>
+          <Pressable
+            style={styles.button}
+            onPress={() => customMarkerRef.current?.showCallout()}
+          >
+            <Text style={styles.buttonText}>Show callout (custom)</Text>
+          </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={() => {
+              setCustomLabel((n) => n + 1);
+              pushLog('custom marker label bumped');
+            }}
+          >
+            <Text style={styles.buttonText}>Bump custom label</Text>
+          </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={() => customMarkerRef.current?.redraw()}
+          >
+            <Text style={styles.buttonText}>Redraw custom</Text>
+          </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={() => {
+              draggableMarkerRef.current?.animateMarkerToCoordinate(
+                ANIMATE_TARGET,
+                1000
+              );
+              pushLog('animate draggable marker');
+            }}
+          >
+            <Text style={styles.buttonText}>Animate draggable</Text>
           </Pressable>
         </View>
 
@@ -333,5 +441,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     flexShrink: 1,
+  },
+  customMarker: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: '#1f6feb',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  customMarkerText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
