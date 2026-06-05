@@ -13,6 +13,8 @@ import MapView, {
   Marker,
   Polygon,
   Polyline,
+  UrlTile,
+  setPrivacyConsent,
 } from 'react-native-cn-maps';
 import type {
   Camera,
@@ -22,6 +24,12 @@ import type {
   MapViewHandle,
   Region,
 } from 'react-native-cn-maps';
+
+// Demo only: pretend the user has already accepted the privacy policy so the
+// map SDK can initialize. Called at module load — before any <MapView> mounts.
+// A real app MUST show its privacy policy and call this only after the user
+// actually agrees.
+setPrivacyConsent({ agreed: true, contains: true, shown: true });
 
 // M2 "full prop matrix" demo: every MapView prop & event landed in M2 is wired
 // up to a live control so each can be toggled and observed on a real device.
@@ -117,6 +125,7 @@ export default function App() {
   const [mapType, setMapType] = useState<MapType>('standard');
   const [dark, setDark] = useState(false);
   const [camera, setCamera] = useState<Camera | undefined>(undefined);
+  const [showTiles, setShowTiles] = useState(false);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
   const [pan, setPan] = useState('onPanDrag —');
@@ -308,6 +317,13 @@ export default function App() {
           strokeWidth={2}
           fillColor="rgba(46,125,50,0.15)"
         />
+        {showTiles && (
+          <UrlTile
+            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maximumZ={19}
+            zIndex={-1}
+          />
+        )}
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -394,6 +410,12 @@ export default function App() {
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>userInterfaceStyle: dark</Text>
           <Switch value={dark} onValueChange={setDark} />
+        </View>
+
+        <Text style={styles.sectionTitle}>Tiles (M11)</Text>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>UrlTile: OSM raster overlay</Text>
+          <Switch value={showTiles} onValueChange={setShowTiles} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>

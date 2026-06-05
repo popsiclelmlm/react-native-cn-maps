@@ -6,6 +6,7 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.1.20"
+        amapSdkVersion = "11.2.000_loc11.2.000_sea9.8.0"
     }
     repositories {
         google()
