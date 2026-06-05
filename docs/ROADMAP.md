@@ -22,6 +22,8 @@
 
 迁移支持状态明细见 [MIGRATION_FROM_RN_MAPS.md](MIGRATION_FROM_RN_MAPS.md)。
 
+M1–M10 之后,对标 RNM example 仍缺的 API(瓦片 / Overlay / 截图 / Geojson / 热力图等)的补全计划见 [RNM_PARITY_PLAN.md](RNM_PARITY_PLAN.md)(M11+)。
+
 ## 现状评估(M0,已具备)
 
 - JS 层:`MapView` + `Marker`(stub 组件,靠 `__MAP_MARKER` 哨兵识别)。

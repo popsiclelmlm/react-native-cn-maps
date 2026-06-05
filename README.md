@@ -42,6 +42,30 @@ AMapServices.shared().apiKey = "YOUR_AMAP_IOS_KEY"
 
 The podspec depends on `AMap3DMap`, which pulls in `AMapFoundation`.
 
+## Privacy compliance (required)
+
+China map SDKs (AMap, etc.) will not initialize until the host app declares
+privacy compliance — until then the map renders **blank** (AMap logs errorCode
+`555570`). Per PIPL and app-store review, you must show your privacy policy and
+obtain the user's consent **before** initializing the map. This library never
+auto-agrees on your behalf.
+
+After the user accepts your privacy policy, call `setPrivacyConsent` **before
+mounting any `<MapView>`**:
+
+```tsx
+import { setPrivacyConsent } from 'react-native-cn-maps';
+
+// e.g. once, at app startup, after the user taps "Agree" in your dialog:
+setPrivacyConsent({ agreed: true, contains: true, shown: true });
+```
+
+- `agreed` — the user agreed to the privacy policy
+- `contains` — your privacy policy includes the map SDK's terms
+- `shown` — the privacy policy was shown to the user
+
+> Currently implemented on Android. iOS support is pending.
+
 ## Usage
 
 ```tsx

@@ -1,0 +1,159 @@
+# react-native-maps 对标补全计划
+
+> 目标:在已完成的 M1–M10 基础上,补齐 `react-native-maps`(下称 RNM)example(52 个示例)仍未覆盖的 API,使"改 import 即可迁移"的承诺尽量完整。
+>
+> 范围:仅适配国内 provider(首发高德 AMap),仅 React Native 新架构(Fabric)。Apple 专属能力(`legalLabelInsets`/`appleLogoInsets` 等)不在对标范围。
+>
+> 配套阅读:能力对照见 [MIGRATION_FROM_RN_MAPS.md](MIGRATION_FROM_RN_MAPS.md);总体路线见 [ROADMAP.md](ROADMAP.md)。
+
+## 图例
+
+✅ 完成 · 🚧 进行中 · ⏸ 暂缓 · ⬜ 未开始
+
+每个里程碑遵循全局原则:**JS 门面按 RNM 命名 → native 适配 AMap;每个里程碑必须有 example 演示页 + 至少一个单测/快照;无法 1:1 实现的能力 best-effort 映射 + `__DEV__` warning,不改 API 形状。**
+
+---
+
+## 进度总览
+
+| 里程碑 | 能力 | 优先级 | 状态 | 对标 RNM 示例 |
+|--------|------|--------|------|----------------|
+| M11 | UrlTile / LocalTile(自定义瓦片) | P0 | 🚧 | CustomTiles / CustomTilesLocal / CacheURLTiles |
+| M12 | Overlay(图片覆盖物) | P0 | ⬜ | ImageOverlayWith{Assets,URL,Bearing} |
+| M13 | takeSnapshot(地图截图) | P1 | ⬜ | TakeSnapshot |
+| M14 | Geojson(纯 JS 渲染) | P1 | ⬜ | Geojson |
+| M15 | MapView 命令补全 | P1 | ⬜ | FitToCoordinates / MapBoundaries / DisplayLatLng |
+| M16 | Polyline 渐变 + 线型补全 | P2 | ⬜ | GradientPolylines(Functional) |
+| M17 | Heatmap(热力图) | P2 | ⬜ | HeatMap |
+| M18 | WMSTile | P2 | ⬜ | WMSTiles / CacheWMSTiles |
+| M19 | 室内地图 + KML | P2 | ⏸ | IndoorMap / MapKml |
+
+> 不对标:`setNativeProps`(旧架构,Fabric 用 state)、`provider=google`、Apple 专属 insets。
+
+---
+
+## M11 — UrlTile / LocalTile(自定义瓦片) · P0
+
+**目标**:支持自定义底图瓦片(在线模板 URL + 本地文件),含离线缓存。当前两个组件均为 stub。
+
+- JS:把 `MapUrlTile` / `MapLocalTile` 从 stub 改为真 `codegenNativeComponent`,作为 `<MapView>` 子 host component。
+- props(UrlTile):`urlTemplate`(`{x}{y}{z}`)、`zIndex`、`maximumZ`/`maximumNativeZ`、`tileSize`/`doubleTileSize`、`tileCachePath`、`tileCacheMaxAge`、`offlineMode`、`opacity`。
+- props(LocalTile):`pathTemplate`(`{z}{x}{y}`)、`tileSize`、`zIndex`。
+- AMap 对应:
+  - Android:`aMap.addTileOverlay(TileOverlayOptions().tileProvider(UrlTileProvider(...)))`;本地用自定义 `TileProvider` 读文件。
+  - iOS:`MATileOverlay`(在线)/ 自定义 `MATileOverlay` 子类(本地)+ `[mapView addOverlay:]`。
+- 验收:
+  - [x] 三层落地(JS spec/门面 + Android View/Manager + iOS 组件)+ codegen/typecheck/lint/jest 通过
+  - [x] UrlTile 在线瓦片(example 演示页:OSM 栅格开关)
+  - [x] LocalTile 本地瓦片(文件系统 / assets)
+  - [x] 单测(sentinel 一致性)
+  - [ ] Android 真机验证(瓦片实际显示)
+  - [ ] iOS 真机验证
+  - [ ] `offlineMode` + 缓存路径(best-effort,待验证)
+  - 详细设计见 [M11_DESIGN.md](M11_DESIGN.md)
+
+## M12 — Overlay(图片覆盖物) · P0
+
+**目标**:把一张图片按地理 bounds 贴到地图上,支持旋转。当前为 stub。
+
+- JS:`MapOverlay` 改真组件;props:`image`(require/uri)、`bounds`(`[[neLat,neLng],[swLat,swLng]]`)、`bearing`、`opacity`、`zIndex`。
+- AMap 对应:
+  - Android:`aMap.addGroundOverlay(GroundOverlayOptions().image(...).positionFromBounds(LatLngBounds).bearing(...))`。
+  - iOS:`MAGroundOverlay`(`initWithBounds:icon:`)+ 自定义 renderer。
+- 验收:
+  - [ ] 本地图片 + URL 图片两种来源
+  - [ ] `bearing` 旋转
+  - [ ] Android / iOS 双端
+  - [ ] example 演示页 + 单测
+
+## M13 — takeSnapshot(地图截图) · P1
+
+**目标**:`mapRef.current.takeSnapshot({width,height,region,format})` → 返回图片 URI。
+
+- JS:走 M6 的 command + `onCommandResult` Promise 回传模式(返回临时文件路径或 base64)。
+- AMap 对应:
+  - Android:`aMap.getMapScreenShot(AMap.OnMapScreenShotListener)`,写入临时文件后回传路径。
+  - iOS:`[mapView takeSnapshotInRect:withCallback:]`。
+- 验收:
+  - [ ] 返回可用 URI,能 `<Image>` 显示
+  - [ ] 支持指定 region / 尺寸(best-effort)
+  - [ ] 双端 + example + 单测
+
+## M14 — Geojson(纯 JS 渲染) · P1
+
+**目标**:`<Geojson geojson={FeatureCollection} />` 渲染点/线/面。**无需新原生代码**——解析后复用已有的 Marker/Polyline/Polygon。
+
+- JS:`MapGeojson` 改为解析 GeoJSON → 渲染对应子组件;支持 `strokeColor`/`fillColor`/`strokeWidth`/`color`/`zIndex`/`markerComponent` 等覆盖样式。
+- 坐标系:按 `<MapView coordinateSystem>` 在 JS 层统一转换(沿用现有 coordinate.ts)。
+- 验收:
+  - [ ] Point / LineString / Polygon / Multi* 均渲染
+  - [ ] 样式 props 生效
+  - [ ] example 演示页 + 单测(给定 FeatureCollection 断言渲染出的子组件数量/类型)
+
+## M15 — MapView 命令补全 · P1
+
+**目标**:补齐 RNM 常用但我们还缺的 ref 命令。
+
+- `setRegion(region)` —— 即时设区域(Android `moveCamera` 无动画;iOS `setRegion:animated:NO`)。
+- `getMarkersFrames(onlyVisible)` —— 取各 marker 屏幕坐标(可基于已有 `pointForCoordinate` + marker 列表在 JS/native 组装)。
+- `setMapBoundaries(ne, sw)` —— 限制可视范围(Android `setMapStatusLimits(LatLngBounds)`;iOS `limitMapRect`/`limitRegion`)。
+- 验收:
+  - [ ] 三个命令各有 example 触发按钮
+  - [ ] 双端
+  - [ ] 单测/快照
+
+## M16 — Polyline 渐变 + 线型补全 · P2
+
+**目标**:补齐 Polyline 高级线型。
+
+- props:`strokeColors`(逐点渐变)、`lineCap`、`lineJoin`、`miterLimit`。
+- AMap 对应:
+  - Android:`PolylineOptions.colorValues(list).useGradient(true)`;线帽/连接按 SDK 支持 best-effort。
+  - iOS:`MAMultiColoredPolyline` + `MAMultiColoredPolylineRenderer`(`strokeColors`)。
+- 验收:
+  - [ ] 渐变折线显示(GradientPolylines 对标)
+  - [ ] 双端 + example + 单测
+
+## M17 — Heatmap(热力图) · P2
+
+**目标**:`<Heatmap points={[{latitude,longitude,weight}]} radius opacity gradient />`。当前为 stub。
+
+- AMap 对应:
+  - Android:`HeatmapTileProvider` + `TileOverlay`。
+  - iOS:`MAHeatMapTileOverlay`。
+- 验收:
+  - [ ] 点集 + radius + gradient 渲染
+  - [ ] 双端 + example + 单测
+
+## M18 — WMSTile · P2
+
+**目标**:WMS 瓦片图层。可作为 M11 UrlTile 的变体——JS 层按 `{minX}{minY}{maxX}{maxY}{width}{height}` 计算 bbox URL,复用瓦片通路。
+
+- props:`urlTemplate`(WMS GetMap)、`tileSize`、`maximumNativeZ`、`opacity`、缓存项、`offlineMode`。
+- 验收:
+  - [ ] WMS 图层显示
+  - [ ] 双端 + example + 单测
+
+## M19 — 室内地图 + KML · P2(暂缓)
+
+**目标**:室内楼层 + KML 导入。AMap 室内能力与 RNM 语义差异较大,KML 无原生直读,优先级最低。
+
+- 室内:`showsIndoors`(已有 prop)+ `showsIndoorLevelPicker` + `setIndoorActiveLevelIndex()` + `onIndoorBuildingFocused`。
+  - Android:`aMap.showIndoorMap(true)` + `setOnIndoorBuildingActiveListener`。
+- KML:`kmlSrc` + `onKmlReady` + `fitToElements`。AMap 无原生 KML loader → 需 JS 解析 KML 转 overlay(成本高)。
+- 验收:
+  - [ ] 室内楼层切换(若设备/SDK 支持)
+  - [ ] KML best-effort 或明确文档标注不支持
+
+---
+
+## 收尾(贯穿)
+
+- [ ] 每完成一个里程碑,更新本表状态 + [MIGRATION_FROM_RN_MAPS.md](MIGRATION_FROM_RN_MAPS.md) 支持状态(✅/⚠️/❌)。
+- [ ] example app 每个新能力新增独立演示页(对标 RNM 同名示例)。
+- [ ] 真机/模拟器编译验证(Android 已通,iOS 待首次验证)。
+- [ ] 全部 P0/P1 完成后发 0.2.0。
+
+## 建议执行顺序
+
+P0(M11 瓦片 → M12 Overlay)→ P1(M14 Geojson 最易,M13 截图,M15 命令)→ P2 视反馈穿插。其中 **M14 Geojson 几乎纯 JS、成本最低**,可作为热身先做;**M11 瓦片用户面最广**,是补全价值最高的一块。
