@@ -1,6 +1,9 @@
 package com.cnmaps
 
 import android.graphics.Color
+import android.graphics.Point
+import android.location.Location
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.widget.FrameLayout
 import com.amap.api.maps.AMap
@@ -13,6 +16,7 @@ import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.LatLngBounds
 import com.amap.api.maps.model.Marker
 import com.amap.api.maps.model.MarkerOptions
+import com.amap.api.maps.model.Poi
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.ReadableArray
@@ -33,37 +37,69 @@ data class MapRegion(
   val longitudeDelta: Double
 )
 
+// Flattened to scalars to mirror the codegen `NativeCamera` struct; JS rebuilds
+// the RNM `{ center: LatLng }` shape on the way in/out.
+data class MapCamera(
+  val latitude: Double,
+  val longitude: Double,
+  val heading: Double,
+  val pitch: Double,
+  val zoom: Double,
+  val altitude: Double
+)
+
 class MapView(private val reactContext: ThemedReactContext) :
   FrameLayout(reactContext),
   LifecycleEventListener {
   private val mapView = AMapView(reactContext)
   private val aMap: AMap
   private val markerByIdentifier = LinkedHashMap<String, Marker>()
+  private val gestureDetector: GestureDetector
   private var pendingInitialRegion: MapRegion? = null
+  private var pendingInitialCamera: MapCamera? = null
   private var didApplyInitialRegion = false
+  private var didApplyInitialCamera = false
   private var didDestroy = false
   private var isGesture = false
+  private var mapTypeProp: String? = null
+  private var userInterfaceStyleProp: String? = null
 
   init {
     addView(mapView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     mapView.onCreate(null)
     aMap = mapView.map
+    gestureDetector = GestureDetector(reactContext, GestureListener())
     reactContext.addLifecycleEventListener(this)
     configureMap()
   }
 
   fun setInitialRegion(region: MapRegion?) {
-    if (region == null || didApplyInitialRegion) {
+    if (region == null || didApplyInitialRegion || didApplyInitialCamera) {
       return
     }
 
     pendingInitialRegion = region
-    applyPendingInitialRegion()
+    applyPendingInitialCamera()
   }
 
   fun setRegion(region: MapRegion?) {
     if (region != null) {
       moveToRegion(region, animated = false)
+    }
+  }
+
+  fun setInitialCamera(camera: MapCamera?) {
+    if (camera == null || didApplyInitialCamera) {
+      return
+    }
+
+    pendingInitialCamera = camera
+    applyPendingInitialCamera()
+  }
+
+  fun setCamera(camera: MapCamera?) {
+    if (camera != null) {
+      moveToCamera(camera, animated = false)
     }
   }
 
@@ -103,12 +139,46 @@ class MapView(private val reactContext: ThemedReactContext) :
     }
   }
 
-  fun setShowsUserLocation(value: Boolean) {
-    aMap.isMyLocationEnabled = value
+  // Appearance ----------------------------------------------------------------
+
+  fun setMapType(mapType: String?) {
+    mapTypeProp = mapType
+    applyMapType()
   }
+
+  fun setUserInterfaceStyle(userInterfaceStyle: String?) {
+    userInterfaceStyleProp = userInterfaceStyle
+    applyMapType()
+  }
+
+  private fun applyMapType() {
+    // AMap Android has no dedicated hybrid/terrain/none surface; everything that
+    // is not explicitly satellite collapses to the standard basemap (best-effort).
+    aMap.mapType = when {
+      mapTypeProp == "satellite" || mapTypeProp == "hybrid" -> AMap.MAP_TYPE_SATELLITE
+      userInterfaceStyleProp == "dark" -> AMap.MAP_TYPE_NIGHT
+      else -> AMap.MAP_TYPE_NORMAL
+    }
+  }
+
+  // Zoom ----------------------------------------------------------------------
+
+  fun setMinZoomLevel(value: Double) {
+    aMap.minZoomLevel = value.toFloat()
+  }
+
+  fun setMaxZoomLevel(value: Double) {
+    aMap.maxZoomLevel = value.toFloat()
+  }
+
+  // Gesture toggles -----------------------------------------------------------
 
   fun setZoomEnabled(value: Boolean) {
     aMap.uiSettings.isZoomGesturesEnabled = value
+  }
+
+  fun setZoomControlEnabled(value: Boolean) {
+    aMap.uiSettings.isZoomControlsEnabled = value
   }
 
   fun setScrollEnabled(value: Boolean) {
@@ -121,6 +191,44 @@ class MapView(private val reactContext: ThemedReactContext) :
 
   fun setPitchEnabled(value: Boolean) {
     aMap.uiSettings.isTiltGesturesEnabled = value
+  }
+
+  // Display toggles -----------------------------------------------------------
+
+  fun setShowsUserLocation(value: Boolean) {
+    aMap.isMyLocationEnabled = value
+  }
+
+  fun setShowsMyLocationButton(value: Boolean) {
+    aMap.uiSettings.isMyLocationButtonEnabled = value
+  }
+
+  fun setShowsCompass(value: Boolean) {
+    aMap.uiSettings.isCompassEnabled = value
+  }
+
+  fun setShowsScale(value: Boolean) {
+    aMap.uiSettings.isScaleControlsEnabled = value
+  }
+
+  fun setShowsTraffic(value: Boolean) {
+    aMap.isTrafficEnabled = value
+  }
+
+  fun setShowsBuildings(value: Boolean) {
+    aMap.showBuildings(value)
+  }
+
+  fun setShowsIndoors(value: Boolean) {
+    aMap.showIndoorMap(value)
+  }
+
+  fun setShowsIndoorLevelPicker(value: Boolean) {
+    aMap.uiSettings.isIndoorSwitchEnabled = value
+  }
+
+  fun setShowsPointsOfInterest(value: Boolean) {
+    aMap.showMapText(value)
   }
 
   fun destroy() {
@@ -153,18 +261,24 @@ class MapView(private val reactContext: ThemedReactContext) :
 
   override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
     super.onSizeChanged(width, height, oldWidth, oldHeight)
-    applyPendingInitialRegion()
+    applyPendingInitialCamera()
   }
 
   private fun configureMap() {
     aMap.uiSettings.isZoomControlsEnabled = false
 
+    // onPanDrag / onDoublePress have no first-class AMap callback, so they ride
+    // on a GestureDetector fed by the raw touch stream (alongside AMap's own
+    // gesture handling — the touch listener is observe-only).
     aMap.setOnMapTouchListener { event ->
-      if (
-        event?.actionMasked == MotionEvent.ACTION_DOWN ||
-        event?.actionMasked == MotionEvent.ACTION_MOVE
-      ) {
-        isGesture = true
+      if (event != null) {
+        if (
+          event.actionMasked == MotionEvent.ACTION_DOWN ||
+          event.actionMasked == MotionEvent.ACTION_MOVE
+        ) {
+          isGesture = true
+        }
+        gestureDetector.onTouchEvent(event)
       }
     }
 
@@ -181,6 +295,27 @@ class MapView(private val reactContext: ThemedReactContext) :
       }
     )
 
+    aMap.setOnMapLoadedListener {
+      dispatchEvent(SimpleEvent(surfaceId(), id, "topMapReady"))
+      dispatchEvent(SimpleEvent(surfaceId(), id, "topMapLoaded"))
+    }
+
+    aMap.setOnMapClickListener { latLng ->
+      latLng?.let { sendPressEvent("topPress", it) }
+    }
+
+    aMap.setOnMapLongClickListener { latLng ->
+      latLng?.let { sendPressEvent("topLongPress", it) }
+    }
+
+    aMap.setOnPOIClickListener { poi ->
+      poi?.let { sendPoiClickEvent(it) }
+    }
+
+    aMap.setOnMyLocationChangeListener { location ->
+      location?.let { sendUserLocationChangeEvent(it) }
+    }
+
     aMap.setOnMarkerClickListener { marker ->
       val identifier = marker.`object` as? String ?: return@setOnMarkerClickListener false
       sendMarkerPressEvent(identifier, marker.position)
@@ -188,16 +323,41 @@ class MapView(private val reactContext: ThemedReactContext) :
     }
   }
 
-  private fun applyPendingInitialRegion() {
-    val region = pendingInitialRegion ?: return
+  private inner class GestureListener : GestureDetector.SimpleOnGestureListener() {
+    override fun onDoubleTap(event: MotionEvent): Boolean {
+      coordinateForTouch(event)?.let { sendPressEvent("topDoublePress", it, event.x, event.y) }
+      return false
+    }
 
+    override fun onScroll(
+      e1: MotionEvent?,
+      e2: MotionEvent,
+      distanceX: Float,
+      distanceY: Float
+    ): Boolean {
+      coordinateForTouch(e2)?.let { sendPressEvent("topPanDrag", it, e2.x, e2.y) }
+      return false
+    }
+  }
+
+  private fun applyPendingInitialCamera() {
     if (width <= 0 || height <= 0) {
       return
     }
 
-    didApplyInitialRegion = true
-    pendingInitialRegion = null
-    moveToRegion(region, animated = false)
+    pendingInitialRegion?.let { region ->
+      pendingInitialRegion = null
+      didApplyInitialRegion = true
+      moveToRegion(region, animated = false)
+    }
+
+    // A camera takes precedence over a region (RNM semantics), so it is applied
+    // last and overwrites the region setup.
+    pendingInitialCamera?.let { camera ->
+      pendingInitialCamera = null
+      didApplyInitialCamera = true
+      moveToCamera(camera, animated = false)
+    }
   }
 
   private fun moveToRegion(region: MapRegion, animated: Boolean, duration: Int = 0) {
@@ -221,6 +381,26 @@ class MapView(private val reactContext: ThemedReactContext) :
     }
   }
 
+  private fun moveToCamera(camera: MapCamera, animated: Boolean, duration: Int = 0) {
+    val applyCamera = Runnable {
+      // A zero/unset zoom means "keep current"; the flattened struct defaults to 0.
+      val zoom = if (camera.zoom > 0) camera.zoom.toFloat() else aMap.cameraPosition.zoom
+      val position = CameraPosition(
+        LatLng(camera.latitude, camera.longitude),
+        zoom,
+        camera.pitch.toFloat(),
+        camera.heading.toFloat()
+      )
+      applyCameraUpdate(CameraUpdateFactory.newCameraPosition(position), animated, duration)
+    }
+
+    if (width <= 0 || height <= 0) {
+      post(applyCamera)
+    } else {
+      applyCamera.run()
+    }
+  }
+
   private fun applyCameraUpdate(update: CameraUpdate, animated: Boolean, duration: Int) {
     if (animated) {
       aMap.animateCamera(update, duration.toLong(), null)
@@ -229,32 +409,95 @@ class MapView(private val reactContext: ThemedReactContext) :
     }
   }
 
-  private fun sendRegionEvent(eventName: String, gesture: Boolean) {
+  private fun coordinateForTouch(event: MotionEvent): LatLng? {
+    return runCatching {
+      aMap.projection.fromScreenLocation(Point(event.x.toInt(), event.y.toInt()))
+    }.getOrNull()
+  }
+
+  private fun screenPointFor(coordinate: LatLng): Point? {
+    return runCatching {
+      aMap.projection.toScreenLocation(coordinate)
+    }.getOrNull()
+  }
+
+  private fun surfaceId(): Int = UIManagerHelper.getSurfaceId(this)
+
+  private fun dispatchEvent(event: Event<*>) {
     if (id == NO_ID) {
       return
     }
 
+    UIManagerHelper.getEventDispatcher(reactContext)?.dispatchEvent(event)
+  }
+
+  private fun sendRegionEvent(eventName: String, gesture: Boolean) {
     currentRegion()?.let { region ->
-      UIManagerHelper.getEventDispatcher(reactContext)
-        ?.dispatchEvent(RegionEvent(UIManagerHelper.getSurfaceId(this), id, eventName, region, gesture))
+      dispatchEvent(RegionEvent(surfaceId(), id, eventName, region, gesture))
     }
   }
 
-  private fun sendMarkerPressEvent(identifier: String, coordinate: LatLng) {
-    if (id == NO_ID) {
-      return
+  private fun sendPressEvent(
+    eventName: String,
+    coordinate: LatLng,
+    x: Float? = null,
+    y: Float? = null
+  ) {
+    // Report the touch position in RN's coordinate space (dp), mirroring how
+    // gesture coordinates flow through the JS facade untouched.
+    val density = resources.displayMetrics.density
+    val point = if (x != null && y != null) {
+      Point(x.toInt(), y.toInt())
+    } else {
+      screenPointFor(coordinate)
     }
 
-    UIManagerHelper.getEventDispatcher(reactContext)
-      ?.dispatchEvent(
-        MarkerPressEvent(
-          UIManagerHelper.getSurfaceId(this),
-          id,
-          identifier,
-          coordinate.latitude,
-          coordinate.longitude
-        )
+    dispatchEvent(
+      PressEvent(
+        surfaceId(),
+        id,
+        eventName,
+        coordinate.latitude,
+        coordinate.longitude,
+        (point?.x ?: 0) / density,
+        (point?.y ?: 0) / density
       )
+    )
+  }
+
+  private fun sendPoiClickEvent(poi: Poi) {
+    val coordinate = poi.coordinate ?: return
+    val density = resources.displayMetrics.density
+    val point = screenPointFor(coordinate)
+
+    dispatchEvent(
+      PoiClickEvent(
+        surfaceId(),
+        id,
+        poi.poiId,
+        poi.name,
+        coordinate.latitude,
+        coordinate.longitude,
+        (point?.x ?: 0) / density,
+        (point?.y ?: 0) / density
+      )
+    )
+  }
+
+  private fun sendUserLocationChangeEvent(location: Location) {
+    dispatchEvent(UserLocationChangeEvent(surfaceId(), id, location))
+  }
+
+  private fun sendMarkerPressEvent(identifier: String, coordinate: LatLng) {
+    dispatchEvent(
+      MarkerPressEvent(
+        surfaceId(),
+        id,
+        identifier,
+        coordinate.latitude,
+        coordinate.longitude
+      )
+    )
   }
 
   private fun currentRegion(): MapRegion? {
@@ -335,6 +578,111 @@ class MapView(private val reactContext: ThemedReactContext) :
           }
         )
         putBoolean("isGesture", isGesture)
+      }
+  }
+
+  // onMapReady / onMapLoaded carry no payload.
+  private class SimpleEvent(
+    surfaceId: Int,
+    viewId: Int,
+    private val rnEventName: String
+  ) : Event<SimpleEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = rnEventName
+
+    override fun getEventData(): WritableMap = Arguments.createMap()
+  }
+
+  // Shared by onPress / onLongPress / onDoublePress / onPanDrag.
+  private class PressEvent(
+    surfaceId: Int,
+    viewId: Int,
+    private val rnEventName: String,
+    private val latitude: Double,
+    private val longitude: Double,
+    private val x: Float,
+    private val y: Float
+  ) : Event<PressEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = rnEventName
+
+    override fun canCoalesce(): Boolean = rnEventName == "topPanDrag"
+
+    override fun getEventData(): WritableMap =
+      Arguments.createMap().apply {
+        putMap(
+          "coordinate",
+          Arguments.createMap().apply {
+            putDouble("latitude", latitude)
+            putDouble("longitude", longitude)
+          }
+        )
+        putMap(
+          "position",
+          Arguments.createMap().apply {
+            putDouble("x", x.toDouble())
+            putDouble("y", y.toDouble())
+          }
+        )
+      }
+  }
+
+  private class PoiClickEvent(
+    surfaceId: Int,
+    viewId: Int,
+    private val placeId: String?,
+    private val name: String?,
+    private val latitude: Double,
+    private val longitude: Double,
+    private val x: Float,
+    private val y: Float
+  ) : Event<PoiClickEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = "topPoiClick"
+
+    override fun canCoalesce(): Boolean = false
+
+    override fun getEventData(): WritableMap =
+      Arguments.createMap().apply {
+        placeId?.let { putString("placeId", it) }
+        name?.let { putString("name", it) }
+        putMap(
+          "coordinate",
+          Arguments.createMap().apply {
+            putDouble("latitude", latitude)
+            putDouble("longitude", longitude)
+          }
+        )
+        putMap(
+          "position",
+          Arguments.createMap().apply {
+            putDouble("x", x.toDouble())
+            putDouble("y", y.toDouble())
+          }
+        )
+      }
+  }
+
+  private class UserLocationChangeEvent(
+    surfaceId: Int,
+    viewId: Int,
+    private val location: Location
+  ) : Event<UserLocationChangeEvent>(surfaceId, viewId) {
+    override fun getEventName(): String = "topUserLocationChange"
+
+    override fun canCoalesce(): Boolean = false
+
+    override fun getEventData(): WritableMap =
+      Arguments.createMap().apply {
+        putMap(
+          "coordinate",
+          Arguments.createMap().apply {
+            putDouble("latitude", location.latitude)
+            putDouble("longitude", location.longitude)
+            putDouble("altitude", location.altitude)
+            putDouble("accuracy", location.accuracy.toDouble())
+            putDouble("speed", location.speed.toDouble())
+            putDouble("heading", location.bearing.toDouble())
+            putBoolean("isFromMockProvider", location.isFromMockProvider)
+          }
+        )
       }
   }
 
