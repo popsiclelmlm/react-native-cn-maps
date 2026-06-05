@@ -1,5 +1,6 @@
 package com.cnmaps
 
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewGroupManager
@@ -55,6 +56,59 @@ class MarkerManager : ViewGroupManager<MarkerView>(),
   @ReactProp(name = "draggable", defaultBoolean = false)
   override fun setDraggable(view: MarkerView, value: Boolean) {
     view.setMarkerDraggable(value)
+  }
+
+  // Appearance (PR-2) ----------------------------------------------------------
+
+  @ReactProp(name = "image")
+  override fun setImage(view: MarkerView, value: String?) {
+    view.setImage(value)
+  }
+
+  @ReactProp(name = "anchor")
+  override fun setAnchor(view: MarkerView, value: ReadableMap?) {
+    if (value != null) {
+      view.setAnchorPoint(
+        value.pointComponent("x"),
+        value.pointComponent("y")
+      )
+    }
+  }
+
+  @ReactProp(name = "centerOffset")
+  override fun setCenterOffset(view: MarkerView, value: ReadableMap?) {
+    // iOS annotation-view offset; no AMap-Android equivalent (anchor positions
+    // the marker). Best-effort ignore.
+  }
+
+  @ReactProp(name = "calloutAnchor")
+  override fun setCalloutAnchor(view: MarkerView, value: ReadableMap?) {
+    // iOS callout offset; AMap Android's info window offset is not settable.
+    // Best-effort ignore.
+  }
+
+  @ReactProp(name = "opacity", defaultDouble = 1.0)
+  override fun setOpacity(view: MarkerView, value: Double) {
+    view.setOpacity(value.toFloat())
+  }
+
+  @ReactProp(name = "rotation", defaultDouble = 0.0)
+  override fun setRotation(view: MarkerView, value: Double) {
+    view.setRotationDegrees(value.toFloat())
+  }
+
+  @ReactProp(name = "flat", defaultBoolean = false)
+  override fun setFlat(view: MarkerView, value: Boolean) {
+    view.setFlatMarker(value)
+  }
+
+  @ReactProp(name = "zIndex", defaultDouble = 0.0)
+  override fun setZIndex(view: MarkerView, value: Double) {
+    view.setZIndexValue(value.toFloat())
+  }
+
+  private fun ReadableMap.pointComponent(key: String): Float {
+    return if (hasKey(key) && !isNull(key)) getDouble(key).toFloat() else 0f
   }
 
   companion object {

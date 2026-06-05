@@ -1,13 +1,28 @@
 import React from 'react';
-import { Animated, type NativeSyntheticEvent } from 'react-native';
+import { Animated, Image, type NativeSyntheticEvent } from 'react-native';
 import NativeMarker from './MarkerNativeComponent';
 import type { NativeMarkerPressEvent } from './MarkerNativeComponent';
 import { MapCoordinateSystemContext } from './MapContext';
 import { fromProviderCoordinate, toProviderCoordinate } from './coordinate';
-import type { MarkerPressEvent, MarkerProps } from './types';
+import type { MarkerImageSource, MarkerPressEvent, MarkerProps } from './types';
+
+// RNM default marker anchor: bottom-center. Native applies it as-is, so we send
+// the explicit default whenever the user did not supply one.
+const DEFAULT_ANCHOR = { x: 0.5, y: 1 } as const;
 
 function markerColorToString(color: MarkerProps['pinColor']) {
   return typeof color === 'string' ? color : undefined;
+}
+
+// Resolve an RNM image source (require()'d asset, { uri }, or an array of
+// resolutions) into the plain uri string the native layer loads.
+function resolveImageUri(source: MarkerImageSource | undefined) {
+  if (source == null) {
+    return undefined;
+  }
+
+  const candidate = Array.isArray(source) ? source[0] : source;
+  return Image.resolveAssetSource(candidate)?.uri;
 }
 
 /**
@@ -20,10 +35,8 @@ function markerColorToString(color: MarkerProps['pinColor']) {
  * MapView to this per-marker child.
  */
 function MarkerComponent(props: MarkerProps) {
-  // M3 PR-1 ships the minimal prop set proven against M2 behavior. The richer
-  // appearance / drag / command / custom-content surface (image, anchor, zIndex,
-  // drag events, children…) lands in later M3 PRs; props not listed here are
-  // intentionally ignored for now.
+  // PR-1 + PR-2 surface. Custom React content (children), drag/select events and
+  // ref commands arrive in later M3 PRs; props not listed here are still ignored.
   const {
     coordinate,
     identifier,
@@ -31,11 +44,22 @@ function MarkerComponent(props: MarkerProps) {
     description,
     pinColor,
     draggable,
+    image,
+    icon,
+    anchor,
+    centerOffset,
+    calloutAnchor,
+    opacity,
+    rotation,
+    flat,
+    zIndex,
     onPress,
   } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
   const providerCoordinate = toProviderCoordinate(coordinate, coordinateSystem);
+  // RNM keeps `image` and `icon` as aliases for the same custom marker bitmap.
+  const imageUri = resolveImageUri(image ?? icon);
 
   const handlePress = React.useCallback(
     (event: NativeSyntheticEvent<NativeMarkerPressEvent>) => {
@@ -61,6 +85,14 @@ function MarkerComponent(props: MarkerProps) {
       description={description}
       pinColor={markerColorToString(pinColor)}
       draggable={draggable}
+      image={imageUri}
+      anchor={anchor ?? DEFAULT_ANCHOR}
+      centerOffset={centerOffset}
+      calloutAnchor={calloutAnchor}
+      opacity={opacity}
+      rotation={rotation}
+      flat={flat}
+      zIndex={zIndex}
       onPress={onPress ? handlePress : undefined}
     />
   );

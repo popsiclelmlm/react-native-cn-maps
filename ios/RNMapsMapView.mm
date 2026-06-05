@@ -458,23 +458,36 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
     return nil;
   }
 
-  static NSString *reuseIdentifier = @"RNMapsMarker";
-  MAPinAnnotationView *annotationView =
-    (MAPinAnnotationView *)[mapView dequeueReusableAnnotationViewWithIdentifier:reuseIdentifier];
-
-  if (annotationView == nil) {
-    annotationView = [[MAPinAnnotationView alloc] initWithAnnotation:annotation reuseIdentifier:reuseIdentifier];
-  } else {
-    annotationView.annotation = annotation;
-  }
-
   RNMapsMarkerAnnotation *marker = (RNMapsMarkerAnnotation *)annotation;
-  annotationView.canShowCallout = YES;
-  annotationView.draggable = marker.draggable;
 
-  if (marker.pinColor != nil) {
-    annotationView.pinColor = RNMapsPinColor(marker.pinColor);
+  MAAnnotationView *annotationView;
+  if (marker.image != nil) {
+    // Custom image marker: a plain MAAnnotationView carrying the loaded image.
+    static NSString *imageReuseIdentifier = @"RNMapsMarkerImage";
+    annotationView = [mapView dequeueReusableAnnotationViewWithIdentifier:imageReuseIdentifier];
+    if (annotationView == nil) {
+      annotationView = [[MAAnnotationView alloc] initWithAnnotation:marker reuseIdentifier:imageReuseIdentifier];
+    } else {
+      annotationView.annotation = marker;
+    }
+    annotationView.image = marker.image;
+  } else {
+    // Default pin (optionally color-tinted).
+    static NSString *pinReuseIdentifier = @"RNMapsMarkerPin";
+    MAPinAnnotationView *pinView =
+      (MAPinAnnotationView *)[mapView dequeueReusableAnnotationViewWithIdentifier:pinReuseIdentifier];
+    if (pinView == nil) {
+      pinView = [[MAPinAnnotationView alloc] initWithAnnotation:marker reuseIdentifier:pinReuseIdentifier];
+    } else {
+      pinView.annotation = marker;
+    }
+    if (marker.pinColor != nil) {
+      pinView.pinColor = RNMapsPinColor(marker.pinColor);
+    }
+    annotationView = pinView;
   }
+
+  [marker applyAppearanceToView:annotationView];
 
   return annotationView;
 }
