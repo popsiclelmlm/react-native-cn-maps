@@ -556,3 +556,140 @@ export type MapViewHandle = {
   addressForCoordinate?: (coordinate: LatLng) => Promise<Address>;
   takeSnapshot?: (options?: SnapshotOptions) => Promise<string>;
 };
+
+// ---------- react-native-maps parity aliases ----------
+//
+// react-native-maps ships a handful of type names that this library renamed or
+// did not yet expose. They are re-exported here (as thin aliases over the
+// canonical CN types) so that code migrating from react-native-maps only has to
+// change its import path. Prefer the canonical names above in new CN code.
+
+/** RNM name for {@link MapProvider}. */
+export type Provider = MapProvider;
+
+/** RNM name for {@link RegionChangeEvent}. */
+export type ChangeEvent = RegionChangeEvent;
+
+/** RNM name for {@link FitToCoordinatesOptions}. */
+export type FitToOptions = FitToCoordinatesOptions;
+
+/** RNM rectangle helper used by callout/marker frames. */
+export type Frame = Point & {
+  width: number;
+  height: number;
+};
+
+/** RNM generic native-event envelope. Structurally compatible with {@link MapEvent}. */
+export type ClickEvent<T = Record<string, never>> = MapEvent<
+  { coordinate: LatLng; position: Point } & T
+>;
+
+export type PolygonPressEvent = MapEvent<{
+  action: 'polygon-press';
+  id?: string;
+  coordinate?: LatLng;
+  position?: Point;
+}>;
+
+export type IndoorLevel = {
+  index: number;
+  name: string;
+  shortName: string;
+};
+
+export type ActiveIndoorLevel = {
+  activeLevelIndex: number;
+  name: string;
+  shortName: string;
+};
+
+export type IndoorBuilding = {
+  underground: boolean;
+  activeLevelIndex: number;
+  levels: ReadonlyArray<IndoorLevel>;
+};
+
+export type CameraZoomRange = {
+  minCenterCoordinateDistance?: number;
+  maxCenterCoordinateDistance?: number;
+  animated?: boolean;
+};
+
+/**
+ * Apple Maps points-of-interest categories, used by the `pointsOfInterestFilter`
+ * prop. Mirrors react-native-maps' `MKPointOfInterestCategoryType`.
+ */
+export type MKPointOfInterestCategoryType =
+  | 'museum'
+  | 'musicVenue'
+  | 'theater'
+  | 'library'
+  | 'planetarium'
+  | 'school'
+  | 'university'
+  | 'movieTheater'
+  | 'nightlife'
+  | 'fireStation'
+  | 'hospital'
+  | 'pharmacy'
+  | 'police'
+  | 'castle'
+  | 'fortress'
+  | 'landmark'
+  | 'nationalMonument'
+  | 'bakery'
+  | 'brewery'
+  | 'cafe'
+  | 'distillery'
+  | 'foodMarket'
+  | 'restaurant'
+  | 'winery'
+  | 'animalService'
+  | 'atm'
+  | 'automotiveRepair'
+  | 'bank'
+  | 'beauty'
+  | 'evCharger'
+  | 'fitnessCenter'
+  | 'laundry'
+  | 'mailbox'
+  | 'postOffice'
+  | 'restroom'
+  | 'spa'
+  | 'store'
+  | 'amusementPark'
+  | 'aquarium'
+  | 'beach'
+  | 'campground'
+  | 'fairground'
+  | 'marina'
+  | 'nationalPark'
+  | 'park'
+  | 'rvPark'
+  | 'zoo'
+  | 'baseball'
+  | 'basketball'
+  | 'bowling'
+  | 'goKart'
+  | 'golf'
+  | 'hiking'
+  | 'miniGolf'
+  | 'rockClimbing'
+  | 'skatePark'
+  | 'skating'
+  | 'skiing'
+  | 'soccer'
+  | 'stadium'
+  | 'tennis'
+  | 'volleyball'
+  | 'airport'
+  | 'carRental'
+  | 'conventionCenter'
+  | 'gasStation'
+  | 'hotel'
+  | 'parking'
+  | 'publicTransport'
+  | 'fishing'
+  | 'kayaking'
+  | 'surfing'
+  | 'swimming';

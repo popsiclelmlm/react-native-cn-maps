@@ -1,5 +1,5 @@
 import React from 'react';
-import type { NativeSyntheticEvent } from 'react-native';
+import { Animated, type NativeSyntheticEvent } from 'react-native';
 import NativeMapView, { Commands } from './MapViewNativeComponent';
 import {
   fromProviderCoordinate,
@@ -199,3 +199,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
     );
   }
 );
+
+/**
+ * `Animated`-wrapped MapView. react-native-maps exposes the same value as both
+ * the package-level `Animated` export and the `MapView.Animated` static, so we
+ * mirror both for drop-in import parity.
+ */
+export const AnimatedMapView = Animated.createAnimatedComponent(MapView);
+
+(MapView as typeof MapView & { Animated: typeof AnimatedMapView }).Animated =
+  AnimatedMapView;
