@@ -22,7 +22,7 @@ export type NativeMarkerPoint = Readonly<{
 }>;
 
 // M3 PR-1 landed the minimal prop set; PR-2 adds the static-appearance surface
-// (image, anchor, centerOffset, calloutAnchor, opacity, rotation, flat, zIndex).
+// (image, anchor, centerOffset, calloutAnchor, opacity, rotation, flat, overlayZIndex).
 // Custom React content, drag/select events and ref commands arrive in PR-3/PR-4.
 export interface NativeProps extends ViewProps {
   identifier?: string;
@@ -44,7 +44,7 @@ export interface NativeProps extends ViewProps {
   opacity?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
   rotation?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
   flat?: CodegenTypes.WithDefault<boolean, false>;
-  zIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
+  overlayZIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
 
   // Custom React content (PR-3). When the marker has children they render
   // offscreen and are rasterized into the marker icon. `tracksViewChanges`
@@ -57,7 +57,11 @@ export interface NativeProps extends ViewProps {
   // report the new position); the JS facade re-attaches `identifier` and converts
   // the coordinate back out of the provider system.
   onPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
-  onSelect?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  // `onSelect` collides with React Native's built-in bubbling `topSelect`
+  // (BaseViewConfig registers it globally with bubbled name `onSelect`), so it
+  // must be declared bubbling — a Direct handler triggers the runtime invariant
+  // "Event cannot be both direct and bubbling: topSelect".
+  onSelect?: CodegenTypes.BubblingEventHandler<NativeMarkerPressEvent>;
   onDeselect?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
   onCalloutPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
   onDragStart?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
