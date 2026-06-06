@@ -24,10 +24,11 @@ Add your AMap Android key in the host app manifest:
 </application>
 ```
 
-The Android SDK version can be overridden from the host Gradle project:
+The library pins a known-good AMap SDK version. To override it from the host
+Gradle project (e.g. to track a newer SDK):
 
 ```gradle
-ext.amapSdkVersion = "latest.integration"
+ext.amapSdkVersion = "11.2.000_loc11.2.000_sea9.8.0"
 ```
 
 If you use `<Heatmap>`, enable Jetifier in the host app's `android/gradle.properties`
@@ -120,19 +121,42 @@ import MapView, { Marker } from 'react-native-cn-maps';
 </MapView>;
 ```
 
-## MVP Scope
+## Features
 
-- `MapView`
-- `Marker`
-- `initialRegion`
-- controlled `region`
-- `onRegionChange`
-- `onRegionChangeComplete`
-- marker `onPress`
-- `animateToRegion`
-- `coordinateSystem="gcj02" | "wgs84"`
+`react-native-cn-maps` mirrors the `react-native-maps` API surface, so most code
+ports over by changing the import. Verified on **both Android and iOS** (device +
+simulator).
 
-`Polyline`, `Polygon`, `Circle`, custom marker views, callouts, and extra providers are intentionally left for later milestones.
+### Components
+
+| Component | Notes |
+|-----------|-------|
+| `MapView` | `provider`, `coordinateSystem` (`gcj02` / `wgs84` / `bd09`), controlled `region` / `camera`, full prop & event surface |
+| `Marker` | default / colored / `image` / custom React view (rasterized) / draggable |
+| `Callout` | custom info-window bubbles |
+| `Polyline` | gradient `strokeColors`, `lineCap` / `lineJoin` / `miterLimit`, tappable |
+| `Polygon` | with `holes` |
+| `Circle` | |
+| `Overlay` | image ground overlay (`bounds` + `bearing` + `opacity`) |
+| `UrlTile` / `LocalTile` / `WMSTile` | custom raster tile layers |
+| `Heatmap` | weighted points + gradient |
+| `Geojson` | pure-JS GeoJSON renderer (point / line / polygon, incl. holes) |
+
+### MapView commands (ref API)
+
+`animateToRegion`, `animateCamera` / `setCamera`, `getCamera`, `getMapBoundaries`,
+`pointForCoordinate` / `coordinateForPoint`, `fitToCoordinates` / `fitToElements` /
+`fitToSuppliedMarkers`, `takeSnapshot`, `setMapBoundaries`, `getMarkersFrames`.
+
+See [docs/RNM_PARITY_PLAN.md](docs/RNM_PARITY_PLAN.md) for the full feature-by-feature
+comparison with `react-native-maps`, and
+[docs/MIGRATION_FROM_RN_MAPS.md](docs/MIGRATION_FROM_RN_MAPS.md) for migration notes.
+
+### Not supported
+
+- `provider="google"` — this library targets China providers
+- Baidu / Tencent providers — planned (`coordinateSystem="bd09"` already wired in the JS layer)
+- Web
 
 ## Contributing
 
