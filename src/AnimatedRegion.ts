@@ -199,9 +199,13 @@ export class AnimatedRegion {
   __getValue(): Region {
     // `Animated.Value` doesn't expose a public getter, but its private
     // `_value` is the established RNM-internal way to read the current
-    // snapshot. Cast through unknown to avoid the `any` lint.
-    const read = (v: Animated.Value) =>
-      (v as unknown as { _value: number })._value;
+    // snapshot. Include `_offset` too so the snapshot stays correct after
+    // `setOffset` (RN's own `__getValue` is `_value + _offset`). Cast through
+    // unknown to avoid the `any` lint.
+    const read = (v: Animated.Value) => {
+      const internal = v as unknown as { _value: number; _offset?: number };
+      return internal._value + (internal._offset ?? 0);
+    };
     return {
       latitude: read(this.latitude),
       longitude: read(this.longitude),

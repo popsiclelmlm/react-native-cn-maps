@@ -2,10 +2,8 @@ package com.cnmaps
 
 import android.animation.ValueAnimator
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -21,7 +19,6 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
-import java.net.URL
 
 /**
  * Fabric child host component (`RNMapsMarker`) mounted under `MapView`. The view
@@ -140,6 +137,7 @@ class MarkerView(private val reactContext: ThemedReactContext) :
 
     imageUri = normalized
     if (normalized == null) {
+      recycle(iconBitmap)
       iconBitmap = null
       marker?.let { applyIcon(it) }
       return
@@ -192,6 +190,21 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     positionAnimator = null
     marker?.remove()
     marker = null
+    // The view is gone (parent removed it from the feature list and never reuses
+    // the instance), so free both rasterized/loaded bitmaps. (F1)
+    recycle(customBitmap)
+    customBitmap = null
+    recycle(iconBitmap)
+    iconBitmap = null
+  }
+
+  // BitmapDescriptorFactory copies pixel data into the descriptor, so a bitmap is
+  // safe to recycle once the marker no longer references it (after a fresh
+  // setIcon or after the marker is removed).
+  private fun recycle(bitmap: Bitmap?) {
+    if (bitmap != null && !bitmap.isRecycled) {
+      bitmap.recycle()
+    }
   }
 
   // Current position (provider system), for map fit commands.
@@ -351,6 +364,7 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     super.onViewRemoved(child)
     if (!hasCustomContent()) {
       // Reverted to a plain marker: drop the rasterized icon.
+      recycle(customBitmap)
       customBitmap = null
       didRender = false
       marker?.let { applyIcon(it) }
@@ -400,39 +414,38 @@ class MarkerView(private val reactContext: ThemedReactContext) :
       return
     }
 
+    val previous = customBitmap
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     draw(Canvas(bitmap))
     customBitmap = bitmap
     didRender = true
     marker?.let { applyIcon(it) }
+    // Free the previous frame now that the marker renders the new one — without
+    // this, frequent tracksViewChanges re-renders leak a bitmap each pass. (F1)
+    if (previous !== bitmap) {
+      recycle(previous)
+    }
   }
 
-  // Best-effort, dependency-free decode: http(s) over the network (covers the
-  // Metro-served dev asset uri), file:// from disk, otherwise a drawable resource
-  // name. Decoding runs off the UI thread; the result is applied back on it.
+  // Decode off the UI thread on the shared pool (timeouts + no per-image Thread,
+  // see MapsImageLoader), then apply the result back on the main thread.
   private fun loadImage(uri: String) {
-    Thread {
-      val bitmap = runCatching {
-        when {
-          uri.startsWith("http://") || uri.startsWith("https://") ->
-            URL(uri).openStream().use { BitmapFactory.decodeStream(it) }
-          uri.startsWith("file://") ->
-            BitmapFactory.decodeFile(Uri.parse(uri).path)
-          else -> {
-            val resId = resources.getIdentifier(uri, "drawable", context.packageName)
-            if (resId != 0) BitmapFactory.decodeResource(resources, resId) else null
-          }
-        }
-      }.getOrNull()
-
+    MapsImageLoader.executor.execute {
+      val bitmap = MapsImageLoader.decode(uri, resources, context.packageName)
       mainHandler.post {
-        // Ignore a stale load if the uri changed again before it resolved.
         if (uri == imageUri) {
+          val previous = iconBitmap
           iconBitmap = bitmap
           marker?.let { applyIcon(it) }
+          if (previous !== bitmap) {
+            recycle(previous)
+          }
+        } else {
+          // A newer load superseded this one before it resolved — free it. (F1)
+          recycle(bitmap)
         }
       }
-    }.start()
+    }
   }
 
   private fun markerHue(color: String?): Float? {

@@ -341,18 +341,17 @@ class MapView(private val reactContext: ThemedReactContext) :
 
   private fun applyBounds(bounds: LatLngBounds, edgePaddingJSON: String?, animated: Boolean) {
     val density = resources.displayMetrics.density
-    val padding = runCatching {
-      val o = JSONObject(edgePaddingJSON ?: "{}")
-      val max = maxOf(
-        o.optDouble("top", 0.0),
-        o.optDouble("left", 0.0),
-        o.optDouble("bottom", 0.0),
-        o.optDouble("right", 0.0)
-      )
-      (max * density).toInt()
-    }.getOrDefault(0)
-
-    val update = CameraUpdateFactory.newLatLngBounds(bounds, padding)
+    // Honor each edge of edgePadding independently (dp → px), matching RNM,
+    // instead of collapsing all four sides to a single uniform padding.
+    val o = runCatching { JSONObject(edgePaddingJSON ?: "{}") }.getOrNull()
+    fun edge(name: String): Int = ((o?.optDouble(name, 0.0) ?: 0.0) * density).toInt()
+    val update = CameraUpdateFactory.newLatLngBoundsRect(
+      bounds,
+      edge("left"),
+      edge("right"),
+      edge("top"),
+      edge("bottom")
+    )
     val apply = Runnable { applyCameraUpdate(update, animated, 300) }
     if (width <= 0 || height <= 0) post(apply) else apply.run()
   }
@@ -388,7 +387,19 @@ class MapView(private val reactContext: ThemedReactContext) :
       is LocalTileView -> child.attachTo(aMap)
       is OverlayView -> child.attachTo(aMap)
       is HeatmapView -> child.attachTo(aMap)
-      else -> return
+      else -> {
+        // Only known feature types are tracked; an unknown child is dropped here
+        // so it can't desync features vs the parent's child count. In practice
+        // Fabric only mounts the known host components, so this is a guard. (E8)
+        if (BuildConfig.DEBUG) {
+          android.util.Log.w(
+            "RNMaps",
+            "MapView.addFeature ignored unsupported child " +
+              "${child.javaClass.simpleName}; it will not be tracked as a feature"
+          )
+        }
+        return
+      }
     }
     features.add(index.coerceIn(0, features.size), child)
   }

@@ -2,8 +2,10 @@ import { describe, expect, it } from '@jest/globals';
 import {
   fromProviderCamera,
   fromProviderCoordinate,
+  gcj02ToWgs84,
   toProviderCamera,
   toProviderCoordinate,
+  wgs84ToGcj02,
 } from '../coordinate';
 import type { Camera } from '../types';
 
@@ -76,6 +78,24 @@ describe('fromProviderCoordinate', () => {
   it('is the inverse of toProviderCoordinate for gcj02 (identity)', () => {
     const coord = { latitude: 31.23, longitude: 121.47 };
     expect(fromProviderCoordinate(coord, 'gcj02')).toEqual(coord);
+  });
+});
+
+describe('gcj02ToWgs84 precision (A3 fix)', () => {
+  it('inverts wgs84ToGcj02 to sub-centimetre accuracy', () => {
+    // Iterative refinement should re-encrypt back to the original GCJ-02 point
+    // far more tightly than the old "value*2 - forward" subtraction (~1–2 m).
+    const wgs = { latitude: 31.2304, longitude: 121.4737 };
+    const gcj = wgs84ToGcj02(wgs);
+    const back = gcj02ToWgs84(gcj);
+    // ~1e-7 deg ≈ 1 cm; assert 8 decimals to prove sub-cm residual.
+    expect(back.latitude).toBeCloseTo(wgs.latitude, 8);
+    expect(back.longitude).toBeCloseTo(wgs.longitude, 8);
+  });
+
+  it('passes coordinates outside China through unchanged', () => {
+    const tokyo = { latitude: 35.6895, longitude: 139.6917 };
+    expect(gcj02ToWgs84(tokyo)).toEqual(tokyo);
   });
 });
 

@@ -1,8 +1,6 @@
 package com.cnmaps
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.widget.FrameLayout
@@ -13,7 +11,6 @@ import com.amap.api.maps.model.GroundOverlayOptions
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.LatLngBounds
 import com.facebook.react.uimanager.ThemedReactContext
-import java.net.URL
 
 /**
  * `<Overlay>` child host component (M12); holds an AMap [GroundOverlay] that
@@ -101,21 +98,8 @@ class OverlayView(private val reactContext: ThemedReactContext) :
   }
 
   private fun loadImage(uri: String) {
-    Thread {
-      val loaded = runCatching {
-        when {
-          uri.startsWith("http://") || uri.startsWith("https://") ->
-            URL(uri).openStream().use { BitmapFactory.decodeStream(it) }
-          uri.startsWith("file://") ->
-            BitmapFactory.decodeFile(Uri.parse(uri).path)
-          else -> {
-            val resId =
-              resources.getIdentifier(uri, "drawable", context.packageName)
-            if (resId != 0) BitmapFactory.decodeResource(resources, resId) else null
-          }
-        }
-      }.getOrNull()
-
+    MapsImageLoader.executor.execute {
+      val loaded = MapsImageLoader.decode(uri, resources, context.packageName)
       mainHandler.post {
         // Ignore a stale load if the uri changed again before it resolved.
         if (uri == imageUri) {
@@ -123,6 +107,6 @@ class OverlayView(private val reactContext: ThemedReactContext) :
           rebuild()
         }
       }
-    }.start()
+    }
   }
 }

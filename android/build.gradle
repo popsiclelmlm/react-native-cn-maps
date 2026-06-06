@@ -3,7 +3,11 @@ buildscript {
     kotlinVersion: "2.0.21",
     minSdkVersion: 24,
     compileSdkVersion: 36,
-    targetSdkVersion: 36
+    targetSdkVersion: 36,
+    // Pinned so consumer builds are reproducible — a dynamic "latest.integration"
+    // resolves differently over time and its metadata fetch is flaky. Host apps
+    // can still override with `ext.amapSdkVersion = "..."`. (K1)
+    amapSdkVersion: "11.2.000_loc11.2.000_sea9.8.0"
   ]
 
   ext.getExtOrDefault = { prop ->
@@ -64,5 +68,5 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation "com.amap.api:3dmap-location-search:${rootProject.ext.has('amapSdkVersion') ? rootProject.ext.get('amapSdkVersion') : 'latest.integration'}"
+  implementation "com.amap.api:3dmap-location-search:${getExtOrDefault('amapSdkVersion')}"
 }

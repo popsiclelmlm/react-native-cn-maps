@@ -562,7 +562,14 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   }
 
   // Display toggles ----------------------------------------------------------
-  _mapView.showsUserLocation = newViewProps.showsUserLocation;
+  // Guard showsUserLocation specifically: re-asserting it on every unrelated
+  // prop change re-arms Core Location. The rest below are idempotent visual
+  // setters with no side effect, so they stay unconditional (guarding them would
+  // risk skipping a first-apply where the RN default differs from the MAMapKit
+  // default). (H1)
+  if (oldViewProps.showsUserLocation != newViewProps.showsUserLocation) {
+    _mapView.showsUserLocation = newViewProps.showsUserLocation;
+  }
   _mapView.showsCompass = newViewProps.showsCompass;
   _mapView.showsScale = newViewProps.showsScale;
   _mapView.showTraffic = newViewProps.showsTraffic;

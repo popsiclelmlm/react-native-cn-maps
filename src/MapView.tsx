@@ -105,7 +105,18 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       if (!(region instanceof AnimatedRegion)) {
         return;
       }
-      const drive = (next: Region) => {
+      // AnimatedRegion wraps four Animated.Values, so one animation frame fires
+      // the listener up to 4×. Coalesce them into a single animateToRegion per
+      // frame via rAF instead of spamming the bridge with 4× redundant commands.
+      let frame: ReturnType<typeof requestAnimationFrame> | null = null;
+      let latest: Region | null = null;
+      const flush = () => {
+        frame = null;
+        const next = latest;
+        latest = null;
+        if (!next) {
+          return;
+        }
         const providerRegion = toProviderRegion(next, coordinateSystem);
         if (providerRegion && nativeRef.current) {
           Commands.animateToRegion(
@@ -118,9 +129,22 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           );
         }
       };
-      drive(region.toJSON());
+      const drive = (next: Region) => {
+        latest = next;
+        if (frame == null) {
+          frame = requestAnimationFrame(flush);
+        }
+      };
+      // Drive the initial value immediately so the first frame isn't delayed.
+      latest = region.toJSON();
+      flush();
       const id = region.addListener(drive);
-      return () => region.removeListener(id);
+      return () => {
+        region.removeListener(id);
+        if (frame != null) {
+          cancelAnimationFrame(frame);
+        }
+      };
     }, [region, coordinateSystem]);
 
     if (__DEV__ && provider !== SUPPORTED_PROVIDER) {

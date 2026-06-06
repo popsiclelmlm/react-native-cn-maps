@@ -258,6 +258,12 @@ export type MapViewProps = ViewProps & {
   showsBuildings?: boolean;
   showsIndoors?: boolean;
   showsIndoorLevelPicker?: boolean;
+  /**
+   * Best-effort only. Neither AMap (Android `showMapText` / iOS
+   * `MAMapView.showsLabels`) exposes a POI-only switch, so this toggles **all**
+   * on-map text labels — POI names, street names, district names — not just
+   * points of interest. (E6 / H2)
+   */
   showsPointsOfInterest?: boolean;
 
   // Loading state

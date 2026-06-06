@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "example": "yarn workspace react-native-cn-maps-example",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "clean": "del-cli android/build ios/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",

@@ -79,12 +79,26 @@ export function wgs84ToGcj02(coordinate: LatLng): LatLng {
 }
 
 export function gcj02ToWgs84(coordinate: LatLng): LatLng {
-  const converted = wgs84ToGcj02(coordinate);
+  if (isOutsideChina(coordinate.latitude, coordinate.longitude)) {
+    return coordinate;
+  }
 
-  return {
-    latitude: coordinate.latitude * 2 - converted.latitude,
-    longitude: coordinate.longitude * 2 - converted.longitude,
+  // `wgs84ToGcj02` has no closed-form inverse, so refine a WGS-84 guess until it
+  // re-encrypts back to the input GCJ-02 point. Three Newton-style passes bring
+  // the residual to well under a centimetre (the old single "value*2 - forward"
+  // subtraction left ~1–2 m of error).
+  let wgs: LatLng = {
+    latitude: coordinate.latitude,
+    longitude: coordinate.longitude,
   };
+  for (let i = 0; i < 3; i++) {
+    const gcj = wgs84ToGcj02(wgs);
+    wgs = {
+      latitude: wgs.latitude + (coordinate.latitude - gcj.latitude),
+      longitude: wgs.longitude + (coordinate.longitude - gcj.longitude),
+    };
+  }
+  return wgs;
 }
 
 // BD-09 (Baidu) ↔ GCJ-02. Baidu adds one more encryption layer on top of GCJ-02.
