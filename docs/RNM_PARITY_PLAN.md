@@ -25,7 +25,7 @@
 | M15 | MapView 命令补全 | P1 | 🚧 | FitToCoordinates / MapBoundaries / DisplayLatLng |
 | M16 | Polyline 渐变 + 线型补全 | P2 | 🚧 | GradientPolylines(Functional) |
 | M17 | Heatmap(热力图) | P2 | 🚧 | HeatMap |
-| M18 | WMSTile | P2 | ⬜ | WMSTiles / CacheWMSTiles |
+| M18 | WMSTile | P2 | 🚧 | WMSTiles / CacheWMSTiles |
 | M19 | 室内地图 + KML | P2 | ⏸ | IndoorMap / MapKml |
 
 > 不对标:`setNativeProps`(旧架构,Fabric 用 state)、`provider=google`、Apple 专属 insets。
@@ -148,8 +148,11 @@
 
 - props:`urlTemplate`(WMS GetMap)、`tileSize`、`maximumNativeZ`、`opacity`、缓存项、`offlineMode`。
 - 验收:
-  - [ ] WMS 图层显示
-  - [ ] 双端 + example + 单测
+  - [x] 复用 UrlTile 通路(`wms` 标志 + EPSG:3857 bbox)+ codegen/typecheck/lint/jest 通过
+  - [x] Android(`UrlTileView` bbox 分支)+ iOS(`URLForTilePath:` 子类)
+  - [x] example "WMSTile" 开关(OSM-WMS)+ 单测(sentinel)
+  - [ ] WMS 图层真机显示(Android / iOS)
+  - 详细设计见 [M18_DESIGN.md](M18_DESIGN.md)
 
 ## M19 — 室内地图 + KML · P2(暂缓)
 
