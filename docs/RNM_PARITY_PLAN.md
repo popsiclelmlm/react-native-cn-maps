@@ -19,7 +19,7 @@
 | 里程碑 | 能力 | 优先级 | 状态 | 对标 RNM 示例 |
 |--------|------|--------|------|----------------|
 | M11 | UrlTile / LocalTile(自定义瓦片) | P0 | 🚧 | CustomTiles / CustomTilesLocal / CacheURLTiles |
-| M12 | Overlay(图片覆盖物) | P0 | ⬜ | ImageOverlayWith{Assets,URL,Bearing} |
+| M12 | Overlay(图片覆盖物) | P0 | 🚧 | ImageOverlayWith{Assets,URL,Bearing} |
 | M13 | takeSnapshot(地图截图) | P1 | ⬜ | TakeSnapshot |
 | M14 | Geojson(纯 JS 渲染) | P1 | ⬜ | Geojson |
 | M15 | MapView 命令补全 | P1 | ⬜ | FitToCoordinates / MapBoundaries / DisplayLatLng |
@@ -61,10 +61,12 @@
   - Android:`aMap.addGroundOverlay(GroundOverlayOptions().image(...).positionFromBounds(LatLngBounds).bearing(...))`。
   - iOS:`MAGroundOverlay`(`initWithBounds:icon:`)+ 自定义 renderer。
 - 验收:
-  - [ ] 本地图片 + URL 图片两种来源
-  - [ ] `bearing` 旋转
-  - [ ] Android / iOS 双端
-  - [ ] example 演示页 + 单测
+  - [x] 三层落地(JS spec/门面 + Android View/Manager + iOS 组件)+ codegen/typecheck/lint/jest 通过
+  - [x] 本地图片 + URL 图片两种来源(JS `resolveAssetSource` + native 异步加载)
+  - [x] `bearing` 旋转 + `opacity`(transparency)+ bounds 归一化
+  - [x] example 演示页(image ground overlay 开关)+ 单测(归一化 + sentinel)
+  - [ ] Android 真机验证 / iOS 真机验证(iOS `MAGroundOverlayRenderer` 符号待确认)
+  - 详细设计见 [M12_DESIGN.md](M12_DESIGN.md)
 
 ## M13 — takeSnapshot(地图截图) · P1
 
