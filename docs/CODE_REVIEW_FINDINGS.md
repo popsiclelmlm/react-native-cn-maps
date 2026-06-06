@@ -2,7 +2,9 @@
 
 > 全工程逐文件走读产出的问题清单。先记录、后统一修复。修复后把状态改为 ✅,并在对应 PR/commit 注明。
 
-> ✅ **P2 清理批完成(2026-06-06)** —— A3 / B5 / B6 / E4 / E6 / E8 / F1 / F2 / H1 / H2 / K1 / K2 / K3 全部处理(B7 跳过=RN 习惯写法)。库 Kotlin 编译通过、JS 44 测试 + typecheck + lint 全绿。**剩余仅架构类**:A4(多 provider 坐标规约)、B4(provider 透传)挂 M8/M9;H-arch(iOS 首次真机编译)用户暂缓。
+> ✅ **P2 清理批完成(2026-06-06)** —— A3 / B5 / B6 / E4 / E6 / E8 / F1 / F2 / H1 / H2 / K1 / K2 / K3 全部处理(B7 跳过=RN 习惯写法)。库 Kotlin 编译通过、JS 44 测试 + typecheck + lint 全绿。**剩余仅架构类**:A4(多 provider 坐标规约)、B4(provider 透传)挂 M8/M9。
+
+> ✅ **iOS 首次编译 + 真机/模拟器全功能验证通过(2026-06-06)** —— H-arch 关闭。bring-up 过程中发现并修复一串 iOS 库级真 bug(走读/编译都看不出,只有真跑才暴露),见下方「iOS bring-up findings」。
 
 ## 图例
 
@@ -83,7 +85,7 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| H-arch | 🔵 architecture(风险) | 全部 `ios/*.mm` | iOS 从未真机编译:命令选择器需匹配 codegen `RCTRNMaps*ViewProtocol`;M11–M18 依赖的 AMap iOS 符号(`MAGroundOverlay(Renderer)`/`MAMultiColoredPolyline(Renderer)`/`MAHeatMapTileOverlay/Node/Gradient`/`MATileOverlay.URLForTilePath`)全靠推导 | 首次 `pod install`+编译,按报错逐个修(见 VERIFICATION_CHECKLIST iOS 段) | ⬜ |
+| H-arch | 🔵 architecture(风险) | 全部 `ios/*.mm` | iOS 从未真机编译:命令选择器需匹配 codegen `RCTRNMaps*ViewProtocol`;M11–M18 依赖的 AMap iOS 符号(`MAGroundOverlay(Renderer)`/`MAMultiColoredPolyline(Renderer)`/`MAHeatMapTileOverlay/Node/Gradient`/`MATileOverlay.URLForTilePath`)全靠推导 | 首次 `pod install`+编译,按报错逐个修(见 VERIFICATION_CHECKLIST iOS 段) | ✅ iOS 首次编译+真机/模拟器验证全通过(2026-06-06)。逐项发现见下方「iOS bring-up」 |
 | H1 | ⚪ minor | `ios/RNMapsMapView.mm` | 显示/手势开关每次 updateProps 无条件重设(无 old≠new 守卫),`showsUserLocation` 反复设可能反复触发定位 | 加 old≠new guard,像 mapType/zoom 那样 | ✅ 守卫 `showsUserLocation`(有副作用);其余幂等开关不守卫以免首帧默认错配。**未真机编译验证** |
 | H2 | ⚪ info | `ios/RNMapsMapView.mm` | `showsLabels`←`showsPointsOfInterest` 控制所有标注非仅 POI(同 Android E6) | 文档化 best-effort | ✅ 随 E6 在 types.ts JSDoc 标注 |
 
@@ -110,6 +112,26 @@
 | V1 | 🔴 correctness | `android/.../MarkerView.kt` + `OverlayView.kt` | **image marker / custom-content marker 显示默认红钉,且 `<Overlay>` 图片完全不显示**。根因:MarkerView 是被地图拦截的离屏 View(从不 attach 到 window),`this.post{}`(图片加载回调 + 自定义内容栅格化调度)在未 attach 的 View 上**永不执行** | 改用主线程 `Handler` 调度;栅格化用 Fabric 经 `onLayout` 给的 width/height(**不可** Android `measure()` —— RN catalyst view 会抛 "must have explicit width and height") | ✅ 真机验证渲染正常 |
 
 | V2 | 🔴 correctness | `HeatmapView.kt` + host `gradle.properties` | `<Heatmap>` 在真机上**完全不显示**:AMap `HeatmapTileProvider.build()` 抛 `ClassNotFoundException: android.support.v4.util.LongSparseArray`(AMap 热力图仍依赖旧 Support 库,AndroidX 项目无此类) | host app 开 `android.enableJetifier=true`(example 已加;README 已注明)。代码层无法绕过——AMap 该组件内部硬引用旧类 | ✅ example 开 Jetifier + README 注明(真机确认热力图显示) |
+
+---
+
+## iOS bring-up findings(首次真机/模拟器验证,2026-06-06)
+
+> iOS 端首次实际编译+运行才暴露的问题。多数是**库级真 bug**——任何使用本库的 iOS app 都会中招,走读和编译都发现不了。全部已修并真机/模拟器验证。
+
+| ID | 级别 | 文件 | 问题 | 修法 | 状态 |
+|----|------|------|------|------|------|
+| iOS-1 | 🔴 correctness | `ios/RNMapsPolyline.mm` | 用了不存在的 `MAMultiColoredPolyline` overlay 类 | `MAMultiPolyline`+`drawStyleIndexes`,renderer `initWithMultiPolyline:`,ivar 放宽 `MAShape*` | ✅ |
+| iOS-2 | 🔴 correctness | `ios/RNMapsPolygon.mm` | holes 用 MapKit 的 `polygonWithCoordinates:count:interiorPolygons:` | 改 AMap `MAPolygon.hollowShapes` 属性 | ✅ |
+| iOS-3 | 🔴 correctness | `ios/RNMapsHeatmap.mm` | `MAHeatMapNode.radius` / `MAHeatMapGradient ...colorMapSize:` 不存在 | radius 设到 overlay;gradient 去掉 colorMapSize 参数 | ✅ |
+| iOS-4 | 🔴 correctness | `ios/RNMapsMapView.mm` | snapshot `takeSnapshotInRect:withCallback:` 名错;camera helper 写死结构体收不下 `initialCamera` | `withCompletionBlock:`;`RNMapsCameraIsValid`/`RNMapsApplyCamera` 模板化 | ✅ |
+| iOS-5 | 🔴 correctness(崩溃) | 7 个 `*NativeComponent.ts` | `onPress` 声明 `DirectEventHandler`,与 iOS 核心 bubbling `topPress` 冲突 → redbox「Event cannot be both direct and bubbling」 | 全改 `BubblingEventHandler`(iOS 核心有 topPress、Android 没有) | ✅ |
+| iOS-6 | 🔴 correctness(崩溃) | `ios/RNMaps{Circle,Marker,Polygon,Polyline}.mm` | `updateProps` 解引用 `oldProps` 参数,**首次挂载该参数为 nullptr** → EXC_BAD_ACCESS | 改用 `_props`(上次已应用的 props,永不为空) | ✅ |
+| iOS-7 | 🔴 correctness | `ios/RNMapsMapView.mm` | `initialRegion` 在布局前 `setRegion` 被 AMap 忽略 → 停在默认北京全国视图 | 捕获为 pending,`mapInitComplete`(地图就绪)+ `layoutSubviews`(有尺寸)后再应用 | ✅ |
+| iOS-8 | 🔴 correctness(崩溃+不渲染) | `package.json` codegenConfig | UrlTile/LocalTile/Overlay/Heatmap **未注册** iOS Fabric 组件 → 通用占位视图 → 不渲染 + 卸载越界崩溃 | 4 个组件补进 `codegenConfig.ios.components` | ✅ |
+| iOS-9 | 🔵 build | `CnMaps.podspec` 消费侧 + Podfile | AMap framework **无 arm64-模拟器切片**(只有 arm64-真机 + x86_64-sim)→ Apple Silicon 模拟器 App=x86_64/pod=arm64 链接失败 | host Podfile `post_install` 给所有 pod 加 `EXCLUDED_ARCHS[sim]=arm64`(已写进 README);真机 arm64 不受影响 | ✅ |
+| iOS-10 | 🔵 build(env) | `example/ios/.xcode.env.local` | 真机 Debug 打 JS bundle 用旧 Node v22.2.0,`metro.config` 的 ESM `react-native-monorepo-config` 需 Node ≥22.12 → `ERR_REQUIRE_ESM` | host 把 `NODE_BINARY` 指向 ≥22.12 的 node(本地 env) | ✅ |
+| iOS-priv | 🟡 feature | `ios/RNMapsModule.{h,mm}` | iOS 无 `setPrivacyConsent` 实现(只 Android 有)→ 地图不初始化 | 新增 TurboModule:`MAMapView +updatePrivacyShow:privacyInfo:`/`+updatePrivacyAgree:` | ✅ |
 
 ---
 

@@ -1,6 +1,8 @@
 # 真机/模拟器验证清单(M1–M18)
 
-> ✅ **Android 真机验证全部通过(2026-06-06)** —— M1–M18(除暂缓 M8/M9/M19)在真机逐项确认。过程中修复 V1(离屏 marker/overlay `post` 不执行)、V2(热力图需 Jetifier)两个真机专属 bug。**iOS 待首次真机编译验证。**
+> ✅ **Android 真机验证全部通过(2026-06-06)** —— M1–M18(除暂缓 M8/M9/M19)在真机逐项确认。过程中修复 V1(离屏 marker/overlay `post` 不执行)、V2(热力图需 Jetifier)两个真机专属 bug。
+>
+> ✅ **iOS 首次编译 + 模拟器/真机全功能验证通过(2026-06-06)** —— M1–M18 在 iOS 逐项确认。bring-up 过程修复一串 iOS 库级 bug(onPress 事件 bubbling、空 oldProps 解引用、4 个组件未注册、initialRegion 时机、AMap arm64-sim 切片缺失、AMap API 误用、iOS 隐私、真机打包 Node ESM)——详见 `CODE_REVIEW_FINDINGS.md` 的「iOS bring-up findings」。
 
 > 对照 example app 的控制面板逐项验证。每项标注:**操作** → **预期**。勾选通过项;不通过的记下现象。
 >
@@ -90,14 +92,18 @@
 
 ---
 
-## iOS(单独一轮,首次需 pod install)
+## iOS(✅ 全部通过 2026-06-06)
 
-> ⚠️ iOS 端 M11–M18 的原生符号(`MAGroundOverlay(Renderer)` / `MAMultiColoredPolyline(Renderer)` / `MAHeatMapTileOverlay/Node/Gradient` / `MATileOverlay.URLForTilePath`)尚未经真实编译,**预计首次编译会暴露符号/签名问题**,记录报错给我逐个修。
+> ✅ 首次 `pod install` + 编译 + 模拟器/真机逐项验证全通过。bring-up 修复见 `CODE_REVIEW_FINDINGS.md`「iOS bring-up findings」。下列为复跑步骤 + 环境要点。
 
-- [ ] `cd example/ios && bundle install && bundle exec pod install`
-- [ ] 设置 AMap iOS key(`AMapServices.shared().apiKey = ...`)+ iOS 隐私合规(待补,见 M-privacy 注)
-- [ ] `yarn example ios` 编译通过(预期:可能需修 iOS 原生代码)
-- [ ] 逐项重复上面 1–12
+- [x] `cd example/ios && pod install`
+- [x] AMap iOS key 写入 `Info.plist` 的 `AMapApiKey`;隐私合规由 `setPrivacyConsent`(iOS TurboModule 已实现)处理
+- [x] 编译通过(模拟器 + 真机)
+- [x] 逐项重复上面 1–12 —— **全通过**
+
+**环境要点(host app 必读)**:
+- **模拟器(Apple Silicon)**:AMap 无 arm64-sim 切片,Podfile `post_install` 需给所有 pod 加 `EXCLUDED_ARCHS[sdk=iphonesimulator*]=arm64`(见 README);模拟器以 Rosetta/x86_64 运行。真机 arm64 不受影响。
+- **真机打包**:JS bundle 阶段的 `NODE_BINARY`(`ios/.xcode.env.local`)需指向 **Node ≥ 22.12**(metro.config 的 `react-native-monorepo-config` 是 ESM)。
 
 ## 发现的问题(记录区)
 
