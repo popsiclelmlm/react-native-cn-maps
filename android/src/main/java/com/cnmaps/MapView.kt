@@ -383,6 +383,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       is UrlTileView -> child.attachTo(aMap)
       is LocalTileView -> child.attachTo(aMap)
       is OverlayView -> child.attachTo(aMap)
+      is HeatmapView -> child.attachTo(aMap)
       else -> return
     }
     features.add(index.coerceIn(0, features.size), child)
@@ -401,6 +402,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       is UrlTileView -> child.detach()
       is LocalTileView -> child.detach()
       is OverlayView -> child.detach()
+      is HeatmapView -> child.detach()
     }
   }
 
@@ -516,6 +518,7 @@ class MapView(private val reactContext: ThemedReactContext) :
         is UrlTileView -> child.detach()
         is LocalTileView -> child.detach()
         is OverlayView -> child.detach()
+        is HeatmapView -> child.detach()
       }
     }
     features.clear()

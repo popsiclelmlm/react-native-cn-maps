@@ -18,7 +18,8 @@ class MapsPackage : BaseReactPackage() {
       CircleManager(),
       UrlTileManager(),
       LocalTileManager(),
-      OverlayManager()
+      OverlayManager(),
+      HeatmapManager()
     )
   }
 
