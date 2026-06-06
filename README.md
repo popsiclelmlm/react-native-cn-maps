@@ -95,7 +95,8 @@ setPrivacyConsent({ agreed: true, contains: true, shown: true });
 - `contains` — your privacy policy includes the map SDK's terms
 - `shown` — the privacy policy was shown to the user
 
-> Currently implemented on Android. iOS support is pending.
+> Implemented on both Android and iOS. On iOS this maps to AMap's
+> `+[MAMapView updatePrivacyShow:privacyInfo:]` / `+[MAMapView updatePrivacyAgree:]`.
 
 ## Usage
 
