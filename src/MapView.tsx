@@ -38,6 +38,9 @@ import type {
 
 const SUPPORTED_PROVIDER: MapProvider = 'amap';
 const DEFAULT_COORDINATE_SYSTEM: CoordinateSystem = 'gcj02';
+// Query commands reject if the native side hasn't replied within this window,
+// so callers never await a Promise that hangs forever.
+const QUERY_TIMEOUT_MS = 10000;
 
 export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
   function MapView(
@@ -64,11 +67,37 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
   ) {
     const nativeRef =
       React.useRef<React.ElementRef<typeof NativeMapView>>(null);
-    // Pending Promise resolvers for query commands, keyed by request id.
+    // Pending Promise settlers for query commands, keyed by request id. Tracking
+    // reject + a timeout lets us fail (instead of hang) when the native side
+    // never replies, and clean up on unmount.
     const pendingRequests = React.useRef(
-      new Map<number, (data: Record<string, unknown>) => void>()
+      new Map<
+        number,
+        {
+          resolve: (data: Record<string, unknown>) => void;
+          reject: (error: Error) => void;
+          timer: ReturnType<typeof setTimeout>;
+        }
+      >()
     );
     const nextRequestId = React.useRef(1);
+
+    // Reject any still-pending query commands when the view unmounts, so callers
+    // awaiting a result get a rejection instead of a Promise that never settles.
+    React.useEffect(() => {
+      const pending = pendingRequests.current;
+      return () => {
+        pending.forEach(({ reject, timer }) => {
+          clearTimeout(timer);
+          reject(
+            new Error(
+              '[react-native-cn-maps] MapView unmounted before the command resolved'
+            )
+          );
+        });
+        pending.clear();
+      };
+    }, []);
 
     // M10: an AnimatedRegion drives the native map imperatively (degraded to
     // animateToRegion on each value change, per RNM's fallback approach).
@@ -114,12 +143,22 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         parse: (data: Record<string, unknown>) => T,
         send: (requestId: number) => void
       ): Promise<T> =>
-        new Promise<T>((resolve) => {
-          const id = nextRequestId.current++;
-          pendingRequests.current.set(id, (data) => resolve(parse(data)));
-          if (nativeRef.current) {
-            send(id);
+        new Promise<T>((resolve, reject) => {
+          if (!nativeRef.current) {
+            reject(new Error('[react-native-cn-maps] MapView is not mounted'));
+            return;
           }
+          const id = nextRequestId.current++;
+          const timer = setTimeout(() => {
+            pendingRequests.current.delete(id);
+            reject(new Error('[react-native-cn-maps] map command timed out'));
+          }, QUERY_TIMEOUT_MS);
+          pendingRequests.current.set(id, {
+            resolve: (data) => resolve(parse(data)),
+            reject,
+            timer,
+          });
+          send(id);
         });
 
       return {
@@ -340,10 +379,22 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
     const handleCommandResult = React.useCallback(
       (event: NativeSyntheticEvent<NativeCommandResultEvent>) => {
         const { id, data } = event.nativeEvent;
-        const resolver = pendingRequests.current.get(id);
-        if (resolver) {
-          pendingRequests.current.delete(id);
-          resolver(data ? JSON.parse(data) : {});
+        const pending = pendingRequests.current.get(id);
+        if (!pending) {
+          return;
+        }
+        pendingRequests.current.delete(id);
+        clearTimeout(pending.timer);
+        try {
+          pending.resolve(data ? JSON.parse(data) : {});
+        } catch (error) {
+          pending.reject(
+            error instanceof Error
+              ? error
+              : new Error(
+                  '[react-native-cn-maps] invalid command result payload'
+                )
+          );
         }
       },
       []

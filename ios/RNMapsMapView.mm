@@ -418,7 +418,18 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   [_mapView takeSnapshotInRect:_mapView.bounds
                   withCallback:^(UIImage *image, NSInteger state) {
     RNMapsMapView *strongSelf = weakSelf;
-    if (strongSelf == nil || image == nil) {
+    if (strongSelf == nil) {
+      return;
+    }
+    // state != 1 is an intermediate (still-rendering) callback; wait for the
+    // final one so we don't resolve early with a partial snapshot.
+    if (state != 1) {
+      return;
+    }
+    // A nil final image still resolves the JS promise (with an empty uri) rather
+    // than letting it hang until the timeout.
+    if (image == nil) {
+      [strongSelf emitCommandResult:requestId data:@{ @"uri" : @"" }];
       return;
     }
 
