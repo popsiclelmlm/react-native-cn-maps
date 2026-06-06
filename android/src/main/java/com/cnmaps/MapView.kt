@@ -265,6 +265,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       is CircleView -> child.attachTo(aMap)
       is UrlTileView -> child.attachTo(aMap)
       is LocalTileView -> child.attachTo(aMap)
+      is OverlayView -> child.attachTo(aMap)
       else -> return
     }
     features.add(index.coerceIn(0, features.size), child)
@@ -282,6 +283,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       is CircleView -> child.detach()
       is UrlTileView -> child.detach()
       is LocalTileView -> child.detach()
+      is OverlayView -> child.detach()
     }
   }
 
@@ -396,6 +398,7 @@ class MapView(private val reactContext: ThemedReactContext) :
         is CircleView -> child.detach()
         is UrlTileView -> child.detach()
         is LocalTileView -> child.detach()
+        is OverlayView -> child.detach()
       }
     }
     features.clear()

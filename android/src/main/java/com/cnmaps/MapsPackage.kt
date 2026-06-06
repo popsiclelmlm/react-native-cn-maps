@@ -17,7 +17,8 @@ class MapsPackage : BaseReactPackage() {
       PolygonManager(),
       CircleManager(),
       UrlTileManager(),
-      LocalTileManager()
+      LocalTileManager(),
+      OverlayManager()
     )
   }
 
