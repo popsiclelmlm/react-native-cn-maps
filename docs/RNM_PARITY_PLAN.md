@@ -22,7 +22,7 @@
 | M12 | Overlay(图片覆盖物) | P0 | 🚧 | ImageOverlayWith{Assets,URL,Bearing} |
 | M13 | takeSnapshot(地图截图) | P1 | 🚧 | TakeSnapshot |
 | M14 | Geojson(纯 JS 渲染) | P1 | ✅ | Geojson |
-| M15 | MapView 命令补全 | P1 | ⬜ | FitToCoordinates / MapBoundaries / DisplayLatLng |
+| M15 | MapView 命令补全 | P1 | 🚧 | FitToCoordinates / MapBoundaries / DisplayLatLng |
 | M16 | Polyline 渐变 + 线型补全 | P2 | ⬜ | GradientPolylines(Functional) |
 | M17 | Heatmap(热力图) | P2 | ⬜ | HeatMap |
 | M18 | WMSTile | P2 | ⬜ | WMSTiles / CacheWMSTiles |
@@ -106,9 +106,11 @@
 - `getMarkersFrames(onlyVisible)` —— 取各 marker 屏幕坐标(可基于已有 `pointForCoordinate` + marker 列表在 JS/native 组装)。
 - `setMapBoundaries(ne, sw)` —— 限制可视范围(Android `setMapStatusLimits(LatLngBounds)`;iOS `limitMapRect`/`limitRegion`)。
 - 验收:
-  - [ ] 三个命令各有 example 触发按钮
-  - [ ] 双端
-  - [ ] 单测/快照
+  - [x] `setMapBoundaries` + `getMarkersFrames` 三层落地 + codegen/typecheck/lint/jest 通过
+  - [x] example 触发按钮(setMapBoundaries / getMarkersFrames)+ 单测(commands 含新命令)
+  - [x] `setRegion` 确认不做(RNM 无此命令式方法;用受控 `region` prop 或 `animateToRegion(r,0)`)
+  - [ ] Android 真机验证 / iOS 真机验证
+  - 详细设计见 [M15_DESIGN.md](M15_DESIGN.md)
 
 ## M16 — Polyline 渐变 + 线型补全 · P2
 
