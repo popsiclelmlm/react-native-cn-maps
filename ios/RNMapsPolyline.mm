@@ -19,12 +19,77 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
 @interface RNMapsPolyline () <RCTRNMapsPolylineViewProtocol>
 @end
 
+// Parse a JSON array of CSS hex color strings ("#rgb"/"#rrggbb"/"#aarrggbb")
+// into UIColors for the gradient stroke; nil/invalid entries are skipped.
+static NSArray<UIColor *> *RNMapsParseStrokeColors(NSString *_Nullable json)
+{
+  if (json.length == 0) {
+    return @[];
+  }
+  NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+  id parsed = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  if (![parsed isKindOfClass:[NSArray class]]) {
+    return @[];
+  }
+  NSMutableArray<UIColor *> *colors = [NSMutableArray array];
+  for (id entry in (NSArray *)parsed) {
+    if (![entry isKindOfClass:[NSString class]]) {
+      continue;
+    }
+    NSString *hex = [(NSString *)entry stringByTrimmingCharactersInSet:
+      [NSCharacterSet characterSetWithCharactersInString:@"#"]];
+    unsigned int value = 0;
+    if (![[NSScanner scannerWithString:hex] scanHexInt:&value]) {
+      continue;
+    }
+    CGFloat a = 1, r, g, b;
+    if (hex.length == 8) {
+      a = ((value >> 24) & 0xFF) / 255.0;
+      r = ((value >> 16) & 0xFF) / 255.0;
+      g = ((value >> 8) & 0xFF) / 255.0;
+      b = (value & 0xFF) / 255.0;
+    } else {
+      r = ((value >> 16) & 0xFF) / 255.0;
+      g = ((value >> 8) & 0xFF) / 255.0;
+      b = (value & 0xFF) / 255.0;
+    }
+    [colors addObject:[UIColor colorWithRed:r green:g blue:b alpha:a]];
+  }
+  return colors;
+}
+
+static MALineCapType RNMapsLineCapType(NSString *_Nullable cap)
+{
+  if ([cap isEqualToString:@"round"]) {
+    return kMALineCapRound;
+  }
+  if ([cap isEqualToString:@"square"]) {
+    return kMALineCapSquare;
+  }
+  return kMALineCapButt;
+}
+
+static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
+{
+  if ([join isEqualToString:@"round"]) {
+    return kMALineJoinRound;
+  }
+  if ([join isEqualToString:@"bevel"]) {
+    return kMALineJoinBevel;
+  }
+  return kMALineJoinMiter;
+}
+
 @implementation RNMapsPolyline {
   __weak MAMapView *_map;
   MAPolyline *_polyline;
   UIColor *_strokeColor;
+  NSArray<UIColor *> *_strokeColors;
   CGFloat _strokeWidth;
   NSArray<NSNumber *> *_lineDashPattern;
+  NSString *_lineCap;
+  NSString *_lineJoin;
+  CGFloat _miterLimit;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -38,7 +103,9 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
     static const auto defaultProps = std::make_shared<const RNMapsPolylineProps>();
     _props = defaultProps;
     _strokeColor = [UIColor blackColor];
+    _strokeColors = @[];
     _strokeWidth = 1;
+    _miterLimit = 10;
   }
   return self;
 }
@@ -66,9 +133,23 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
 
 - (MAOverlayRenderer *)overlayRenderer
 {
-  MAPolylineRenderer *renderer = [[MAPolylineRenderer alloc] initWithPolyline:_polyline];
-  renderer.strokeColor = _strokeColor;
+  MAPolylineRenderer *renderer;
+  if (_strokeColors.count > 1 &&
+      [_polyline isKindOfClass:[MAMultiColoredPolyline class]]) {
+    MAMultiColoredPolylineRenderer *multi = [[MAMultiColoredPolylineRenderer alloc]
+      initWithMultiColoredPolyline:(MAMultiColoredPolyline *)_polyline];
+    multi.strokeColors = _strokeColors;
+    multi.gradient = YES;
+    renderer = multi;
+  } else {
+    renderer = [[MAPolylineRenderer alloc] initWithPolyline:_polyline];
+    renderer.strokeColor =
+      _strokeColors.count == 1 ? _strokeColors.firstObject : _strokeColor;
+  }
   renderer.lineWidth = _strokeWidth;
+  renderer.miterLimit = _miterLimit;
+  renderer.lineCapType = RNMapsLineCapType(_lineCap);
+  renderer.lineJoinType = RNMapsLineJoinType(_lineJoin);
   if (_lineDashPattern.count > 0) {
     renderer.lineDashType = kMALineDashTypeSquare;
   }
@@ -83,12 +164,21 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
   _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];
   _strokeWidth = newViewProps.strokeWidth;
   _lineDashPattern = RNMapsParseDashPattern(RNMapsPolylineNSString(newViewProps.lineDashPattern));
+  _lineCap = RNMapsPolylineNSString(newViewProps.lineCap);
+  _lineJoin = RNMapsPolylineNSString(newViewProps.lineJoin);
+  _miterLimit = newViewProps.miterLimit;
+
+  BOOL wasMultiColored = _strokeColors.count > 1;
+  _strokeColors = RNMapsParseStrokeColors(RNMapsPolylineNSString(newViewProps.strokeColors));
+  BOOL isMultiColored = _strokeColors.count > 1;
 
   BOOL coordinatesChanged =
     !RNMapsCoordinatesEqual(oldViewProps.coordinates, newViewProps.coordinates);
 
   MAPolyline *previous = _polyline;
-  if (_polyline == nil || coordinatesChanged) {
+  // Rebuild the overlay when geometry changes or when toggling between a plain
+  // and a multi-colored polyline (different overlay classes).
+  if (_polyline == nil || coordinatesChanged || wasMultiColored != isMultiColored) {
     _polyline = [self buildPolyline:newViewProps.coordinates];
   }
 
@@ -116,6 +206,9 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
   points.reserve(count);
   for (const auto &c : coordinates) {
     points.push_back(CLLocationCoordinate2DMake(c.latitude, c.longitude));
+  }
+  if (_strokeColors.count > 1) {
+    return [MAMultiColoredPolyline polylineWithCoordinates:points.data() count:count];
   }
   return [MAPolyline polylineWithCoordinates:points.data() count:count];
 }

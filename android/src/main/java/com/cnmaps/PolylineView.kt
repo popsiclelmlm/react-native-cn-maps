@@ -12,16 +12,20 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
+import org.json.JSONArray
 
 /** `<Polyline>` child host component; holds the AMap [Polyline]. */
 class PolylineView(private val reactContext: ThemedReactContext) :
   FrameLayout(reactContext) {
   private var coordinates: List<LatLng> = emptyList()
   private var strokeColor: Int = Color.BLACK
+  private var strokeColors: List<Int> = emptyList()
   private var strokeWidth: Float = 1f
   private var zIndexValue: Float = 0f
   private var geodesic: Boolean = false
   private var dashed: Boolean = false
+  private var lineCap: String? = null
+  private var lineJoin: String? = null
   private var aMap: AMap? = null
   private var polyline: Polyline? = null
 
@@ -32,7 +36,24 @@ class PolylineView(private val reactContext: ThemedReactContext) :
 
   fun setStrokeColorValue(color: Int) {
     strokeColor = color
-    polyline?.color = color
+    if (strokeColors.isEmpty()) {
+      polyline?.color = color
+    }
+  }
+
+  fun setStrokeColorsJson(json: String?) {
+    strokeColors = parseColors(json)
+    rebuild()
+  }
+
+  fun setLineCapValue(value: String?) {
+    lineCap = value
+    rebuild()
+  }
+
+  fun setLineJoinValue(value: String?) {
+    lineJoin = value
+    rebuild()
   }
 
   fun setStrokeWidthValue(width: Float) {
@@ -76,20 +97,56 @@ class PolylineView(private val reactContext: ThemedReactContext) :
     )
   }
 
-  // AMap geometry is immutable per object, so geometry/geodesic/dash changes
-  // recreate the polyline; color/width/zIndex update in place above.
+  // AMap geometry is immutable per object, so geometry/geodesic/dash/gradient/
+  // cap/join changes recreate the polyline; color/width/zIndex update in place.
   private fun rebuild() {
     val map = aMap ?: return
     polyline?.remove()
-    polyline = map.addPolyline(
-      PolylineOptions()
-        .addAll(coordinates)
-        .color(strokeColor)
-        .width(strokeWidth)
-        .zIndex(zIndexValue)
-        .geodesic(geodesic)
-        .setDottedLine(dashed)
-    )
+    val options = PolylineOptions()
+      .addAll(coordinates)
+      .width(strokeWidth)
+      .zIndex(zIndexValue)
+      .geodesic(geodesic)
+      .setDottedLine(dashed)
+
+    if (strokeColors.size > 1) {
+      options.colorValues(ArrayList(strokeColors)).useGradient(true)
+    } else if (strokeColors.size == 1) {
+      options.color(strokeColors[0])
+    } else {
+      options.color(strokeColor)
+    }
+
+    lineCapType()?.let { options.lineCapType(it) }
+    lineJoinType()?.let { options.lineJoinType(it) }
+
+    polyline = map.addPolyline(options)
+  }
+
+  private fun lineCapType(): PolylineOptions.LineCapType? = when (lineCap) {
+    "butt" -> PolylineOptions.LineCapType.LineCapButt
+    "round" -> PolylineOptions.LineCapType.LineCapRound
+    "square" -> PolylineOptions.LineCapType.LineCapSquare
+    else -> null
+  }
+
+  private fun lineJoinType(): PolylineOptions.LineJoinType? = when (lineJoin) {
+    "miter" -> PolylineOptions.LineJoinType.LineJoinMiter
+    "round" -> PolylineOptions.LineJoinType.LineJoinRound
+    "bevel" -> PolylineOptions.LineJoinType.LineJoinBevel
+    else -> null
+  }
+
+  private fun parseColors(json: String?): List<Int> {
+    if (json.isNullOrEmpty()) {
+      return emptyList()
+    }
+    return runCatching {
+      val arr = JSONArray(json)
+      (0 until arr.length()).mapNotNull { i ->
+        runCatching { Color.parseColor(arr.getString(i)) }.getOrNull()
+      }
+    }.getOrDefault(emptyList())
   }
 
   private fun parseLatLngArray(array: ReadableArray?): List<LatLng> {

@@ -17,8 +17,14 @@ export type NativeLatLng = Readonly<{
 export interface NativeProps extends ViewProps {
   coordinates?: ReadonlyArray<NativeLatLng>;
   strokeColor?: ColorValue;
+  // Gradient stroke colors (M16): a JSON string array of CSS color strings,
+  // parsed natively (sidesteps codegen's lack of ColorValue-array support).
+  strokeColors?: string;
   strokeWidth?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
   lineDashPattern?: string;
+  lineCap?: string;
+  lineJoin?: string;
+  miterLimit?: CodegenTypes.WithDefault<CodegenTypes.Double, 10>;
   geodesic?: CodegenTypes.WithDefault<boolean, false>;
   overlayZIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
   tappable?: CodegenTypes.WithDefault<boolean, false>;

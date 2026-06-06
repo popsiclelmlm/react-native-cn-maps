@@ -6,16 +6,20 @@ import type { MapPressEvent, PolylineProps } from './types';
 
 /**
  * `<Polyline>` child host component of `<MapView>`. Coordinates are converted to
- * the provider system here (global "convert in JS" principle). Unsupported RNM
- * props (`strokeColors` gradient, `lineCap`/`lineJoin`/`miterLimit`) are accepted
- * but ignored in M5.
+ * the provider system here (global "convert in JS" principle). M16 adds gradient
+ * `strokeColors` (serialized as JSON, parsed natively) plus `lineCap`/`lineJoin`/
+ * `miterLimit` (best-effort on Android, full on iOS renderer).
  */
 function PolylineComponent(props: PolylineProps) {
   const {
     coordinates,
     strokeColor,
+    strokeColors,
     strokeWidth,
     lineDashPattern,
+    lineCap,
+    lineJoin,
+    miterLimit,
     geodesic,
     zIndex,
     tappable,
@@ -31,10 +35,18 @@ function PolylineComponent(props: PolylineProps) {
     <NativePolyline
       coordinates={nativeCoordinates}
       strokeColor={strokeColor}
+      strokeColors={
+        strokeColors && strokeColors.length > 0
+          ? JSON.stringify(strokeColors)
+          : undefined
+      }
       strokeWidth={strokeWidth}
       lineDashPattern={
         lineDashPattern ? JSON.stringify(lineDashPattern) : undefined
       }
+      lineCap={lineCap}
+      lineJoin={lineJoin}
+      miterLimit={miterLimit}
       geodesic={geodesic}
       overlayZIndex={zIndex}
       tappable={tappable}

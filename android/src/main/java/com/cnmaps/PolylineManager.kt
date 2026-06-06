@@ -39,9 +39,29 @@ class PolylineManager : SimpleViewManager<PolylineView>(),
     view.setStrokeWidthValue(value.toFloat())
   }
 
+  @ReactProp(name = "strokeColors")
+  override fun setStrokeColors(view: PolylineView, value: String?) {
+    view.setStrokeColorsJson(value)
+  }
+
   @ReactProp(name = "lineDashPattern")
   override fun setLineDashPattern(view: PolylineView, value: String?) {
     view.setLineDashPattern(value)
+  }
+
+  @ReactProp(name = "lineCap")
+  override fun setLineCap(view: PolylineView, value: String?) {
+    view.setLineCapValue(value)
+  }
+
+  @ReactProp(name = "lineJoin")
+  override fun setLineJoin(view: PolylineView, value: String?) {
+    view.setLineJoinValue(value)
+  }
+
+  @ReactProp(name = "miterLimit", defaultDouble = 10.0)
+  override fun setMiterLimit(view: PolylineView, value: Double) {
+    // best-effort: AMap Android polyline has no miter-limit setter.
   }
 
   @ReactProp(name = "geodesic", defaultBoolean = false)
