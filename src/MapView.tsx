@@ -298,6 +298,42 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
               )
           );
         },
+
+        setMapBoundaries(northEast, southWest) {
+          const ne = toProviderCoordinate(northEast, coordinateSystem);
+          const sw = toProviderCoordinate(southWest, coordinateSystem);
+          if (nativeRef.current) {
+            Commands.setMapBoundaries(
+              nativeRef.current,
+              ne.latitude,
+              ne.longitude,
+              sw.latitude,
+              sw.longitude
+            );
+          }
+        },
+
+        getMarkersFrames(onlyVisible = false) {
+          // The whole result object is the id→{point, frame} map; screen
+          // coordinates need no coordinate-system conversion.
+          return query(
+            (data) =>
+              data as Record<
+                string,
+                {
+                  point: Point;
+                  frame: {
+                    x: number;
+                    y: number;
+                    width: number;
+                    height: number;
+                  };
+                }
+              >,
+            (id) =>
+              Commands.getMarkersFrames(nativeRef.current!, id, onlyVisible)
+          );
+        },
       };
     }, [coordinateSystem]);
 

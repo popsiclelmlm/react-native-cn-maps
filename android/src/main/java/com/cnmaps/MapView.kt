@@ -284,6 +284,57 @@ class MapView(private val reactContext: ThemedReactContext) :
     dispatchCommandResult(requestId, JSONObject().put("uri", uri))
   }
 
+  fun setMapBoundariesValue(
+    neLatitude: Double,
+    neLongitude: Double,
+    swLatitude: Double,
+    swLongitude: Double
+  ) {
+    runCatching {
+      aMap.setMapStatusLimits(
+        LatLngBounds(
+          LatLng(swLatitude, swLongitude),
+          LatLng(neLatitude, neLongitude)
+        )
+      )
+    }
+  }
+
+  // Screen frames (in dp) of all child markers, keyed by identifier. width/height
+  // are best-effort 0 — AMap does not expose annotation view frames.
+  fun getMarkersFramesResult(requestId: Int, onlyVisible: Boolean) {
+    val density = resources.displayMetrics.density
+    val viewWidth = width
+    val viewHeight = height
+    val out = JSONObject()
+    features.forEach { child ->
+      if (child !is MarkerView) {
+        return@forEach
+      }
+      val identifier = child.identifier ?: return@forEach
+      val screen = runCatching {
+        aMap.projection.toScreenLocation(child.position())
+      }.getOrNull() ?: return@forEach
+      if (onlyVisible &&
+        (screen.x < 0 || screen.y < 0 || screen.x > viewWidth || screen.y > viewHeight)
+      ) {
+        return@forEach
+      }
+      val px = screen.x / density
+      val py = screen.y / density
+      out.put(
+        identifier,
+        JSONObject()
+          .put("point", JSONObject().put("x", px).put("y", py))
+          .put(
+            "frame",
+            JSONObject().put("x", px).put("y", py).put("width", 0).put("height", 0)
+          )
+      )
+    }
+    dispatchCommandResult(requestId, out)
+  }
+
   private fun applyBounds(bounds: LatLngBounds, edgePaddingJSON: String?, animated: Boolean) {
     val density = resources.displayMetrics.density
     val padding = runCatching {

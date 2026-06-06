@@ -372,6 +372,20 @@ class MapViewManager : ViewGroupManager<MapView>(),
     )
   }
 
+  override fun setMapBoundaries(
+    view: MapView,
+    neLatitude: Double,
+    neLongitude: Double,
+    swLatitude: Double,
+    swLongitude: Double
+  ) {
+    view.setMapBoundariesValue(neLatitude, neLongitude, swLatitude, swLongitude)
+  }
+
+  override fun getMarkersFrames(view: MapView, requestId: Int, onlyVisible: Boolean) {
+    view.getMarkersFramesResult(requestId, onlyVisible)
+  }
+
   private fun ReadableMap.toMapRegion(): MapRegion {
     return MapRegion(
       latitude = getDouble("latitude"),

@@ -452,6 +452,41 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   }];
 }
 
+- (void)setMapBoundaries:(double)neLatitude
+            neLongitude:(double)neLongitude
+            swLatitude:(double)swLatitude
+           swLongitude:(double)swLongitude
+{
+  CLLocationCoordinate2D center = CLLocationCoordinate2DMake(
+    (neLatitude + swLatitude) / 2.0, (neLongitude + swLongitude) / 2.0);
+  MACoordinateSpan span = MACoordinateSpanMake(
+    fabs(neLatitude - swLatitude), fabs(neLongitude - swLongitude));
+  _mapView.limitRegion = MACoordinateRegionMake(center, span);
+}
+
+// Screen frames (in points) of all child markers, keyed by identifier.
+// width/height are best-effort 0.
+- (void)getMarkersFrames:(NSInteger)requestId onlyVisible:(BOOL)onlyVisible
+{
+  NSMutableDictionary *out = [NSMutableDictionary dictionary];
+  for (RNMapsMarker *marker in _markers) {
+    NSString *identifier = marker.annotation.identifier;
+    if (identifier == nil) {
+      continue;
+    }
+    CGPoint point = [_mapView convertCoordinate:marker.annotation.coordinate
+                                  toPointToView:_mapView];
+    if (onlyVisible && !CGRectContainsPoint(_mapView.bounds, point)) {
+      continue;
+    }
+    out[identifier] = @{
+      @"point" : @{ @"x" : @(point.x), @"y" : @(point.y) },
+      @"frame" : @{ @"x" : @(point.x), @"y" : @(point.y), @"width" : @(0), @"height" : @(0) },
+    };
+  }
+  [self emitCommandResult:requestId data:out];
+}
+
 #pragma mark - Child mounting
 
 // Marker children are intercepted: they never enter the UIView hierarchy (no

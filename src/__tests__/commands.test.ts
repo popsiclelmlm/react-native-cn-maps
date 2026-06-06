@@ -7,6 +7,12 @@ describe('MapView native commands (M13)', () => {
     expect(typeof c.takeSnapshot).toBe('function');
   });
 
+  it('exposes the M15 commands (setMapBoundaries, getMarkersFrames)', () => {
+    const c = Commands as unknown as Record<string, unknown>;
+    expect(typeof c.setMapBoundaries).toBe('function');
+    expect(typeof c.getMarkersFrames).toBe('function');
+  });
+
   it('still exposes the M6 query commands', () => {
     const c = Commands as unknown as Record<string, unknown>;
     expect(typeof c.getCamera).toBe('function');
