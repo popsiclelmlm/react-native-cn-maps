@@ -227,6 +227,11 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   // window.
   fun getCalloutView(): View? = calloutView
 
+  // Whether tapping this marker should open an info window (custom <Callout> or a
+  // non-empty title). Used to avoid showing empty bubbles on plain markers.
+  fun hasInfoWindowContent(): Boolean =
+    calloutView != null || !title.isNullOrEmpty()
+
   fun onInfoWindowClicked() {
     emitCalloutPress()
     calloutView?.emitPress()

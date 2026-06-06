@@ -236,7 +236,11 @@ class MapView(private val reactContext: ThemedReactContext) :
   ) {
     aMap.getMapScreenShot(object : AMap.OnMapScreenShotListener {
       override fun onMapScreenShot(bitmap: Bitmap?) {
-        deliverSnapshot(requestId, bitmap, width, height, format, quality, result)
+        // The callback runs on the main thread; bitmap scaling/compression and
+        // file IO are offloaded so a large snapshot can't jank/ANR the UI.
+        Thread {
+          deliverSnapshot(requestId, bitmap, width, height, format, quality, result)
+        }.start()
       }
 
       override fun onMapScreenShot(bitmap: Bitmap?, status: Int) {
@@ -554,11 +558,12 @@ class MapView(private val reactContext: ThemedReactContext) :
     // gesture handling — the touch listener is observe-only).
     aMap.setOnMapTouchListener { event ->
       if (event != null) {
-        if (
-          event.actionMasked == MotionEvent.ACTION_DOWN ||
-          event.actionMasked == MotionEvent.ACTION_MOVE
-        ) {
-          isGesture = true
+        // Mark a region change as gesture-driven only once the finger actually
+        // moves. A bare tap (DOWN with no MOVE) resets the flag so it can't
+        // "stick" true and mislabel the next programmatic camera change.
+        when (event.actionMasked) {
+          MotionEvent.ACTION_DOWN -> isGesture = false
+          MotionEvent.ACTION_MOVE -> isGesture = true
         }
         gestureDetector.onTouchEvent(event)
       }
@@ -601,11 +606,18 @@ class MapView(private val reactContext: ThemedReactContext) :
     aMap.setOnMarkerClickListener { marker ->
       // The owning child MarkerView is stashed in marker.object; route the
       // map-level click back to it. RNM fires both onPress and onSelect.
-      (marker.`object` as? MarkerView)?.let {
+      val markerView = marker.`object` as? MarkerView
+      markerView?.let {
         it.emitPress()
         it.emitSelect()
       }
-      false
+      // Show the info window only when there's content, then return true to
+      // consume the click — this stops AMap's default re-centering of the map on
+      // the tapped marker (RNM does not recenter on marker press).
+      if (markerView?.hasInfoWindowContent() == true) {
+        marker.showInfoWindow()
+      }
+      true
     }
 
     // Polyline taps: match the clicked AMap polyline back to its owning child
