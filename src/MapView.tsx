@@ -279,6 +279,25 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
               )
           );
         },
+
+        takeSnapshot(options = {}) {
+          // `region` is accepted for RNM parity but ignored (native snapshots the
+          // current viewport). Returns a file:// uri, or raw base64 when
+          // result: 'base64'.
+          return query<string>(
+            (data) => String(data.uri ?? ''),
+            (id) =>
+              Commands.takeSnapshot(
+                nativeRef.current!,
+                id,
+                Math.round(options.width ?? 0),
+                Math.round(options.height ?? 0),
+                options.format ?? 'png',
+                options.quality ?? 1,
+                options.result ?? 'file'
+              )
+          );
+        },
       };
     }, [coordinateSystem]);
 

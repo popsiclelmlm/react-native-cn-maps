@@ -404,6 +404,54 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
                      data:@{ @"latitude" : @(coordinate.latitude), @"longitude" : @(coordinate.longitude) }];
 }
 
+// Async map snapshot of the current viewport (the `region` option is ignored).
+// Replies with a file:// uri, or raw base64 when result == "base64". AMap may
+// invoke the callback more than once; the JS side resolves on the first reply.
+- (void)takeSnapshot:(NSInteger)requestId
+               width:(NSInteger)width
+              height:(NSInteger)height
+              format:(NSString *)format
+             quality:(double)quality
+              result:(NSString *)result
+{
+  __weak RNMapsMapView *weakSelf = self;
+  [_mapView takeSnapshotInRect:_mapView.bounds
+                  withCallback:^(UIImage *image, NSInteger state) {
+    RNMapsMapView *strongSelf = weakSelf;
+    if (strongSelf == nil || image == nil) {
+      return;
+    }
+
+    UIImage *output = image;
+    if (width > 0 && height > 0) {
+      CGSize size = CGSizeMake(width, height);
+      UIGraphicsBeginImageContextWithOptions(size, NO, image.scale);
+      [image drawInRect:CGRectMake(0, 0, size.width, size.height)];
+      output = UIGraphicsGetImageFromCurrentImageContext() ?: image;
+      UIGraphicsEndImageContext();
+    }
+
+    BOOL isJpg = [format isEqualToString:@"jpg"] || [format isEqualToString:@"jpeg"];
+    NSData *data = isJpg ? UIImageJPEGRepresentation(output, MAX(0.0, MIN(1.0, quality)))
+                         : UIImagePNGRepresentation(output);
+
+    NSString *uri = @"";
+    if (data != nil) {
+      if ([result isEqualToString:@"base64"]) {
+        uri = [data base64EncodedStringWithOptions:0];
+      } else {
+        NSString *ext = isJpg ? @"jpg" : @"png";
+        NSString *name = [NSString stringWithFormat:@"map-snapshot-%ld.%@", (long)requestId, ext];
+        NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:name];
+        if ([data writeToFile:path atomically:YES]) {
+          uri = [@"file://" stringByAppendingString:path];
+        }
+      }
+    }
+    [strongSelf emitCommandResult:requestId data:@{ @"uri" : uri }];
+  }];
+}
+
 #pragma mark - Child mounting
 
 // Marker children are intercepted: they never enter the UIView hierarchy (no

@@ -1,7 +1,9 @@
 package com.cnmaps
 
+import android.graphics.Bitmap
 import android.graphics.Point
 import android.location.Location
+import android.util.Base64
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -23,6 +25,9 @@ import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.max
@@ -216,6 +221,67 @@ class MapView(private val reactContext: ThemedReactContext) :
         .put("latitude", coordinate?.latitude ?: 0.0)
         .put("longitude", coordinate?.longitude ?: 0.0)
     )
+  }
+
+  // Async map snapshot. AMap delivers the bitmap via a callback; we encode it to
+  // a temp file (file:// uri) or raw base64 and reply on the requestId. The
+  // `region` option is not honored — this captures the current viewport.
+  fun takeSnapshotResult(
+    requestId: Int,
+    width: Int,
+    height: Int,
+    format: String,
+    quality: Double,
+    result: String
+  ) {
+    aMap.getMapScreenShot(object : AMap.OnMapScreenShotListener {
+      override fun onMapScreenShot(bitmap: Bitmap?) {
+        deliverSnapshot(requestId, bitmap, width, height, format, quality, result)
+      }
+
+      override fun onMapScreenShot(bitmap: Bitmap?, status: Int) {
+        // Unused: the no-status overload already delivers the result.
+      }
+    })
+  }
+
+  private fun deliverSnapshot(
+    requestId: Int,
+    bitmap: Bitmap?,
+    width: Int,
+    height: Int,
+    format: String,
+    quality: Double,
+    result: String
+  ) {
+    val uri = runCatching {
+      val source = bitmap ?: return@runCatching ""
+      val scaled = if (width > 0 && height > 0) {
+        Bitmap.createScaledBitmap(source, width, height, true)
+      } else {
+        source
+      }
+      val isJpg = format == "jpg" || format == "jpeg"
+      val q = (quality.coerceIn(0.0, 1.0) * 100).toInt()
+      val bytes = ByteArrayOutputStream().use { stream ->
+        scaled.compress(
+          if (isJpg) Bitmap.CompressFormat.JPEG else Bitmap.CompressFormat.PNG,
+          q,
+          stream
+        )
+        stream.toByteArray()
+      }
+      if (result == "base64") {
+        Base64.encodeToString(bytes, Base64.NO_WRAP)
+      } else {
+        val ext = if (isJpg) "jpg" else "png"
+        val file = File(context.cacheDir, "map-snapshot-$requestId.$ext")
+        FileOutputStream(file).use { it.write(bytes) }
+        "file://${file.absolutePath}"
+      }
+    }.getOrDefault("")
+
+    dispatchCommandResult(requestId, JSONObject().put("uri", uri))
   }
 
   private fun applyBounds(bounds: LatLngBounds, edgePaddingJSON: String?, animated: Boolean) {

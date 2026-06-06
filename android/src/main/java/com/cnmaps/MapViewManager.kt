@@ -353,6 +353,25 @@ class MapViewManager : ViewGroupManager<MapView>(),
     view.coordinateForPointResult(requestId, x, y)
   }
 
+  override fun takeSnapshot(
+    view: MapView,
+    requestId: Int,
+    width: Int,
+    height: Int,
+    format: String?,
+    quality: Double,
+    result: String?
+  ) {
+    view.takeSnapshotResult(
+      requestId,
+      width,
+      height,
+      format ?: "png",
+      quality,
+      result ?: "file"
+    )
+  }
+
   private fun ReadableMap.toMapRegion(): MapRegion {
     return MapRegion(
       latitude = getDouble("latitude"),

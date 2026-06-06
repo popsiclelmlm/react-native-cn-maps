@@ -227,6 +227,15 @@ interface NativeCommands {
     x: CodegenTypes.Double,
     y: CodegenTypes.Double
   ) => void;
+  takeSnapshot: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32,
+    width: CodegenTypes.Int32,
+    height: CodegenTypes.Int32,
+    format: string,
+    quality: CodegenTypes.Double,
+    result: string
+  ) => void;
 }
 
 export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
@@ -241,6 +250,7 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'getMapBoundaries',
     'pointForCoordinate',
     'coordinateForPoint',
+    'takeSnapshot',
   ],
 });
 
