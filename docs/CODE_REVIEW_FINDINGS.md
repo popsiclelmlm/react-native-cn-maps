@@ -75,7 +75,17 @@ _(待走读)_
 | F1 | ⚪ minor(perf) | `MarkerView.kt` | 自定义内容每次 `Bitmap.createBitmap` 不 recycle 旧 `customBitmap`,`tracksViewChanges` 频繁重绘 GC 压力 | 替换前 recycle 旧位图;detach 时也 recycle | ⬜ |
 | F2 | ⚪ minor(robustness) | `MarkerView.kt` / `OverlayView.kt` / `UrlTileView.kt` / `HeatmapView.kt` | 网络图/瓦片解码用 `URL.openStream()` 无超时,坏网络挂住线程;每张图新建 `Thread`(无线程池) | 设连接/读超时;考虑共享线程池 | ⬜ |
 
-## H–J 组:iOS
+## H 组:iOS 核心(RNMapsMapView.mm)
+
+> 质量高,和 Android 对称;`prepareForRecycle`/`dealloc` 处理到位;`_isGesture` 比 Android 更干净(无粘住),点 marker 不重定位(无 Android E2 问题)。
+
+| ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
+|----|------|------|------|----------|------|
+| H-arch | 🔵 architecture(风险) | 全部 `ios/*.mm` | iOS 从未真机编译:命令选择器需匹配 codegen `RCTRNMaps*ViewProtocol`;M11–M18 依赖的 AMap iOS 符号(`MAGroundOverlay(Renderer)`/`MAMultiColoredPolyline(Renderer)`/`MAHeatMapTileOverlay/Node/Gradient`/`MATileOverlay.URLForTilePath`)全靠推导 | 首次 `pod install`+编译,按报错逐个修(见 VERIFICATION_CHECKLIST iOS 段) | ⬜ |
+| H1 | ⚪ minor | `ios/RNMapsMapView.mm` | 显示/手势开关每次 updateProps 无条件重设(无 old≠new 守卫),`showsUserLocation` 反复设可能反复触发定位 | 加 old≠new guard,像 mapType/zoom 那样 | ⬜ |
+| H2 | ⚪ info | `ios/RNMapsMapView.mm` | `showsLabels`←`showsPointsOfInterest` 控制所有标注非仅 POI(同 Android E6) | 文档化 best-effort | ⬜ |
+
+## I–J 组:iOS marker/覆盖物/瓦片
 
 _(待走读)_
 
