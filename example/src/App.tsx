@@ -211,6 +211,23 @@ export default function App() {
     }
   }, [pushLog]);
 
+  const limitToShanghai = useCallback(() => {
+    mapRef.current?.setMapBoundaries?.(
+      { latitude: 31.27, longitude: 121.52 },
+      { latitude: 31.19, longitude: 121.43 }
+    );
+    pushLog('setMapBoundaries → Shanghai box');
+  }, [pushLog]);
+
+  const logMarkerFrames = useCallback(async () => {
+    try {
+      const frames = await mapRef.current?.getMarkersFrames?.();
+      pushLog(`getMarkersFrames → ${Object.keys(frames ?? {}).join(', ')}`);
+    } catch (e) {
+      pushLog(`getMarkersFrames error: ${String(e)}`);
+    }
+  }, [pushLog]);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -432,6 +449,16 @@ export default function App() {
         {snapshotUri && (
           <Image source={{ uri: snapshotUri }} style={styles.snapshot} />
         )}
+
+        <Text style={styles.sectionTitle}>Commands (M15)</Text>
+        <View style={styles.buttonRow}>
+          <Pressable style={styles.button} onPress={limitToShanghai}>
+            <Text style={styles.buttonText}>setMapBoundaries</Text>
+          </Pressable>
+          <Pressable style={styles.button} onPress={logMarkerFrames}>
+            <Text style={styles.buttonText}>getMarkersFrames</Text>
+          </Pressable>
+        </View>
 
         <Text style={styles.sectionTitle}>Markers (M3)</Text>
         <View style={styles.buttonRow}>
