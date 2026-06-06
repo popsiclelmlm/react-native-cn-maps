@@ -169,6 +169,7 @@ export default function App() {
   const [showTiles, setShowTiles] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [showGeojson, setShowGeojson] = useState(false);
+  const [gradientLine, setGradientLine] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
@@ -371,7 +372,12 @@ export default function App() {
         <Polyline
           coordinates={LINE}
           strokeColor="#e2231a"
+          strokeColors={
+            gradientLine ? ['#ff0000', '#00ff00', '#0000ff'] : undefined
+          }
           strokeWidth={4}
+          lineCap="round"
+          lineJoin="round"
           tappable
           onPress={() => pushLog('polyline onPress')}
         />
@@ -536,6 +542,10 @@ export default function App() {
             Geojson: point + line + polygon
           </Text>
           <Switch value={showGeojson} onValueChange={setShowGeojson} />
+        </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>Polyline: gradient (M16)</Text>
+          <Switch value={gradientLine} onValueChange={setGradientLine} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
