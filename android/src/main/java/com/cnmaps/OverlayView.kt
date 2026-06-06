@@ -3,6 +3,8 @@ package com.cnmaps
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.widget.FrameLayout
 import com.amap.api.maps.AMap
 import com.amap.api.maps.model.BitmapDescriptorFactory
@@ -30,6 +32,10 @@ class OverlayView(private val reactContext: ThemedReactContext) :
   private var zIndexValue: Float = 0f
   private var aMap: AMap? = null
   private var groundOverlay: GroundOverlay? = null
+
+  // This view is intercepted by the map and never attached to a window, so
+  // View.post {} would never run — schedule on the main looper directly.
+  private val mainHandler = Handler(Looper.getMainLooper())
 
   fun setImage(uri: String?) {
     val normalized = if (uri.isNullOrEmpty()) null else uri
@@ -110,7 +116,7 @@ class OverlayView(private val reactContext: ThemedReactContext) :
         }
       }.getOrNull()
 
-      post {
+      mainHandler.post {
         // Ignore a stale load if the uri changed again before it resolved.
         if (uri == imageUri) {
           bitmap = loaded
