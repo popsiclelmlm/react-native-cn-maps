@@ -5,6 +5,7 @@ import android.widget.FrameLayout
 import com.amap.api.maps.AMap
 import com.amap.api.maps.model.LatLng
 import com.amap.api.maps.model.Polygon
+import com.amap.api.maps.model.PolygonHoleOptions
 import com.amap.api.maps.model.PolygonOptions
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableArray
@@ -12,15 +13,13 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
+import org.json.JSONArray
 
-/**
- * `<Polygon>` child host component; holds the AMap [Polygon]. `holes` are accepted
- * but not applied on Android (no stable AMap holes API across versions) — best
- * effort / documented limitation.
- */
+/** `<Polygon>` child host component; holds the AMap [Polygon] (with interior holes). */
 class PolygonView(private val reactContext: ThemedReactContext) :
   FrameLayout(reactContext) {
   private var coordinates: List<LatLng> = emptyList()
+  private var holes: List<List<LatLng>> = emptyList()
   private var strokeColor: Int = Color.BLACK
   private var fillColor: Int = Color.argb(64, 0, 0, 0)
   private var strokeWidth: Float = 1f
@@ -30,6 +29,11 @@ class PolygonView(private val reactContext: ThemedReactContext) :
 
   fun setCoordinatesFromArray(array: ReadableArray?) {
     coordinates = parseLatLngArray(array)
+    rebuild()
+  }
+
+  fun setHolesJson(json: String?) {
+    holes = parseHoles(json)
     rebuild()
   }
 
@@ -76,14 +80,32 @@ class PolygonView(private val reactContext: ThemedReactContext) :
   private fun rebuild() {
     val map = aMap ?: return
     polygon?.remove()
-    polygon = map.addPolygon(
-      PolygonOptions()
-        .addAll(coordinates)
-        .strokeColor(strokeColor)
-        .fillColor(fillColor)
-        .strokeWidth(strokeWidth)
-        .zIndex(zIndexValue)
-    )
+    val options = PolygonOptions()
+      .addAll(coordinates)
+      .strokeColor(strokeColor)
+      .fillColor(fillColor)
+      .strokeWidth(strokeWidth)
+      .zIndex(zIndexValue)
+    holes.forEach { ring ->
+      options.addHoles(PolygonHoleOptions().addAll(ring))
+    }
+    polygon = map.addPolygon(options)
+  }
+
+  private fun parseHoles(json: String?): List<List<LatLng>> {
+    if (json.isNullOrEmpty()) {
+      return emptyList()
+    }
+    return runCatching {
+      val rings = JSONArray(json)
+      (0 until rings.length()).mapNotNull { i ->
+        val ring = rings.optJSONArray(i) ?: return@mapNotNull null
+        (0 until ring.length()).mapNotNull { j ->
+          val p = ring.optJSONObject(j) ?: return@mapNotNull null
+          LatLng(p.getDouble("latitude"), p.getDouble("longitude"))
+        }.takeIf { it.isNotEmpty() }
+      }
+    }.getOrDefault(emptyList())
   }
 
   private fun parseLatLngArray(array: ReadableArray?): List<LatLng> {

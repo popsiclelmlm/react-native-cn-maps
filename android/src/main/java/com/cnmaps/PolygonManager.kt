@@ -31,7 +31,7 @@ class PolygonManager : SimpleViewManager<PolygonView>(),
 
   @ReactProp(name = "holes")
   override fun setHoles(view: PolygonView, value: String?) {
-    // Holes are not applied on AMap Android (no stable holes API); see PolygonView.
+    view.setHolesJson(value)
   }
 
   @ReactProp(name = "strokeColor", customType = "Color")
