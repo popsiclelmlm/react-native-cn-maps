@@ -45,7 +45,7 @@
 
 ## C 组:JS 覆盖物/瓦片门面
 
-_(待走读)_
+> 已走读:Polyline/Polygon/Circle/Callout/CalloutSubview/Overlay/UrlTile/LocalTile/WMSTile/Heatmap/Geojson 门面均为已审的同一套模式(context 转坐标 + JSON 跨界 + sentinel)。`CalloutSubview.onPress` 为文档化 no-op(M4 限制)。**无新增独立 finding**(坐标系问题见 A2,死代码见 A1)。
 
 ## D 组:JS web stubs
 
@@ -93,4 +93,14 @@ _(待走读)_
 
 ## K 组:example + 配置(podspec / gradle)
 
-_(待走读)_
+| ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
+|----|------|------|------|----------|------|
+| K1 | ⚪ minor(repro) | `android/build.gradle` | 库默认 AMap 依赖 `latest.integration`(动态版本)→ 消费者构建不可复现 + metadata 拉取脆弱(与 example 早期同款问题) | 文档强调 host 用 `ext.amapSdkVersion` 钉版本,或库默认给一个稳定版本 | ⬜ |
+| K2 | ⚪ minor(repro) | `CnMaps.podspec` | `s.dependency "AMap3DMap"` 未钉版本 → iOS 不可复现 | 钉一个已验证的 AMap3DMap 版本 | ⬜ |
+| K3 | ⚪ info | `CnMaps.podspec` + `clean` 脚本 | `source_files = ios/**` 会递归匹配本地 `ios/build/generated`(codegen 产物),可能与 RNMapsSpecs pod 重复编译;`clean` 脚本未清库自身 `ios/build` | 已 gitignore+不发布,风险低;`clean` 加上 `ios/build`,或 podspec 排除 `ios/build` | ⬜ |
+
+---
+
+## 走读完成度
+
+A ✅ · B ✅ · C ✅ · D ✅(已修) · E ✅ · F/G ✅ · H ✅ · I/J ✅ · K ✅ —— **全工程逐组走读完成。**
