@@ -33,7 +33,15 @@
 
 ## B 组:JS 核心(MapView / Marker / AnimatedRegion)
 
-_(待走读)_
+| ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
+|----|------|------|------|----------|------|
+| B1 | 🔴 correctness | `src/MapView.tsx` + `ios/RNMapsMapView.mm` | 命令 Promise 生命周期不健全:`pendingRequests` resolver **卸载不清理 / 无超时 / 无 reject**,native 不回传则永久挂起 + 泄漏。iOS `takeSnapshot` 回调 `if (image == nil) return;` 截图失败不发结果 → JS 永挂 | ① `query` 加卸载 `useEffect` cleanup,把 pending 全 reject;② 可选超时 reject;③ iOS 截图 nil 分支也 `emitCommandResult` 空 uri | ⬜ |
+| B2 | 🔴 correctness | `src/MapView.tsx` | `query` 中 `nativeRef.current` 为 null 时只注册 resolver 不发送 → Promise 永挂 + 泄漏 | ref 为空时直接 reject(或 resolve 兜底)并不入 pending | ⬜ |
+| B3 | ⚪ minor | `src/MapView.tsx` | `handleCommandResult` 的 `JSON.parse(data)` 未 try/catch,畸形 data 会在事件处理中抛错 | 包 try/catch,解析失败 resolve `{}` 或 reject 对应请求 | ⬜ |
+| B4 | 🔵 architecture | `src/MapView.tsx` | `provider` 给 native 写死 `'amap'`,用户传的 provider 仅用于告警 | 接腾讯/百度(M8/M9)时改为透传真实 provider | ⬜ |
+| B5 | ⚪ minor(perf) | `src/AnimatedRegion.ts` + `src/MapView.tsx` | `addListener` 给 4 个 Animated.Value 各挂监听,一帧内全变 → 回调(进而 `animateToRegion`)每帧约触发 4 次,原生命令 4× 冗余 | 用 rAF 合并一帧多次回调,或只监听单个值触发快照 | ⬜ |
+| B6 | ⚪ minor | `src/AnimatedRegion.ts` | `__getValue` 读私有 `_value`,且不含 `setOffset` 的 offset → `setOffset` 后 `toJSON()`/快照偏移。跨 RN 版本脆弱 | 低优先;如需正确 offset 可 `addListener` 缓存最新值或叠加 offset | ⬜ |
+| B7 | ⚪ minor(perf) | `src/MapMarker.tsx` | 事件 handler 每次 render 新建内联闭包(`onPress={(e)=>...}`),marker 多时有 diff 开销 | RN 习惯写法,可不改;如需可 useCallback 化 | ⬜ |
 
 ## C 组:JS 覆盖物/瓦片门面
 
