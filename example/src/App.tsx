@@ -12,6 +12,7 @@ import MapView, {
   Callout,
   Circle,
   Geojson,
+  Heatmap,
   Marker,
   Overlay,
   Polygon,
@@ -116,6 +117,16 @@ const SAMPLE_GEOJSON = {
   ],
 };
 
+// M17 heatmap demo: a cluster of weighted points around Shanghai.
+const HEATMAP_POINTS = [
+  { latitude: 31.23, longitude: 121.47, weight: 1 },
+  { latitude: 31.232, longitude: 121.472, weight: 0.8 },
+  { latitude: 31.228, longitude: 121.468, weight: 0.6 },
+  { latitude: 31.235, longitude: 121.475, weight: 1 },
+  { latitude: 31.225, longitude: 121.465, weight: 0.4 },
+  { latitude: 31.233, longitude: 121.463, weight: 0.7 },
+];
+
 const MAP_TYPES: MapType[] = ['standard', 'satellite', 'hybrid'];
 
 // Boolean props rendered as a switch grid, in display order.
@@ -170,6 +181,7 @@ export default function App() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [showGeojson, setShowGeojson] = useState(false);
   const [gradientLine, setGradientLine] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
@@ -420,6 +432,7 @@ export default function App() {
             pinColor="purple"
           />
         )}
+        {showHeatmap && <Heatmap points={HEATMAP_POINTS} radius={40} />}
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -546,6 +559,10 @@ export default function App() {
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Polyline: gradient (M16)</Text>
           <Switch value={gradientLine} onValueChange={setGradientLine} />
+        </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>Heatmap: weighted points (M17)</Text>
+          <Switch value={showHeatmap} onValueChange={setShowHeatmap} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
