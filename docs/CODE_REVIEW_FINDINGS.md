@@ -2,7 +2,7 @@
 
 > 全工程逐文件走读产出的问题清单。先记录、后统一修复。修复后把状态改为 ✅,并在对应 PR/commit 注明。
 
-> ✅ **P2 清理批完成(2026-06-06)** —— A3 / B5 / B6 / E4 / E6 / E8 / F1 / F2 / H1 / H2 / K1 / K2 / K3 全部处理(B7 跳过=RN 习惯写法)。库 Kotlin 编译通过、JS 44 测试 + typecheck + lint 全绿。**剩余仅架构类**:A4(多 provider 坐标规约)、B4(provider 透传)挂 M8/M9。
+> ✅ **P2 清理批完成(2026-06-06)** —— A3 / B5 / B6 / E4 / E6 / E8 / F1 / F2 / H1 / H2 / K1 / K2 / K3 全部处理(B7 跳过=RN 习惯写法)。库 Kotlin 编译通过、JS 44 测试 + typecheck + lint 全绿。**剩余仅架构类**:A4(多 provider 坐标规约)、B4(provider 透传)挂未来 Baidu / Tencent 接入。
 
 > ✅ **iOS 首次编译 + 真机/模拟器全功能验证通过(2026-06-06)** —— H-arch 关闭。bring-up 过程中发现并修复一串 iOS 库级真 bug(走读/编译都看不出,只有真跑才暴露),见下方「iOS bring-up findings」。
 
@@ -21,15 +21,15 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| A1 | 🟡 cleanup | `src/_warnings.ts` | `useWarnNotImplemented` / `__resetWarningsForTests` 已无任何调用方(M11–M18 把 6 个 stub 全转真实现),整文件死代码 | 删除 `src/_warnings.ts` | ✅ 已删 |
+| A1 | 🟡 cleanup | `src/_warnings.ts` | `useWarnNotImplemented` / `__resetWarningsForTests` 已无任何调用方(stub 全转为真实现),整文件死代码 | 删除 `src/_warnings.ts` | ✅ 已删 |
 | A2 | 🔴 correctness | `src/coordinate.ts` | `toProviderCoordinate/fromProviderCoordinate` 用 `=== 'wgs84'` 二元判断,`bd09` 源坐标落入 `else` 被**静默当作 gcj02**,错位数百米。`CoordinateSystem` 类型声明了 3 种但只处理 2 种 | 补 `bd09ToGcj02 / gcj02ToBd09`(BD-09↔GCJ-02 标准公式),把两个函数改成对**源坐标系**的显式三分派;或至少对 `bd09` 显式 `__DEV__` 警告,避免静默错位 | ✅ 已补 bd09↔gcj02 + 三分派 + 单测 |
 | A3 | ⚪ minor | `src/coordinate.ts` | `gcj02ToWgs84` 用一次"减法粗反解"(`原值*2 - 正解`),误差约 1–2 米 | 如需更高精度可改 2–3 次迭代逼近;一般地图够用,可不改 | ✅ 改 3 次迭代逼近 + 亚厘米单测 |
 
-### A-arch:多 provider 坐标系规约(挂 M8 百度)
+### A-arch:多 provider 坐标系规约(挂未来 Baidu 接入)
 
 | ID | 级别 | 范围 | 决策 | 状态 |
 |----|------|------|------|------|
-| A4 | 🔵 architecture | `coordinate.ts` + M8 百度 | 当前"JS 转 gcj02 下发、native 恒收 gcj02"是**正确且可延续**的方向(高德/腾讯原生即 gcj02;百度原生是 **bd09**,但可用 `SDKInitializer.setCoordType(CoordType.GCJ02)`(Android)/ iOS 等价全局设置让其按 gcj02 解释)。**定为统一规约**:native 层恒收发 GCJ-02,各 provider 负责让 SDK 以 gcj02 解释。需在 M8 文档写明 + 百度 provider 初始化时设置 | ⬜ |
+| A4 | 🔵 architecture | `coordinate.ts` + 百度接入 | 当前"JS 转 gcj02 下发、native 恒收 gcj02"是**正确且可延续**的方向(高德/腾讯原生即 gcj02;百度原生是 **bd09**,但可用 `SDKInitializer.setCoordType(CoordType.GCJ02)`(Android)/ iOS 等价全局设置让其按 gcj02 解释)。**定为统一规约**:native 层恒收发 GCJ-02,各 provider 负责让 SDK 以 gcj02 解释。需在百度 provider 接入文档写明 + 初始化时设置 | ⬜ |
 
 > 注:A2(用户源侧 bd09 转换)与 A4(provider 输出侧)是**两件独立的事**——A4 解决"发给哪家 SDK",A2 解决"用户给的数据是 bd09 时先转成 gcj02"。两者都要做。
 
@@ -42,20 +42,20 @@
 | B1 | 🔴 correctness | `src/MapView.tsx` + `ios/RNMapsMapView.mm` | 命令 Promise 生命周期不健全:`pendingRequests` resolver **卸载不清理 / 无超时 / 无 reject**,native 不回传则永久挂起 + 泄漏。iOS `takeSnapshot` 回调 `if (image == nil) return;` 截图失败不发结果 → JS 永挂 | ① `query` 加卸载 `useEffect` cleanup,把 pending 全 reject;② 可选超时 reject;③ iOS 截图 nil 分支也 `emitCommandResult` 空 uri | ✅ 卸载 reject + 10s 超时 + iOS 仅 state==1 处理、nil 发空 uri |
 | B2 | 🔴 correctness | `src/MapView.tsx` | `query` 中 `nativeRef.current` 为 null 时只注册 resolver 不发送 → Promise 永挂 + 泄漏 | ref 为空时直接 reject(或 resolve 兜底)并不入 pending | ✅ ref 空时立即 reject |
 | B3 | ⚪ minor | `src/MapView.tsx` | `handleCommandResult` 的 `JSON.parse(data)` 未 try/catch,畸形 data 会在事件处理中抛错 | 包 try/catch,解析失败 resolve `{}` 或 reject 对应请求 | ✅ 随 B1 一并加 try/catch + clearTimeout |
-| B4 | 🔵 architecture | `src/MapView.tsx` | `provider` 给 native 写死 `'amap'`,用户传的 provider 仅用于告警 | 接腾讯/百度(M8/M9)时改为透传真实 provider | ⬜ |
+| B4 | 🔵 architecture | `src/MapView.tsx` | `provider` 给 native 写死 `'amap'`,用户传的 provider 仅用于告警 | 接腾讯/百度时改为透传真实 provider | ⬜ |
 | B5 | ⚪ minor(perf) | `src/AnimatedRegion.ts` + `src/MapView.tsx` | `addListener` 给 4 个 Animated.Value 各挂监听,一帧内全变 → 回调(进而 `animateToRegion`)每帧约触发 4 次,原生命令 4× 冗余 | 用 rAF 合并一帧多次回调,或只监听单个值触发快照 | ✅ MapView 消费侧 rAF 合帧(保留 addListener 同步语义,测试约束) |
 | B6 | ⚪ minor | `src/AnimatedRegion.ts` | `__getValue` 读私有 `_value`,且不含 `setOffset` 的 offset → `setOffset` 后 `toJSON()`/快照偏移。跨 RN 版本脆弱 | 低优先;如需正确 offset 可 `addListener` 缓存最新值或叠加 offset | ✅ `__getValue` 改读 `_value + _offset`(修正 setOffset 后快照) |
 | B7 | ⚪ minor(perf) | `src/MapMarker.tsx` | 事件 handler 每次 render 新建内联闭包(`onPress={(e)=>...}`),marker 多时有 diff 开销 | RN 习惯写法,可不改;如需可 useCallback 化 | ⏭️ 跳过(RN 习惯写法,收益小) |
 
 ## C 组:JS 覆盖物/瓦片门面
 
-> 已走读:Polyline/Polygon/Circle/Callout/CalloutSubview/Overlay/UrlTile/LocalTile/WMSTile/Heatmap/Geojson 门面均为已审的同一套模式(context 转坐标 + JSON 跨界 + sentinel)。`CalloutSubview.onPress` 为文档化 no-op(M4 限制)。**无新增独立 finding**(坐标系问题见 A2,死代码见 A1)。
+> 已走读:Polyline/Polygon/Circle/Callout/CalloutSubview/Overlay/UrlTile/LocalTile/WMSTile/Heatmap/Geojson 门面均为已审的同一套模式(context 转坐标 + JSON 跨界 + sentinel)。`CalloutSubview.onPress` 为文档化 no-op(callout 整体栅格化的限制)。**无新增独立 finding**(坐标系问题见 A2,死代码见 A1)。
 
 ## D 组:JS web stubs
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| D1 | 🟡 cleanup | `src/*.web.tsx` + vite/react-native-web | web stub 覆盖不全(6/12 组件)、`MapView.web` handle 不全;且无 web 需求 | **整层移除**:删 6 个 `*.web.tsx` + `example/{index.html,vite.config.mjs}` + 两个 package.json 的 web 脚本/依赖 + ROADMAP M7 标撤 | ✅ |
+| D1 | 🟡 cleanup | `src/*.web.tsx` + vite/react-native-web | web stub 覆盖不全(6/12 组件)、`MapView.web` handle 不全;且无 web 需求 | **整层移除**:删 6 个 `*.web.tsx` + `example/{index.html,vite.config.mjs}` + 两个 package.json 的 web 脚本/依赖 | ✅ |
 
 ## E 组:Android 核心(MapView.kt)
 
@@ -85,7 +85,7 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| H-arch | 🔵 architecture(风险) | 全部 `ios/*.mm` | iOS 从未真机编译:命令选择器需匹配 codegen `RCTRNMaps*ViewProtocol`;M11–M18 依赖的 AMap iOS 符号(`MAGroundOverlay(Renderer)`/`MAMultiColoredPolyline(Renderer)`/`MAHeatMapTileOverlay/Node/Gradient`/`MATileOverlay.URLForTilePath`)全靠推导 | 首次 `pod install`+编译,按报错逐个修(见 VERIFICATION_CHECKLIST iOS 段) | ✅ iOS 首次编译+真机/模拟器验证全通过(2026-06-06)。逐项发现见下方「iOS bring-up」 |
+| H-arch | 🔵 architecture(风险) | 全部 `ios/*.mm` | iOS 从未真机编译:命令选择器需匹配 codegen `RCTRNMaps*ViewProtocol`;Overlay/Heatmap/瓦片/渐变 Polyline 依赖的 AMap iOS 符号全靠推导 | 首次 `pod install`+编译,按报错逐个修(见 VERIFICATION_CHECKLIST iOS 段) | ✅ iOS 首次编译+真机/模拟器验证全通过(2026-06-06)。逐项发现见下方「iOS bring-up」 |
 | H1 | ⚪ minor | `ios/RNMapsMapView.mm` | 显示/手势开关每次 updateProps 无条件重设(无 old≠new 守卫),`showsUserLocation` 反复设可能反复触发定位 | 加 old≠new guard,像 mapType/zoom 那样 | ✅ 守卫 `showsUserLocation`(有副作用);其余幂等开关不守卫以免首帧默认错配。**未真机编译验证** |
 | H2 | ⚪ info | `ios/RNMapsMapView.mm` | `showsLabels`←`showsPointsOfInterest` 控制所有标注非仅 POI(同 Android E6) | 文档化 best-effort | ✅ 随 E6 在 types.ts JSDoc 标注 |
 

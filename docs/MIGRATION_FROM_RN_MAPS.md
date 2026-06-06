@@ -91,8 +91,8 @@ react-native-maps 默认 WGS-84;国内 SDK 用 GCJ-02。用 `<MapView coordinate
 | provider | 状态 |
 |----------|------|
 | 高德 AMap | ✅ |
-| 百度 Baidu (`coordinateSystem="bd09"`) | ❌ 规划中(M8) |
-| 腾讯 Tencent | ❌ 规划中(M9) |
+| 百度 Baidu (`coordinateSystem="bd09"`) | ⏸ 规划中 |
+| 腾讯 Tencent | ⏸ 规划中 |
 
 ## 平台
 
@@ -100,4 +100,4 @@ react-native-maps 默认 WGS-84;国内 SDK 用 GCJ-02。用 `<MapView coordinate
 |------|------|
 | iOS (MAMapKit) | ✅ |
 | Android (AMap) | ✅ |
-| Web (react-native-web) | ⚠️ 占位(M7),真实 web 地图待接入 |
+| Web (react-native-web) | ❌ 不支持(本库定位 RN 原生) |
