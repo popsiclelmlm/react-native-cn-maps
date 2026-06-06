@@ -11,6 +11,7 @@ import {
 import MapView, {
   Callout,
   Circle,
+  Geojson,
   Marker,
   Overlay,
   Polygon,
@@ -77,6 +78,44 @@ const FENCE: LatLng[] = [
 ];
 const CIRCLE_CENTER: LatLng = { latitude: 31.2286, longitude: 121.4753 };
 
+// Sample GeoJSON (coordinates are [lng, lat], WGS-84 per spec) — a point, a line
+// and a polygon around Shanghai for the M14 Geojson demo.
+const SAMPLE_GEOJSON = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [121.5, 31.25] },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [121.46, 31.21],
+          [121.5, 31.24],
+          [121.52, 31.2],
+        ],
+      },
+    },
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [121.44, 31.25],
+            [121.47, 31.26],
+            [121.47, 31.23],
+            [121.44, 31.23],
+            [121.44, 31.25],
+          ],
+        ],
+      },
+    },
+  ],
+};
+
 const MAP_TYPES: MapType[] = ['standard', 'satellite', 'hybrid'];
 
 // Boolean props rendered as a switch grid, in display order.
@@ -129,6 +168,7 @@ export default function App() {
   const [camera, setCamera] = useState<Camera | undefined>(undefined);
   const [showTiles, setShowTiles] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [showGeojson, setShowGeojson] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
@@ -348,6 +388,15 @@ export default function App() {
             opacity={0.7}
           />
         )}
+        {showGeojson && (
+          <Geojson
+            geojson={SAMPLE_GEOJSON}
+            strokeColor="#8e24aa"
+            strokeWidth={3}
+            fillColor="rgba(142,36,170,0.2)"
+            pinColor="purple"
+          />
+        )}
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -454,6 +503,12 @@ export default function App() {
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Overlay: image ground overlay</Text>
           <Switch value={showOverlay} onValueChange={setShowOverlay} />
+        </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>
+            Geojson: point + line + polygon
+          </Text>
+          <Switch value={showGeojson} onValueChange={setShowGeojson} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
