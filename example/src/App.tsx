@@ -11,6 +11,7 @@ import MapView, {
   Callout,
   Circle,
   Marker,
+  Overlay,
   Polygon,
   Polyline,
   UrlTile,
@@ -126,6 +127,7 @@ export default function App() {
   const [dark, setDark] = useState(false);
   const [camera, setCamera] = useState<Camera | undefined>(undefined);
   const [showTiles, setShowTiles] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
   const [pan, setPan] = useState('onPanDrag —');
@@ -324,6 +326,16 @@ export default function App() {
             zIndex={-1}
           />
         )}
+        {showOverlay && (
+          <Overlay
+            image={{ uri: 'https://reactnative.dev/img/tiny_logo.png' }}
+            bounds={[
+              { latitude: 31.27, longitude: 121.44 },
+              { latitude: 31.19, longitude: 121.51 },
+            ]}
+            opacity={0.7}
+          />
+        )}
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -412,10 +424,14 @@ export default function App() {
           <Switch value={dark} onValueChange={setDark} />
         </View>
 
-        <Text style={styles.sectionTitle}>Tiles (M11)</Text>
+        <Text style={styles.sectionTitle}>Tiles (M11) / Overlay (M12)</Text>
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>UrlTile: OSM raster overlay</Text>
           <Switch value={showTiles} onValueChange={setShowTiles} />
+        </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>Overlay: image ground overlay</Text>
+          <Switch value={showOverlay} onValueChange={setShowOverlay} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
