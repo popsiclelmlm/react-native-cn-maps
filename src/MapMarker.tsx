@@ -1,5 +1,10 @@
 import React from 'react';
-import { Animated, Image, type NativeSyntheticEvent } from 'react-native';
+import {
+  Animated,
+  Image,
+  StyleSheet,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import NativeMarker, { Commands } from './MarkerNativeComponent';
 import type { NativeMarkerPressEvent } from './MarkerNativeComponent';
 import { MapCoordinateSystemContext } from './MapContext';
@@ -137,7 +142,7 @@ function MarkerComponent(
       // this the marker view stretches to the map's full width (default flex
       // align-stretch) and the bitmap becomes a full-width bar. flex-start sizes
       // it to its content.
-      style={[{ alignSelf: 'flex-start' }, style]}
+      style={[markerStyles.container, style]}
       identifier={identifier}
       latitude={providerCoordinate.latitude}
       longitude={providerCoordinate.longitude}
@@ -185,6 +190,10 @@ function MarkerComponent(
     </NativeMarker>
   );
 }
+
+const markerStyles = StyleSheet.create({
+  container: { alignSelf: 'flex-start' },
+});
 
 export type MarkerComponentType = React.ForwardRefExoticComponent<
   MarkerProps & React.RefAttributes<MapMarkerHandle>
