@@ -53,7 +53,20 @@ _(待走读)_
 |----|------|------|------|----------|------|
 | D1 | 🟡 cleanup | `src/*.web.tsx` + vite/react-native-web | web stub 覆盖不全(6/12 组件)、`MapView.web` handle 不全;且无 web 需求 | **整层移除**:删 6 个 `*.web.tsx` + `example/{index.html,vite.config.mjs}` + 两个 package.json 的 web 脚本/依赖 + ROADMAP M7 标撤 | ✅ |
 
-## E–G 组:Android
+## E 组:Android 核心(MapView.kt)
+
+> 整体质量高:lifecycle 完整、事件 coalesce 合理、坐标转 dp、marker 事件路由、InfoWindowAdapter 接 Callout。无泄漏/崩溃级问题。
+
+| ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
+|----|------|------|------|----------|------|
+| E1 | ⚪ minor(correctness) | `android/.../MapView.kt` | `isGesture` 在 ACTION_DOWN 置真,仅 `onCameraChangeFinish` 复位;纯点击后会粘住 → 下次(程序化)相机变化误报 `isGesture=true` | ACTION_UP/CANCEL 复位,或只在 MOVE 置真 | ⬜ |
+| E2 | ⚪ minor(behavior) | `android/.../MapView.kt` | `setOnMarkerClickListener` 返回 `false` → AMap 默认把地图居中到 marker,RNM 不会 | 返回 `true` 并按需手动 `showInfoWindow()` | ⬜ |
+| E9 | 🟡 cleanup(perf/ANR) | `android/.../MapView.kt` | `takeSnapshotResult` 在主线程回调里同步 `Bitmap.compress` + 写盘,大图可能卡顿/ANR | 压缩+写盘移到后台线程,完成再 `dispatchCommandResult` | ⬜ |
+| E4 | ⚪ minor(parity) | `android/.../MapView.kt` | `fitToCoordinates` 的 edgePadding 取四边最大值(单一 padding) | 改用 `CameraUpdateFactory.newLatLngBoundsRect(bounds,l,r,t,b)` 逐边 | ⬜ |
+| E6 | ⚪ minor(semantic) | `android/.../MapView.kt` | `showsPointsOfInterest` → `showMapText` 会隐藏所有文字标注,非仅 POI | 文档说明;AMap 无 POI-only 开关 | ⬜ |
+| E8 | ⚪ info | `android/.../MapView.kt` | `addFeature` 未知子 view `else->return` 不计入 features,理论上 getChildCount 可能不一致 | 实际只 mount 已知类型,低风险;可加断言 | ⬜ |
+
+## F–G 组:Android marker/覆盖物/瓦片
 
 _(待走读)_
 
