@@ -18,7 +18,7 @@
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
 | A1 | 🟡 cleanup | `src/_warnings.ts` | `useWarnNotImplemented` / `__resetWarningsForTests` 已无任何调用方(M11–M18 把 6 个 stub 全转真实现),整文件死代码 | 删除 `src/_warnings.ts` | ⬜ |
-| A2 | 🔴 correctness | `src/coordinate.ts` | `toProviderCoordinate/fromProviderCoordinate` 用 `=== 'wgs84'` 二元判断,`bd09` 源坐标落入 `else` 被**静默当作 gcj02**,错位数百米。`CoordinateSystem` 类型声明了 3 种但只处理 2 种 | 补 `bd09ToGcj02 / gcj02ToBd09`(BD-09↔GCJ-02 标准公式),把两个函数改成对**源坐标系**的显式三分派;或至少对 `bd09` 显式 `__DEV__` 警告,避免静默错位 | ⬜ |
+| A2 | 🔴 correctness | `src/coordinate.ts` | `toProviderCoordinate/fromProviderCoordinate` 用 `=== 'wgs84'` 二元判断,`bd09` 源坐标落入 `else` 被**静默当作 gcj02**,错位数百米。`CoordinateSystem` 类型声明了 3 种但只处理 2 种 | 补 `bd09ToGcj02 / gcj02ToBd09`(BD-09↔GCJ-02 标准公式),把两个函数改成对**源坐标系**的显式三分派;或至少对 `bd09` 显式 `__DEV__` 警告,避免静默错位 | ✅ 已补 bd09↔gcj02 + 三分派 + 单测 |
 | A3 | ⚪ minor | `src/coordinate.ts` | `gcj02ToWgs84` 用一次"减法粗反解"(`原值*2 - 正解`),误差约 1–2 米 | 如需更高精度可改 2–3 次迭代逼近;一般地图够用,可不改 | ⬜ |
 
 ### A-arch:多 provider 坐标系规约(挂 M8 百度)
@@ -35,9 +35,9 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| B1 | 🔴 correctness | `src/MapView.tsx` + `ios/RNMapsMapView.mm` | 命令 Promise 生命周期不健全:`pendingRequests` resolver **卸载不清理 / 无超时 / 无 reject**,native 不回传则永久挂起 + 泄漏。iOS `takeSnapshot` 回调 `if (image == nil) return;` 截图失败不发结果 → JS 永挂 | ① `query` 加卸载 `useEffect` cleanup,把 pending 全 reject;② 可选超时 reject;③ iOS 截图 nil 分支也 `emitCommandResult` 空 uri | ⬜ |
-| B2 | 🔴 correctness | `src/MapView.tsx` | `query` 中 `nativeRef.current` 为 null 时只注册 resolver 不发送 → Promise 永挂 + 泄漏 | ref 为空时直接 reject(或 resolve 兜底)并不入 pending | ⬜ |
-| B3 | ⚪ minor | `src/MapView.tsx` | `handleCommandResult` 的 `JSON.parse(data)` 未 try/catch,畸形 data 会在事件处理中抛错 | 包 try/catch,解析失败 resolve `{}` 或 reject 对应请求 | ⬜ |
+| B1 | 🔴 correctness | `src/MapView.tsx` + `ios/RNMapsMapView.mm` | 命令 Promise 生命周期不健全:`pendingRequests` resolver **卸载不清理 / 无超时 / 无 reject**,native 不回传则永久挂起 + 泄漏。iOS `takeSnapshot` 回调 `if (image == nil) return;` 截图失败不发结果 → JS 永挂 | ① `query` 加卸载 `useEffect` cleanup,把 pending 全 reject;② 可选超时 reject;③ iOS 截图 nil 分支也 `emitCommandResult` 空 uri | ✅ 卸载 reject + 10s 超时 + iOS 仅 state==1 处理、nil 发空 uri |
+| B2 | 🔴 correctness | `src/MapView.tsx` | `query` 中 `nativeRef.current` 为 null 时只注册 resolver 不发送 → Promise 永挂 + 泄漏 | ref 为空时直接 reject(或 resolve 兜底)并不入 pending | ✅ ref 空时立即 reject |
+| B3 | ⚪ minor | `src/MapView.tsx` | `handleCommandResult` 的 `JSON.parse(data)` 未 try/catch,畸形 data 会在事件处理中抛错 | 包 try/catch,解析失败 resolve `{}` 或 reject 对应请求 | ✅ 随 B1 一并加 try/catch + clearTimeout |
 | B4 | 🔵 architecture | `src/MapView.tsx` | `provider` 给 native 写死 `'amap'`,用户传的 provider 仅用于告警 | 接腾讯/百度(M8/M9)时改为透传真实 provider | ⬜ |
 | B5 | ⚪ minor(perf) | `src/AnimatedRegion.ts` + `src/MapView.tsx` | `addListener` 给 4 个 Animated.Value 各挂监听,一帧内全变 → 回调(进而 `animateToRegion`)每帧约触发 4 次,原生命令 4× 冗余 | 用 rAF 合并一帧多次回调,或只监听单个值触发快照 | ⬜ |
 | B6 | ⚪ minor | `src/AnimatedRegion.ts` | `__getValue` 读私有 `_value`,且不含 `setOffset` 的 offset → `setOffset` 后 `toJSON()`/快照偏移。跨 RN 版本脆弱 | 低优先;如需正确 offset 可 `addListener` 缓存最新值或叠加 offset | ⬜ |
@@ -70,7 +70,7 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| F3 | 🟡 cleanup(parity/correctness) | `MapView.kt` + `PolylineView.kt` / `PolygonView.kt` | Polyline/Polygon 的 `emitPress()` **从未被调用**——configureMap 无 `setOnPolylineClickListener`/polygon 点击监听,`onPress`/`tappable` 在 Android 上不触发(M5_DESIGN 却声称已支持,文档与实现不符;emitPress 为死方法) | 给 PolylineView 的 polyline 设 `object=this` + configureMap 加 `setOnPolylineClickListener` 路由;Polygon 多数 AMap 版本无点击回调→文档化 best-effort | ⬜ |
+| F3 | 🟡 cleanup(parity/correctness) | `MapView.kt` + `PolylineView.kt` / `PolygonView.kt` | Polyline/Polygon 的 `emitPress()` **从未被调用**——configureMap 无 `setOnPolylineClickListener`/polygon 点击监听,`onPress`/`tappable` 在 Android 上不触发(M5_DESIGN 却声称已支持,文档与实现不符;emitPress 为死方法) | 给 PolylineView 的 polyline 设 `object=this` + configureMap 加 `setOnPolylineClickListener` 路由;Polygon 多数 AMap 版本无点击回调→文档化 best-effort | ✅ Polyline:接 `setOnPolylineClickListener` 按 tappable 路由 emitPress(编译确认 AMap 有此 API);Polygon:AMap Android 无点击 API,文档化不支持 |
 | F4 | 🟡 cleanup(跨端不一致) | `PolygonView.kt` / `PolygonManager.kt` | **`holes` 在 iOS 已实现(`interiorPolygons:`)、Android 静默忽略** → 同一 API 双端行为不一致(更值得修);M5_DESIGN 声称支持 | 新版 AMap `PolygonOptions.addHoles()` 实现 Android holes,对齐 iOS | ⬜ |
 | F1 | ⚪ minor(perf) | `MarkerView.kt` | 自定义内容每次 `Bitmap.createBitmap` 不 recycle 旧 `customBitmap`,`tracksViewChanges` 频繁重绘 GC 压力 | 替换前 recycle 旧位图;detach 时也 recycle | ⬜ |
 | F2 | ⚪ minor(robustness) | `MarkerView.kt` / `OverlayView.kt` / `UrlTileView.kt` / `HeatmapView.kt` | 网络图/瓦片解码用 `URL.openStream()` 无超时,坏网络挂住线程;每张图新建 `Thread`(无线程池) | 设连接/读超时;考虑共享线程池 | ⬜ |
