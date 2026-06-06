@@ -24,7 +24,7 @@
 | M14 | Geojson(纯 JS 渲染) | P1 | ✅ | Geojson |
 | M15 | MapView 命令补全 | P1 | 🚧 | FitToCoordinates / MapBoundaries / DisplayLatLng |
 | M16 | Polyline 渐变 + 线型补全 | P2 | 🚧 | GradientPolylines(Functional) |
-| M17 | Heatmap(热力图) | P2 | ⬜ | HeatMap |
+| M17 | Heatmap(热力图) | P2 | 🚧 | HeatMap |
 | M18 | WMSTile | P2 | ⬜ | WMSTiles / CacheWMSTiles |
 | M19 | 室内地图 + KML | P2 | ⏸ | IndoorMap / MapKml |
 
@@ -136,8 +136,11 @@
   - Android:`HeatmapTileProvider` + `TileOverlay`。
   - iOS:`MAHeatMapTileOverlay`。
 - 验收:
-  - [ ] 点集 + radius + gradient 渲染
-  - [ ] 双端 + example + 单测
+  - [x] 三层落地(tile-overlay 子组件)+ codegen/typecheck/lint/jest 通过
+  - [x] 点集(WeightedLatLng / MAHeatMapNode)+ radius + gradient
+  - [x] example "Heatmap" 开关 + 单测(sentinel)
+  - [ ] Android 真机验证 / iOS 真机验证
+  - 详细设计见 [M17_DESIGN.md](M17_DESIGN.md)
 
 ## M18 — WMSTile · P2
 
