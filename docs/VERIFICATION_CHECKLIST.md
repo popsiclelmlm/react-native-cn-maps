@@ -1,5 +1,7 @@
 # 真机/模拟器验证清单(M1–M18)
 
+> ✅ **Android 真机验证全部通过(2026-06-06)** —— M1–M18(除暂缓 M8/M9/M19)在真机逐项确认。过程中修复 V1(离屏 marker/overlay `post` 不执行)、V2(热力图需 Jetifier)两个真机专属 bug。**iOS 待首次真机编译验证。**
+
 > 对照 example app 的控制面板逐项验证。每项标注:**操作** → **预期**。勾选通过项;不通过的记下现象。
 >
 > 说明:example 的 `<MapView coordinateSystem="gcj02">`。M14 Geojson / M12 Overlay / M17 Heatmap 的 demo 坐标按 gcj02 处理(WGS-84 源数据会有偏移,但仍应渲染在上海附近——本清单只验证"能否渲染")。

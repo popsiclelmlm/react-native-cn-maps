@@ -107,7 +107,7 @@
 |----|------|------|------|------|------|
 | V1 | 🔴 correctness | `android/.../MarkerView.kt` + `OverlayView.kt` | **image marker / custom-content marker 显示默认红钉,且 `<Overlay>` 图片完全不显示**。根因:MarkerView 是被地图拦截的离屏 View(从不 attach 到 window),`this.post{}`(图片加载回调 + 自定义内容栅格化调度)在未 attach 的 View 上**永不执行** | 改用主线程 `Handler` 调度;栅格化用 Fabric 经 `onLayout` 给的 width/height(**不可** Android `measure()` —— RN catalyst view 会抛 "must have explicit width and height") | ✅ 真机验证渲染正常 |
 
-| V2 | 🔴 correctness | `HeatmapView.kt` + host `gradle.properties` | `<Heatmap>` 在真机上**完全不显示**:AMap `HeatmapTileProvider.build()` 抛 `ClassNotFoundException: android.support.v4.util.LongSparseArray`(AMap 热力图仍依赖旧 Support 库,AndroidX 项目无此类) | host app 开 `android.enableJetifier=true`(example 已加;README 已注明)。代码层无法绕过——AMap 该组件内部硬引用旧类 | ✅ example 开 Jetifier + README 注明,待真机确认 |
+| V2 | 🔴 correctness | `HeatmapView.kt` + host `gradle.properties` | `<Heatmap>` 在真机上**完全不显示**:AMap `HeatmapTileProvider.build()` 抛 `ClassNotFoundException: android.support.v4.util.LongSparseArray`(AMap 热力图仍依赖旧 Support 库,AndroidX 项目无此类) | host app 开 `android.enableJetifier=true`(example 已加;README 已注明)。代码层无法绕过——AMap 该组件内部硬引用旧类 | ✅ example 开 Jetifier + README 注明(真机确认热力图显示) |
 
 ---
 

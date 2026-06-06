@@ -18,17 +18,19 @@
 
 | 里程碑 | 能力 | 优先级 | 状态 | 对标 RNM 示例 |
 |--------|------|--------|------|----------------|
-| M11 | UrlTile / LocalTile(自定义瓦片) | P0 | 🚧 | CustomTiles / CustomTilesLocal / CacheURLTiles |
-| M12 | Overlay(图片覆盖物) | P0 | 🚧 | ImageOverlayWith{Assets,URL,Bearing} |
-| M13 | takeSnapshot(地图截图) | P1 | 🚧 | TakeSnapshot |
+| M11 | UrlTile / LocalTile(自定义瓦片) | P0 | ✅ | CustomTiles / CustomTilesLocal / CacheURLTiles |
+| M12 | Overlay(图片覆盖物) | P0 | ✅ | ImageOverlayWith{Assets,URL,Bearing} |
+| M13 | takeSnapshot(地图截图) | P1 | ✅ | TakeSnapshot |
 | M14 | Geojson(纯 JS 渲染) | P1 | ✅ | Geojson |
-| M15 | MapView 命令补全 | P1 | 🚧 | FitToCoordinates / MapBoundaries / DisplayLatLng |
-| M16 | Polyline 渐变 + 线型补全 | P2 | 🚧 | GradientPolylines(Functional) |
-| M17 | Heatmap(热力图) | P2 | 🚧 | HeatMap |
-| M18 | WMSTile | P2 | 🚧 | WMSTiles / CacheWMSTiles |
+| M15 | MapView 命令补全 | P1 | ✅ | FitToCoordinates / MapBoundaries / DisplayLatLng |
+| M16 | Polyline 渐变 + 线型补全 | P2 | ✅ | GradientPolylines(Functional) |
+| M17 | Heatmap(热力图) | P2 | ✅ | HeatMap |
+| M18 | WMSTile | P2 | ✅ | WMSTiles / CacheWMSTiles |
 | M19 | 室内地图 + KML | P2 | ⏸ | IndoorMap / MapKml |
 
 > 不对标:`setNativeProps`(旧架构,Fabric 用 state)、`provider=google`、Apple 专属 insets。
+
+> ✅ **M11–M18 已通过 Android 真机验证(2026-06-06)**。验证中修复了 2 个真机专属 bug:V1(离屏 marker/overlay 的 `post` 不执行 → 图片/自定义内容不显示)、V2(AMap 热力图依赖旧 Support 库 → host 需 `android.enableJetifier=true`)。**iOS 仍待首次真机编译验证(H-arch)。** 详见 [CODE_REVIEW_FINDINGS.md](CODE_REVIEW_FINDINGS.md)。
 
 ---
 
