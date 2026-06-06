@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import com.amap.api.maps.AMap
@@ -72,6 +74,10 @@ class MarkerView(private val reactContext: ThemedReactContext) :
 
   private var marker: Marker? = null
   private var positionAnimator: ValueAnimator? = null
+
+  // This view is intercepted by the map and never attached to a window, so
+  // `View.post {}` would never run. Schedule on the main looper directly instead.
+  private val mainHandler = Handler(Looper.getMainLooper())
 
   // Fabric child reconciliation list (PR-4 callout). Regular content children also
   // live in the FrameLayout (for icon rasterization); the <Callout> child is held
@@ -354,6 +360,8 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     }
   }
 
+  // Fabric calls layout() on this (off-window) view to apply the Yoga-computed
+  // frame, so onLayout is where a valid width/height first becomes available.
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
     super.onLayout(changed, l, t, r, b)
     scheduleRender()
@@ -373,13 +381,18 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     }
 
     renderScheduled = true
-    post {
+    // Main-looper handler (not View.post) because this offscreen view is never
+    // attached to a window — its own post queue would never drain.
+    mainHandler.post {
       renderScheduled = false
       renderCustomIfNeeded()
     }
   }
 
   private fun renderCustomIfNeeded() {
+    // Fabric sizes the view via layout() (see onLayout); until then width/height
+    // are 0 and we wait for the next pass. Never call Android measure() here — RN
+    // catalyst views must be laid out by the shadow tree, not measured directly.
     if (!hasCustomContent() || width <= 0 || height <= 0) {
       return
     }
@@ -412,7 +425,7 @@ class MarkerView(private val reactContext: ThemedReactContext) :
         }
       }.getOrNull()
 
-      post {
+      mainHandler.post {
         // Ignore a stale load if the uri changed again before it resolved.
         if (uri == imageUri) {
           iconBitmap = bitmap
