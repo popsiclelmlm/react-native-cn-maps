@@ -78,3 +78,22 @@ describe('fromProviderCoordinate', () => {
     expect(fromProviderCoordinate(coord, 'gcj02')).toEqual(coord);
   });
 });
+
+describe('bd09 conversion (A2 fix)', () => {
+  const coord = { latitude: 31.23, longitude: 121.47 };
+
+  it('converts a bd09 source to gcj02 (non-identity)', () => {
+    const provider = toProviderCoordinate(coord, 'bd09');
+    // bd09 != gcj02, so the shift must be non-zero (this is the bug that used to
+    // silently pass through).
+    expect(provider.latitude).not.toBe(coord.latitude);
+    expect(provider.longitude).not.toBe(coord.longitude);
+  });
+
+  it('round-trips bd09 → gcj02 → bd09', () => {
+    const provider = toProviderCoordinate(coord, 'bd09');
+    const back = fromProviderCoordinate(provider, 'bd09');
+    expect(back.latitude).toBeCloseTo(coord.latitude, 6);
+    expect(back.longitude).toBeCloseTo(coord.longitude, 6);
+  });
+});

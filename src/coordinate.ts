@@ -4,6 +4,8 @@ import type { NativeCamera } from './MapViewNativeComponent';
 const A = 6378245.0;
 const EE = 0.00669342162296594323;
 const PI = Math.PI;
+// BD-09 uses a slightly different pi-based constant for its extra encryption.
+const X_PI = (PI * 3000.0) / 180.0;
 
 function isOutsideChina(latitude: number, longitude: number) {
   return (
@@ -85,18 +87,60 @@ export function gcj02ToWgs84(coordinate: LatLng): LatLng {
   };
 }
 
+// BD-09 (Baidu) ↔ GCJ-02. Baidu adds one more encryption layer on top of GCJ-02.
+export function bd09ToGcj02(coordinate: LatLng): LatLng {
+  const x = coordinate.longitude - 0.0065;
+  const y = coordinate.latitude - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X_PI);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * X_PI);
+  return {
+    latitude: z * Math.sin(theta),
+    longitude: z * Math.cos(theta),
+  };
+}
+
+export function gcj02ToBd09(coordinate: LatLng): LatLng {
+  const x = coordinate.longitude;
+  const y = coordinate.latitude;
+  const z = Math.sqrt(x * x + y * y) + 0.00002 * Math.sin(y * X_PI);
+  const theta = Math.atan2(y, x) + 0.000003 * Math.cos(x * X_PI);
+  return {
+    latitude: z * Math.sin(theta) + 0.006,
+    longitude: z * Math.cos(theta) + 0.0065,
+  };
+}
+
+// The provider (AMap) coordinate system is GCJ-02. These convert between the
+// user's declared `coordinateSystem` and the provider's GCJ-02 by dispatching on
+// the source system — `gcj02` passes through, `wgs84`/`bd09` convert.
 export function toProviderCoordinate(
   coordinate: LatLng,
   coordinateSystem: CoordinateSystem
 ): LatLng {
-  return coordinateSystem === 'wgs84' ? wgs84ToGcj02(coordinate) : coordinate;
+  switch (coordinateSystem) {
+    case 'wgs84':
+      return wgs84ToGcj02(coordinate);
+    case 'bd09':
+      return bd09ToGcj02(coordinate);
+    case 'gcj02':
+    default:
+      return coordinate;
+  }
 }
 
 export function fromProviderCoordinate(
   coordinate: LatLng,
   coordinateSystem: CoordinateSystem
 ): LatLng {
-  return coordinateSystem === 'wgs84' ? gcj02ToWgs84(coordinate) : coordinate;
+  switch (coordinateSystem) {
+    case 'wgs84':
+      return gcj02ToWgs84(coordinate);
+    case 'bd09':
+      return gcj02ToBd09(coordinate);
+    case 'gcj02':
+    default:
+      return coordinate;
+  }
 }
 
 export function toProviderRegion(
