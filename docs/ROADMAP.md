@@ -15,7 +15,7 @@
 | M4 — Callout + CalloutSubview | ✅ | 见 [M4_DESIGN](M4_DESIGN.md) |
 | M5 — Polyline/Polygon/Circle | ✅ | 见 [M5_DESIGN](M5_DESIGN.md) |
 | M6 — MapView 命令式 API | ✅ | command + onCommandResult Promise 回传 |
-| M7 — Web stub | ✅ | `.web.tsx` 占位,真实 web 地图待接入 |
+| M7 — Web stub | ❌ 已移除 | 无 web 需求,撤掉 `.web.tsx` 占位 + vite/react-native-web(见 CODE_REVIEW_FINDINGS D1) |
 | M8 — 百度 provider | ⏸ | 需真实 SDK + key,留待基线测试后 |
 | M9 — 腾讯 provider | ⏸ | 同 M8 |
 | M10 — Animated + 文档 + CI | ✅ | `AnimatedRegion` 驱动 + [迁移文档](MIGRATION_FROM_RN_MAPS.md) |

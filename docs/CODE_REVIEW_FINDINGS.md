@@ -49,7 +49,9 @@ _(待走读)_
 
 ## D 组:JS web stubs
 
-_(待走读)_
+| ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
+|----|------|------|------|----------|------|
+| D1 | 🟡 cleanup | `src/*.web.tsx` + vite/react-native-web | web stub 覆盖不全(6/12 组件)、`MapView.web` handle 不全;且无 web 需求 | **整层移除**:删 6 个 `*.web.tsx` + `example/{index.html,vite.config.mjs}` + 两个 package.json 的 web 脚本/依赖 + ROADMAP M7 标撤 | ✅ |
 
 ## E–G 组:Android
 
