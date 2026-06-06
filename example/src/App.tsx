@@ -18,6 +18,7 @@ import MapView, {
   Polygon,
   Polyline,
   UrlTile,
+  WMSTile,
   setPrivacyConsent,
 } from 'react-native-cn-maps';
 import type {
@@ -182,6 +183,7 @@ export default function App() {
   const [showGeojson, setShowGeojson] = useState(false);
   const [gradientLine, setGradientLine] = useState(false);
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showWms, setShowWms] = useState(false);
   const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
@@ -433,6 +435,18 @@ export default function App() {
           />
         )}
         {showHeatmap && <Heatmap points={HEATMAP_POINTS} radius={40} />}
+        {showWms && (
+          <WMSTile
+            urlTemplate={
+              'https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1' +
+              '&REQUEST=GetMap&LAYERS=OSM-WMS&STYLES=&FORMAT=image/png' +
+              '&TRANSPARENT=true&SRS=EPSG:3857&WIDTH={width}&HEIGHT={height}' +
+              '&BBOX={minX},{minY},{maxX},{maxY}'
+            }
+            maximumZ={19}
+            zIndex={-1}
+          />
+        )}
       </MapView>
 
       <View pointerEvents="none" style={styles.logOverlay}>
@@ -563,6 +577,10 @@ export default function App() {
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Heatmap: weighted points (M17)</Text>
           <Switch value={showHeatmap} onValueChange={setShowHeatmap} />
+        </View>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>WMSTile: OSM-WMS (M18)</Text>
+          <Switch value={showWms} onValueChange={setShowWms} />
         </View>
 
         <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
