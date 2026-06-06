@@ -59,6 +59,7 @@ function MarkerComponent(
     tracksViewChanges,
     tracksInfoWindowChanges,
     children,
+    style,
     onPress,
     onSelect,
     onDeselect,
@@ -132,6 +133,11 @@ function MarkerComponent(
   return (
     <NativeMarker
       ref={nativeRef}
+      // Custom marker content is rasterized into the icon offscreen; without
+      // this the marker view stretches to the map's full width (default flex
+      // align-stretch) and the bitmap becomes a full-width bar. flex-start sizes
+      // it to its content.
+      style={[{ alignSelf: 'flex-start' }, style]}
       identifier={identifier}
       latitude={providerCoordinate.latitude}
       longitude={providerCoordinate.longitude}
