@@ -101,6 +101,14 @@
 
 ---
 
+## V 组:真机验证发现(走读后补)
+
+| ID | 级别 | 文件 | 问题 | 修法 | 状态 |
+|----|------|------|------|------|------|
+| V1 | 🔴 correctness | `android/.../MarkerView.kt` | **image marker 与 custom-content marker 在 Android 一直显示默认红钉**。根因:MarkerView 是被地图拦截的离屏 View(从不 attach 到 window),`this.post{}`(图片加载回调 + 自定义内容栅格化调度)在未 attach 的 View 上**永不执行** | 改用主线程 `Handler` 调度;栅格化用 Fabric 经 `onLayout` 给的 width/height(**不可** Android `measure()` —— RN catalyst view 会抛 "must have explicit width and height") | ✅ 真机验证渲染正常 |
+
+---
+
 ## 走读完成度
 
 A ✅ · B ✅ · C ✅ · D ✅(已修) · E ✅ · F/G ✅ · H ✅ · I/J ✅ · K ✅ —— **全工程逐组走读完成。**
