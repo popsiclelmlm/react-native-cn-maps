@@ -23,7 +23,7 @@
 | M13 | takeSnapshot(地图截图) | P1 | 🚧 | TakeSnapshot |
 | M14 | Geojson(纯 JS 渲染) | P1 | ✅ | Geojson |
 | M15 | MapView 命令补全 | P1 | 🚧 | FitToCoordinates / MapBoundaries / DisplayLatLng |
-| M16 | Polyline 渐变 + 线型补全 | P2 | ⬜ | GradientPolylines(Functional) |
+| M16 | Polyline 渐变 + 线型补全 | P2 | 🚧 | GradientPolylines(Functional) |
 | M17 | Heatmap(热力图) | P2 | ⬜ | HeatMap |
 | M18 | WMSTile | P2 | ⬜ | WMSTiles / CacheWMSTiles |
 | M19 | 室内地图 + KML | P2 | ⏸ | IndoorMap / MapKml |
@@ -121,8 +121,12 @@
   - Android:`PolylineOptions.colorValues(list).useGradient(true)`;线帽/连接按 SDK 支持 best-effort。
   - iOS:`MAMultiColoredPolyline` + `MAMultiColoredPolylineRenderer`(`strokeColors`)。
 - 验收:
-  - [ ] 渐变折线显示(GradientPolylines 对标)
-  - [ ] 双端 + example + 单测
+  - [x] 三层落地 + codegen/typecheck/lint/jest 通过
+  - [x] `strokeColors` 渐变(Android `colorValues+useGradient` / iOS `MAMultiColoredPolyline`)
+  - [x] `lineCap`/`lineJoin` 双端(AMap enums 确认存在)+ `miterLimit`(iOS renderer)
+  - [x] example 渐变开关 + 单测(sentinel)
+  - [ ] Android 真机验证 / iOS 真机验证
+  - 详细设计见 [M16_DESIGN.md](M16_DESIGN.md)
 
 ## M17 — Heatmap(热力图) · P2
 
