@@ -30,6 +30,14 @@ The Android SDK version can be overridden from the host Gradle project:
 ext.amapSdkVersion = "latest.integration"
 ```
 
+If you use `<Heatmap>`, enable Jetifier in the host app's `android/gradle.properties`
+— AMap's heatmap component still references the legacy `android.support.v4`
+(`LongSparseArray`), which throws `ClassNotFoundException` on AndroidX without it:
+
+```properties
+android.enableJetifier=true
+```
+
 ### iOS
 
 Set the AMap iOS key before the React Native surface starts:
