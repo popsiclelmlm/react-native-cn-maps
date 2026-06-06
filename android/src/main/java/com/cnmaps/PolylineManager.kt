@@ -76,7 +76,9 @@ class PolylineManager : SimpleViewManager<PolylineView>(),
 
   @ReactProp(name = "tappable", defaultBoolean = false)
   override fun setTappable(view: PolylineView, value: Boolean) {
-    // Polyline taps are routed at the map level; gating is best-effort in M5.
+    // Map-level OnPolylineClickListener routes taps; this gates whether this
+    // polyline emits onPress (see MapView.configureMap / PolylineView).
+    view.setTappableValue(value)
   }
 
   companion object {

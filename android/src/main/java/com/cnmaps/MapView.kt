@@ -608,6 +608,19 @@ class MapView(private val reactContext: ThemedReactContext) :
       false
     }
 
+    // Polyline taps: match the clicked AMap polyline back to its owning child
+    // view and emit onPress when that view is `tappable`. (AMap Android has no
+    // polygon click callback, so Polygon onPress stays unsupported.)
+    aMap.setOnPolylineClickListener { clicked ->
+      if (clicked != null) {
+        features.forEach { child ->
+          if (child is PolylineView) {
+            child.handlePolylineClick(clicked)
+          }
+        }
+      }
+    }
+
     aMap.setOnMarkerDragListener(
       object : AMap.OnMarkerDragListener {
         override fun onMarkerDragStart(marker: Marker?) {

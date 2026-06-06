@@ -26,8 +26,23 @@ class PolylineView(private val reactContext: ThemedReactContext) :
   private var dashed: Boolean = false
   private var lineCap: String? = null
   private var lineJoin: String? = null
+  private var tappable: Boolean = false
   private var aMap: AMap? = null
   private var polyline: Polyline? = null
+
+  fun setTappableValue(value: Boolean) {
+    tappable = value
+  }
+
+  // Map-level polyline click routing: the map's OnPolylineClickListener matches
+  // the clicked AMap polyline back to its owning view and (if tappable) emits.
+  fun handlePolylineClick(clicked: Polyline): Boolean {
+    if (!tappable || polyline == null || polyline != clicked) {
+      return false
+    }
+    emitPress()
+    return true
+  }
 
   fun setCoordinatesFromArray(array: ReadableArray?) {
     coordinates = parseLatLngArray(array)
