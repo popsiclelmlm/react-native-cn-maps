@@ -10,6 +10,9 @@ import {
 // coordinate-system conversion applies — only zoom range / caching / styling.
 export interface NativeProps extends ViewProps {
   urlTemplate?: string;
+  // WMS mode (M18): when true, native substitutes the tile's EPSG:3857 bbox
+  // ({minX}/{minY}/{maxX}/{maxY}/{width}/{height}) instead of {x}/{y}/{z}.
+  wms?: CodegenTypes.WithDefault<boolean, false>;
   minimumZ?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;
   maximumZ?: CodegenTypes.WithDefault<CodegenTypes.Int32, 25>;
   maximumNativeZ?: CodegenTypes.WithDefault<CodegenTypes.Int32, 25>;

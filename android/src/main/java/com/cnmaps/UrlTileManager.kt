@@ -27,6 +27,11 @@ class UrlTileManager : SimpleViewManager<UrlTileView>(),
     view.setUrlTemplateValue(value)
   }
 
+  @ReactProp(name = "wms", defaultBoolean = false)
+  override fun setWms(view: UrlTileView, value: Boolean) {
+    view.setWmsValue(value)
+  }
+
   @ReactProp(name = "minimumZ", defaultInt = 0)
   override fun setMinimumZ(view: UrlTileView, value: Int) {
     view.setMinimumZValue(value)

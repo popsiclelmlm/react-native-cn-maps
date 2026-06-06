@@ -21,10 +21,16 @@ class UrlTileView(private val reactContext: ThemedReactContext) :
   private var maximumZ: Int = 25
   private var tileSize: Int = 256
   private var flipY: Boolean = false
+  private var wms: Boolean = false
   private var zIndexValue: Float = 0f
   private var diskCacheDir: String? = null
   private var aMap: AMap? = null
   private var tileOverlay: TileOverlay? = null
+
+  fun setWmsValue(value: Boolean) {
+    wms = value
+    rebuild()
+  }
 
   fun setUrlTemplateValue(value: String?) {
     urlTemplate = value
@@ -83,11 +89,15 @@ class UrlTileView(private val reactContext: ThemedReactContext) :
         if (zoom < minimumZ || zoom > maximumZ) {
           return null
         }
-        val yy = if (flipY) (1 shl zoom) - 1 - y else y
-        val url = template
-          .replace("{x}", x.toString())
-          .replace("{y}", yy.toString())
-          .replace("{z}", zoom.toString())
+        val url = if (wms) {
+          wmsUrl(template, x, y, zoom)
+        } else {
+          val yy = if (flipY) (1 shl zoom) - 1 - y else y
+          template
+            .replace("{x}", x.toString())
+            .replace("{y}", yy.toString())
+            .replace("{z}", zoom.toString())
+        }
         return try {
           URL(url)
         } catch (e: MalformedURLException) {
@@ -102,5 +112,22 @@ class UrlTileView(private val reactContext: ThemedReactContext) :
       options.diskCacheEnabled(true).diskCacheDir(cacheDir)
     }
     tileOverlay = map.addTileOverlay(options)
+  }
+
+  // WMS GetMap URL: substitute the tile's EPSG:3857 (Web Mercator) bbox.
+  private fun wmsUrl(template: String, x: Int, y: Int, zoom: Int): String {
+    val m = 20037508.342789244
+    val tileMeters = (2 * m) / (1 shl zoom)
+    val minX = -m + x * tileMeters
+    val maxX = -m + (x + 1) * tileMeters
+    val maxY = m - y * tileMeters
+    val minY = m - (y + 1) * tileMeters
+    return template
+      .replace("{minX}", minX.toString())
+      .replace("{minY}", minY.toString())
+      .replace("{maxX}", maxX.toString())
+      .replace("{maxY}", maxY.toString())
+      .replace("{width}", tileSize.toString())
+      .replace("{height}", tileSize.toString())
   }
 }
