@@ -20,7 +20,7 @@
 |--------|------|--------|------|----------------|
 | M11 | UrlTile / LocalTile(自定义瓦片) | P0 | 🚧 | CustomTiles / CustomTilesLocal / CacheURLTiles |
 | M12 | Overlay(图片覆盖物) | P0 | 🚧 | ImageOverlayWith{Assets,URL,Bearing} |
-| M13 | takeSnapshot(地图截图) | P1 | ⬜ | TakeSnapshot |
+| M13 | takeSnapshot(地图截图) | P1 | 🚧 | TakeSnapshot |
 | M14 | Geojson(纯 JS 渲染) | P1 | ⬜ | Geojson |
 | M15 | MapView 命令补全 | P1 | ⬜ | FitToCoordinates / MapBoundaries / DisplayLatLng |
 | M16 | Polyline 渐变 + 线型补全 | P2 | ⬜ | GradientPolylines(Functional) |
@@ -77,9 +77,12 @@
   - Android:`aMap.getMapScreenShot(AMap.OnMapScreenShotListener)`,写入临时文件后回传路径。
   - iOS:`[mapView takeSnapshotInRect:withCallback:]`。
 - 验收:
-  - [ ] 返回可用 URI,能 `<Image>` 显示
-  - [ ] 支持指定 region / 尺寸(best-effort)
-  - [ ] 双端 + example + 单测
+  - [x] 三层落地(command + onCommandResult Promise)+ codegen/typecheck/lint/jest 通过
+  - [x] file / base64 两种返回 + 可缩放(width/height)+ png/jpg
+  - [x] example "takeSnapshot" 按钮 + `<Image>` 预览 + 单测(commands 含 takeSnapshot)
+  - [ ] Android 真机验证(返回可用 uri,`<Image>` 显示) / iOS 真机验证
+  - [ ] `region` 指定区域截图(本期忽略,文档化)
+  - 详细设计见 [M13_DESIGN.md](M13_DESIGN.md)
 
 ## M14 — Geojson(纯 JS 渲染) · P1
 
