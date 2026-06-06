@@ -395,8 +395,7 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 
 - (void)redrawCallout
 {
-  // System callout has no React content yet (real <Callout> is M4); re-select to
-  // refresh whatever it shows.
+  // Re-select the annotation to refresh whatever the system callout shows.
   if (_map != nil) {
     [_map deselectAnnotation:_annotation animated:NO];
     [_map selectAnnotation:_annotation animated:NO];

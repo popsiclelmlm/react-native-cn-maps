@@ -5,7 +5,7 @@ import {
   type ViewProps,
 } from 'react-native';
 
-// Child host component of the map (M12). An image "ground overlay" placed by a
+// Child host component of the map. An image "ground overlay" placed by a
 // geographic bounding box. The JS facade resolves `image` to a uri and converts
 // the RNM `bounds` (two corners) into normalized SW/NE corners in the provider
 // (gcj02) coordinate system.

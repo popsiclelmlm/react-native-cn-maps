@@ -5,7 +5,7 @@ import type { CalloutSubviewProps } from './types';
 /**
  * `<CalloutSubview>` renders its content inside the parent `<Callout>`. Because
  * the callout is shown as a rasterized snapshot (Android InfoWindow) / image
- * (iOS), individual subview taps are NOT independently routed in M4 — use the
+ * (iOS), individual subview taps are NOT independently routed — use the
  * parent `<Callout onPress>` / `<Marker onCalloutPress>` for whole-callout taps.
  * The `onPress` prop is accepted for API parity but is a documented no-op here.
  */

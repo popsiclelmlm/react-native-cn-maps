@@ -107,8 +107,7 @@ export type MapEvent<T = Record<string, unknown>> = {
 
 /**
  * Second argument that RNM's `onRegionChange{,Complete}` callbacks receive.
- * Will be wired in M2 alongside the full region-change overhaul; exported now
- * so consumers can type their handlers.
+ * Exported so consumers can type their handlers.
  */
 export type Details = {
   isGesture?: boolean;

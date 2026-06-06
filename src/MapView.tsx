@@ -99,7 +99,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       };
     }, []);
 
-    // M10: an AnimatedRegion drives the native map imperatively (degraded to
+    // An AnimatedRegion drives the native map imperatively (degraded to
     // animateToRegion on each value change, per RNM's fallback approach).
     React.useEffect(() => {
       if (!(region instanceof AnimatedRegion)) {

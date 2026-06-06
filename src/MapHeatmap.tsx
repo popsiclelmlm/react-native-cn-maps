@@ -5,7 +5,7 @@ import { toProviderCoordinate } from './coordinate';
 import type { HeatmapProps } from './types';
 
 /**
- * `<Heatmap>` child host component of `<MapView>` (M17). Renders a weighted point
+ * `<Heatmap>` child host component of `<MapView>`. Renders a weighted point
  * set as a tile-overlay heatmap. Points are converted to the provider system
  * here; `points` and `gradient` cross to native as JSON strings.
  */

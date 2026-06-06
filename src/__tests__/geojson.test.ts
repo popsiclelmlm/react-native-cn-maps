@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { flattenGeojson } from '../geojson';
 import Geojson, { Geojson as NamedGeojson } from '../MapGeojson';
 
-describe('flattenGeojson (M14)', () => {
+describe('flattenGeojson', () => {
   it('returns [] for malformed input', () => {
     expect(flattenGeojson(null)).toEqual([]);
     expect(flattenGeojson(42)).toEqual([]);
@@ -94,7 +94,7 @@ describe('flattenGeojson (M14)', () => {
   });
 });
 
-describe('Geojson component (M14)', () => {
+describe('Geojson component', () => {
   it('retains the __MAP_GEOJSON sentinel after the host-component conversion', () => {
     expect((Geojson as { __MAP_GEOJSON?: boolean }).__MAP_GEOJSON).toBe(true);
   });

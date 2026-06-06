@@ -11,13 +11,13 @@ export type NativeLatLng = Readonly<{
   longitude: CodegenTypes.Double;
 }>;
 
-// Child host component of the map (M5). Coordinates arrive already converted to
+// Child host component of the map. Coordinates arrive already converted to
 // the provider system (gcj02) by the JS facade. `lineDashPattern` is passed as a
 // JSON string to sidestep codegen number-array limitations.
 export interface NativeProps extends ViewProps {
   coordinates?: ReadonlyArray<NativeLatLng>;
   strokeColor?: ColorValue;
-  // Gradient stroke colors (M16): a JSON string array of CSS color strings,
+  // Gradient stroke colors: a JSON string array of CSS color strings,
   // parsed natively (sidesteps codegen's lack of ColorValue-array support).
   strokeColors?: string;
   strokeWidth?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;

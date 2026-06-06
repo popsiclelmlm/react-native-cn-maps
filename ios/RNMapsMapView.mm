@@ -317,7 +317,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   RCTRNMapsMapViewHandleCommand(self, commandName, args);
 }
 
-#pragma mark - Imperative commands (M6)
+#pragma mark - Imperative commands
 
 - (void)applyCameraLatitude:(double)latitude
                   longitude:(double)longitude
@@ -407,7 +407,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   }
 }
 
-#pragma mark - Query commands (M6)
+#pragma mark - Query commands
 
 - (void)emitCommandResult:(NSInteger)requestId data:(NSDictionary *)data
 {
@@ -675,7 +675,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 
   // NOTE: mapPadding, customMapStyle (JSON), tintColor, kmlSrc, loading* and
   // showsMyLocationButton have no clean MAMapKit equivalent and are intentionally
-  // ignored on iOS for M2; the JS facade warns where appropriate.
+  // ignored on iOS; the JS facade warns where appropriate.
 
   // Markers are no longer a prop — they mount as child host components (see
   // mountChildComponentView:).

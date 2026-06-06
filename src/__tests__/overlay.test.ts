@@ -4,7 +4,7 @@ import Overlay, {
   normalizeOverlayBounds,
 } from '../MapOverlay';
 
-describe('normalizeOverlayBounds (M12)', () => {
+describe('normalizeOverlayBounds', () => {
   it('derives sw (min) and ne (max) regardless of corner order', () => {
     const a = { latitude: 31.3, longitude: 121.5 };
     const b = { latitude: 31.1, longitude: 121.2 };
@@ -17,7 +17,7 @@ describe('normalizeOverlayBounds (M12)', () => {
   });
 });
 
-describe('Overlay component (M12)', () => {
+describe('Overlay component', () => {
   it('retains the __MAP_OVERLAY sentinel after the host-component conversion', () => {
     expect((Overlay as { __MAP_OVERLAY?: boolean }).__MAP_OVERLAY).toBe(true);
   });

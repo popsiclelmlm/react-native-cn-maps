@@ -11,7 +11,7 @@ export type NativeLatLng = Readonly<{
   longitude: CodegenTypes.Double;
 }>;
 
-// Child host component of the map (M5). `holes` is a JSON string of
+// Child host component of the map. `holes` is a JSON string of
 // LatLng[][] (provider system) to sidestep codegen nested-array limitations.
 export interface NativeProps extends ViewProps {
   coordinates?: ReadonlyArray<NativeLatLng>;

@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 
 // Callout is a child host component of the marker. Its React subtree renders
-// offscreen and becomes the marker's info-window content (see M4 design). The
+// offscreen and becomes the marker's info-window content. The
 // press payload is empty — the JS facade fills the RNM `{ action }` shape.
 export interface NativeProps extends ViewProps {
   // tooltip = no system frame around the content (pure custom bubble).

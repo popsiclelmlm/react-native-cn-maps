@@ -5,7 +5,7 @@ import {
   type ViewProps,
 } from 'react-native';
 
-// Child host component of the map (M11). A raster tile layer read from local
+// Child host component of the map. A raster tile layer read from local
 // files, driven by a path template containing {x}/{y}/{z} placeholders.
 export interface NativeProps extends ViewProps {
   pathTemplate?: string;

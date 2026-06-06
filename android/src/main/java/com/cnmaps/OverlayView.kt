@@ -13,7 +13,7 @@ import com.amap.api.maps.model.LatLngBounds
 import com.facebook.react.uimanager.ThemedReactContext
 
 /**
- * `<Overlay>` child host component (M12); holds an AMap [GroundOverlay] that
+ * `<Overlay>` child host component; holds an AMap [GroundOverlay] that
  * places an image over a geographic bounding box. The image loads asynchronously
  * (a GroundOverlay must be created with its bitmap), so the overlay is only built
  * once the bitmap is ready; any prop change re-builds it.

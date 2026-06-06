@@ -157,7 +157,7 @@ class MarkerView(private val reactContext: ThemedReactContext) :
 
   fun setTracksInfoWindowChanges(value: Boolean) {
     // Accepted for RNM parity; the system info window has no React content to
-    // re-rasterize in this milestone (real <Callout> content lands in M4).
+    // re-rasterize. Custom <Callout> children render via the InfoWindowAdapter.
     tracksInfoWindowChanges = value
   }
 

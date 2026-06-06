@@ -47,9 +47,9 @@ type RegionKey = (typeof REGION_KEYS)[number];
 /**
  * RNM-compatible `AnimatedRegion` — a wrapper around four `Animated.Value`s
  * exposing the same surface area as `react-native-maps`. The class itself
- * does not currently animate the native `MapView`; M10 will wire it up so
- * the values can be driven natively. Today it is fully usable in JS, and
- * any `addListener` callback fires with a synthesized `Region` snapshot.
+ * drives the native map imperatively (degraded to per-frame `animateToRegion`,
+ * coalesced via rAF) so the values can animate the map without a native driver.
+ * `addListener` fires with a synthesized `Region` snapshot.
  */
 export class AnimatedRegion {
   latitude: Animated.Value;

@@ -35,11 +35,9 @@ function resolveImageUri(source: MarkerImageSource | undefined) {
 /**
  * Real Fabric child host component (`RNMapsMarker`) mounted under `<MapView>`.
  * The native marker view never enters the regular RN view tree — the parent map
- * intercepts its mount/unmount and registers it as an annotation (see M3 design).
+ * intercepts its mount/unmount and registers it as an annotation.
  *
- * The public API is unchanged from the M2 stub (`<Marker coordinate=… />`); only
- * the internal transport switched from a serialized `markers` array prop on the
- * MapView to this per-marker child.
+ * The public API is `<Marker coordinate=… />` — react-native-maps compatible.
  */
 function MarkerComponent(
   props: MarkerProps,
@@ -206,8 +204,8 @@ export const Marker = React.forwardRef(
   MarkerComponent
 ) as unknown as MarkerComponentType;
 
-// Sentinel kept for parity with the M2 stub so any remaining `__MAP_MARKER`
-// checks (and future tooling) still recognize the component.
+// Sentinel kept so any `__MAP_MARKER` checks (and future tooling) still
+// recognize the component.
 Marker.__MAP_MARKER = true;
 
 // RNM parity: `Marker.Animated`, also re-exported as `MarkerAnimated`.

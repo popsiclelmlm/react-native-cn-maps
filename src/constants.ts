@@ -1,8 +1,8 @@
 import type { MapProvider, MapType } from './types';
 
 /**
- * Default provider for the current build. Maps directly to AMap until other
- * SDKs land in M8 / M9.
+ * Default provider for the current build. Maps to AMap; Baidu / Tencent
+ * providers are planned.
  */
 export const PROVIDER_DEFAULT: MapProvider = 'amap';
 

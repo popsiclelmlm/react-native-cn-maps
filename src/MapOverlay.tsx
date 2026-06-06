@@ -32,7 +32,7 @@ function resolveImageUri(source: OverlayProps['image'] | undefined) {
 }
 
 /**
- * `<Overlay>` child host component of `<MapView>` (M12). Places an image by a
+ * `<Overlay>` child host component of `<MapView>`. Places an image by a
  * geographic bounding box. `tappable`/`onPress` are accepted for RNM parity but
  * ground overlays have no native tap support.
  */

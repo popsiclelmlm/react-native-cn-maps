@@ -6,7 +6,7 @@ import {
   type ViewProps,
 } from 'react-native';
 
-// Child host component of the map (M5). `center` is flattened to scalars
+// Child host component of the map. `center` is flattened to scalars
 // (provider system); `radius` is in meters.
 export interface NativeProps extends ViewProps {
   latitude?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;

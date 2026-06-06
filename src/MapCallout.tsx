@@ -6,7 +6,7 @@ import type { CalloutPressEvent, CalloutProps } from './types';
  * `<Callout>` is a child host component of `<Marker>`. Its React subtree renders
  * offscreen and is shown as the marker's info window (iOS: rasterized image above
  * the annotation; Android: AMap InfoWindowAdapter). Whole-callout `onPress` is
- * routed; per-`CalloutSubview` taps are a documented M4 limitation.
+ * routed; per-`CalloutSubview` taps are not independently routed (documented limitation).
  */
 function CalloutComponent(props: CalloutProps) {
   // `alphaHitTest` and other ViewProps beyond `style` have no effect on the
@@ -39,7 +39,7 @@ export type CalloutComponentType = ((
 
 export const Callout = CalloutComponent as unknown as CalloutComponentType;
 
-// Sentinel kept for parity with the M1 stub.
+// Sentinel kept for parity with the original stub.
 Callout.__MAP_CALLOUT = true;
 
 export default Callout;

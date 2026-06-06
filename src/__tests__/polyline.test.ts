@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import Polyline, { Polyline as NamedPolyline } from '../MapPolyline';
 
-describe('Polyline component (M16)', () => {
+describe('Polyline component', () => {
   it('retains the __MAP_POLYLINE sentinel', () => {
     expect((Polyline as { __MAP_POLYLINE?: boolean }).__MAP_POLYLINE).toBe(
       true

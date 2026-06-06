@@ -10,7 +10,7 @@ import java.net.MalformedURLException
 import java.net.URL
 
 /**
- * `<UrlTile>` child host component (M11); holds an AMap [TileOverlay] backed by a
+ * `<UrlTile>` child host component; holds an AMap [TileOverlay] backed by a
  * `{x}/{y}/{z}` URL template. Geometry/zoom/cache changes recreate the overlay;
  * zIndex updates in place.
  */

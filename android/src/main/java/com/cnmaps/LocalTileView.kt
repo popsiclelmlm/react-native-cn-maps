@@ -11,7 +11,7 @@ import com.facebook.react.uimanager.ThemedReactContext
 import java.io.File
 
 /**
- * `<LocalTile>` child host component (M11); holds an AMap [TileOverlay] backed by
+ * `<LocalTile>` child host component; holds an AMap [TileOverlay] backed by
  * local files via a `{x}/{y}/{z}` path template (filesystem or app assets).
  */
 class LocalTileView(private val reactContext: ThemedReactContext) :

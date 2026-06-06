@@ -6,7 +6,7 @@ import type { MapPressEvent, PolylineProps } from './types';
 
 /**
  * `<Polyline>` child host component of `<MapView>`. Coordinates are converted to
- * the provider system here (global "convert in JS" principle). M16 adds gradient
+ * the provider system here (global "convert in JS" principle). Supports gradient
  * `strokeColors` (serialized as JSON, parsed natively) plus `lineCap`/`lineJoin`/
  * `miterLimit` (best-effort on Android, full on iOS renderer).
  */

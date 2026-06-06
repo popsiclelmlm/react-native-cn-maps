@@ -5,12 +5,12 @@ import {
   type ViewProps,
 } from 'react-native';
 
-// Child host component of the map (M11). A raster tile layer driven by a URL
+// Child host component of the map. A raster tile layer driven by a URL
 // template containing {x}/{y}/{z} placeholders. Tiles have no coordinates, so no
 // coordinate-system conversion applies — only zoom range / caching / styling.
 export interface NativeProps extends ViewProps {
   urlTemplate?: string;
-  // WMS mode (M18): when true, native substitutes the tile's EPSG:3857 bbox
+  // WMS mode: when true, native substitutes the tile's EPSG:3857 bbox
   // ({minX}/{minY}/{maxX}/{maxY}/{width}/{height}) instead of {x}/{y}/{z}.
   wms?: CodegenTypes.WithDefault<boolean, false>;
   minimumZ?: CodegenTypes.WithDefault<CodegenTypes.Int32, 0>;

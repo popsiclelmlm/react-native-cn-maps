@@ -114,7 +114,7 @@ class MapView(private val reactContext: ThemedReactContext) :
     moveToRegion(region, animated = true, duration = duration)
   }
 
-  // Imperative commands (M6) ---------------------------------------------------
+  // Imperative commands ---------------------------------------------------------
 
   fun applyCamera(camera: MapCamera, animated: Boolean, duration: Int) {
     // A zero/zero center means "keep current center".
@@ -664,7 +664,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       (marker?.`object` as? MarkerView)?.onInfoWindowClicked()
     }
 
-    // Custom <Callout> content (M4): hand the marker's callout view to AMap as the
+    // Custom <Callout> content: hand the marker's callout view to AMap as the
     // info window. Returning null falls back to the default title/snippet window.
     aMap.setInfoWindowAdapter(
       object : AMap.InfoWindowAdapter {
@@ -902,7 +902,7 @@ class MapView(private val reactContext: ThemedReactContext) :
       }
   }
 
-  // M6 query result: JSON payload keyed by the JS request id.
+  // Query result: JSON payload keyed by the JS request id.
   private class CommandResultEvent(
     surfaceId: Int,
     viewId: Int,

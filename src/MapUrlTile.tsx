@@ -3,7 +3,7 @@ import NativeUrlTile from './UrlTileNativeComponent';
 import type { UrlTileProps } from './types';
 
 /**
- * `<UrlTile>` child host component of `<MapView>` (M11). Renders a raster tile
+ * `<UrlTile>` child host component of `<MapView>`. Renders a raster tile
  * layer from a `{x}/{y}/{z}` URL template. `shouldReplaceMapContent` is accepted
  * for RNM parity but not honored (the base map stays beneath the layer).
  */

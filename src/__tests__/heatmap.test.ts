@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import Heatmap, { Heatmap as NamedHeatmap } from '../MapHeatmap';
 
-describe('Heatmap component (M17)', () => {
+describe('Heatmap component', () => {
   it('retains the __MAP_HEATMAP sentinel after the host-component conversion', () => {
     expect((Heatmap as { __MAP_HEATMAP?: boolean }).__MAP_HEATMAP).toBe(true);
   });

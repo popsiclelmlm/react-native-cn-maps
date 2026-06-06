@@ -6,7 +6,7 @@ import { flattenGeojson } from './geojson';
 import type { GeojsonProps, MapPressEvent } from './types';
 
 /**
- * `<Geojson>` (M14) — pure-JS GeoJSON renderer. Flattens the GeoJSON into the
+ * `<Geojson>` — pure-JS GeoJSON renderer. Flattens the GeoJSON into the
  * existing `<Marker>`/`<Polyline>`/`<Polygon>` child host components; coordinate
  * conversion is handled by those children via context. No native code.
  *

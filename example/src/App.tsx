@@ -36,8 +36,8 @@ import type {
 // actually agrees.
 setPrivacyConsent({ agreed: true, contains: true, shown: true });
 
-// M2 "full prop matrix" demo: every MapView prop & event landed in M2 is wired
-// up to a live control so each can be toggled and observed on a real device.
+// "Full prop matrix" demo: every MapView prop & event is wired up to a live
+// control so each can be toggled and observed on a real device.
 
 const SHANGHAI: Region = {
   latitude: 31.2304,
@@ -56,7 +56,7 @@ const BEIJING_CAMERA: Camera = {
 const THE_BUND: LatLng = { latitude: 31.2397, longitude: 121.499 };
 const PEOPLES_SQUARE: LatLng = { latitude: 31.2286, longitude: 121.4753 };
 
-// M3 marker gallery: one of each marker flavor (default / colored / image /
+// Marker gallery: one of each marker flavor (default / colored / image /
 // custom React view / draggable) plus ref-command targets.
 const DEFAULT_PIN: LatLng = { latitude: 31.2204, longitude: 121.46 };
 const IMAGE_MARKER: LatLng = { latitude: 31.235, longitude: 121.468 };
@@ -66,7 +66,7 @@ const ANIMATE_TARGET: LatLng = { latitude: 31.232, longitude: 121.452 };
 
 const TINY_LOGO = 'https://reactnative.dev/img/tiny_logo.png';
 
-// M5 overlays: a line, a filled polygon fence, and a radius circle.
+// Vector overlays: a line, a filled polygon fence, and a radius circle.
 const LINE: LatLng[] = [
   { latitude: 31.2397, longitude: 121.499 },
   { latitude: 31.2286, longitude: 121.4753 },
@@ -81,7 +81,7 @@ const FENCE: LatLng[] = [
 const CIRCLE_CENTER: LatLng = { latitude: 31.2286, longitude: 121.4753 };
 
 // Sample GeoJSON (coordinates are [lng, lat], WGS-84 per spec) — a point, a line
-// and a polygon around Shanghai for the M14 Geojson demo.
+// and a polygon around Shanghai for the Geojson demo.
 const SAMPLE_GEOJSON = {
   type: 'FeatureCollection',
   features: [
@@ -118,7 +118,7 @@ const SAMPLE_GEOJSON = {
   ],
 };
 
-// M17 heatmap demo: a cluster of weighted points around Shanghai.
+// Heatmap demo: a cluster of weighted points around Shanghai.
 const HEATMAP_POINTS = [
   { latitude: 31.23, longitude: 121.47, weight: 1 },
   { latitude: 31.232, longitude: 121.472, weight: 0.8 },
@@ -209,8 +209,8 @@ export default function App() {
   }, [pushLog]);
 
   const backToShanghai = useCallback(() => {
-    // Drop the controlled camera, then drive the map imperatively (the M2
-    // animateToRegion command) back to the initial region.
+    // Drop the controlled camera, then drive the map imperatively
+    // (animateToRegion command) back to the initial region.
     setCamera(undefined);
     mapRef.current?.animateToRegion(SHANGHAI, 800);
     pushLog('animateToRegion → Shanghai');
@@ -315,7 +315,7 @@ export default function App() {
           pinColor="green"
           onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
         >
-          {/* Custom <Callout> (M4): green pin + tappable custom bubble. */}
+          {/* Custom <Callout>: green pin + tappable custom bubble. */}
           <Callout onPress={() => pushLog('callout onPress bund')}>
             <View style={styles.callout}>
               <Text style={styles.calloutTitle}>The Bund 外滩</Text>
@@ -382,7 +382,7 @@ export default function App() {
           }
         />
 
-        {/* M5 overlays. */}
+        {/* Vector overlays. */}
         <Polyline
           coordinates={LINE}
           strokeColor="#e2231a"
@@ -410,7 +410,7 @@ export default function App() {
         />
         {showTiles && (
           <UrlTile
-            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            urlTemplate="https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
             maximumZ={19}
             zIndex={-1}
           />
@@ -473,7 +473,7 @@ export default function App() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Snapshot (M13)</Text>
+        <Text style={styles.sectionTitle}>Snapshot</Text>
         <View style={styles.buttonRow}>
           <Pressable style={styles.button} onPress={captureSnapshot}>
             <Text style={styles.buttonText}>takeSnapshot</Text>
@@ -483,7 +483,7 @@ export default function App() {
           <Image source={{ uri: snapshotUri }} style={styles.snapshot} />
         )}
 
-        <Text style={styles.sectionTitle}>Commands (M15)</Text>
+        <Text style={styles.sectionTitle}>Commands</Text>
         <View style={styles.buttonRow}>
           <Pressable style={styles.button} onPress={limitToShanghai}>
             <Text style={styles.buttonText}>setMapBoundaries</Text>
@@ -493,7 +493,7 @@ export default function App() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Markers (M3)</Text>
+        <Text style={styles.sectionTitle}>Markers</Text>
         <View style={styles.buttonRow}>
           <Pressable
             style={styles.button}
@@ -555,7 +555,7 @@ export default function App() {
           <Switch value={dark} onValueChange={setDark} />
         </View>
 
-        <Text style={styles.sectionTitle}>Tiles (M11) / Overlay (M12)</Text>
+        <Text style={styles.sectionTitle}>Tiles / Overlay</Text>
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>UrlTile: OSM raster overlay</Text>
           <Switch value={showTiles} onValueChange={setShowTiles} />
@@ -571,15 +571,15 @@ export default function App() {
           <Switch value={showGeojson} onValueChange={setShowGeojson} />
         </View>
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Polyline: gradient (M16)</Text>
+          <Text style={styles.toggleLabel}>Polyline: gradient</Text>
           <Switch value={gradientLine} onValueChange={setGradientLine} />
         </View>
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Heatmap: weighted points (M17)</Text>
+          <Text style={styles.toggleLabel}>Heatmap: weighted points</Text>
           <Switch value={showHeatmap} onValueChange={setShowHeatmap} />
         </View>
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>WMSTile: OSM-WMS (M18)</Text>
+          <Text style={styles.toggleLabel}>WMSTile: OSM-WMS</Text>
           <Switch value={showWms} onValueChange={setShowWms} />
         </View>
 

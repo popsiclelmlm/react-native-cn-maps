@@ -152,7 +152,7 @@ export interface NativeProps extends ViewProps {
   // User location
   onUserLocationChange?: CodegenTypes.DirectEventHandler<NativeUserLocationChangeEvent>;
 
-  // M6: result channel for Promise-returning ref methods. Native serializes the
+  // Result channel for Promise-returning ref methods. Native serializes the
   // result to JSON keyed by the JS-generated request id (RNM's Fabric pattern).
   onCommandResult?: CodegenTypes.DirectEventHandler<NativeCommandResultEvent>;
 }

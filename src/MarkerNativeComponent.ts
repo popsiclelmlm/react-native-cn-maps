@@ -21,9 +21,9 @@ export type NativeMarkerPoint = Readonly<{
   y: CodegenTypes.Double;
 }>;
 
-// M3 PR-1 landed the minimal prop set; PR-2 adds the static-appearance surface
-// (image, anchor, centerOffset, calloutAnchor, opacity, rotation, flat, overlayZIndex).
-// Custom React content, drag/select events and ref commands arrive in PR-3/PR-4.
+// Full Marker surface: position + static appearance (image, anchor, centerOffset,
+// calloutAnchor, opacity, rotation, flat, overlayZIndex), custom React content
+// (rasterized into the icon), drag/select events, and ref commands.
 export interface NativeProps extends ViewProps {
   identifier?: string;
   latitude?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;

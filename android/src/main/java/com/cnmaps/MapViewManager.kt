@@ -124,7 +124,7 @@ class MapViewManager : ViewGroupManager<MapView>(),
 
   @ReactProp(name = "kmlSrc")
   override fun setKmlSrc(view: MapView, value: String?) {
-    // KML import is not part of the M2 surface; best-effort ignore.
+    // KML import is not supported (AMap has no native KML loader); ignored.
   }
 
   // Zoom ----------------------------------------------------------------------
@@ -228,7 +228,7 @@ class MapViewManager : ViewGroupManager<MapView>(),
 
   @ReactProp(name = "loadingEnabled", defaultBoolean = false)
   override fun setLoadingEnabled(view: MapView, value: Boolean) {
-    // AMap renders its own tile-loading state; no RN loading overlay for M2.
+    // AMap renders its own tile-loading state; no RN loading overlay.
   }
 
   @ReactProp(name = "loadingIndicatorColor", customType = "Color")

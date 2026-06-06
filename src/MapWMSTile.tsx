@@ -3,7 +3,7 @@ import NativeUrlTile from './UrlTileNativeComponent';
 import type { WMSTileProps } from './types';
 
 /**
- * `<WMSTile>` child host component of `<MapView>` (M18). A WMS GetMap layer: the
+ * `<WMSTile>` child host component of `<MapView>`. A WMS GetMap layer: the
  * `urlTemplate` uses bbox placeholders (`{minX}/{minY}/{maxX}/{maxY}/{width}/
  * {height}`). It reuses the UrlTile native component with `wms` enabled, which
  * substitutes the tile's EPSG:3857 bbox natively. Web Mercator (3857) only.

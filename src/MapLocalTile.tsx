@@ -3,7 +3,7 @@ import NativeLocalTile from './LocalTileNativeComponent';
 import type { LocalTileProps } from './types';
 
 /**
- * `<LocalTile>` child host component of `<MapView>` (M11). Renders a raster tile
+ * `<LocalTile>` child host component of `<MapView>`. Renders a raster tile
  * layer read from local files via a `{x}/{y}/{z}` path template.
  */
 function LocalTileComponent(props: LocalTileProps) {

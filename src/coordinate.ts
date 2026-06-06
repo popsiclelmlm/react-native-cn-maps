@@ -208,8 +208,8 @@ export function toProviderCamera(
 
 /**
  * Inverse of {@link toProviderCamera}: rebuild the RNM `{ center }` shape from a
- * native camera struct, converting the center back out of gcj02. Reserved for
- * the M6 `getCamera` command.
+ * native camera struct, converting the center back out of gcj02. Used by the
+ * `getCamera` command.
  */
 export function fromProviderCamera(
   camera: NativeCamera,
