@@ -71,7 +71,7 @@ _(待走读)_
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
 | F3 | 🟡 cleanup(parity/correctness) | `MapView.kt` + `PolylineView.kt` / `PolygonView.kt` | Polyline/Polygon 的 `emitPress()` **从未被调用**——configureMap 无 `setOnPolylineClickListener`/polygon 点击监听,`onPress`/`tappable` 在 Android 上不触发(M5_DESIGN 却声称已支持,文档与实现不符;emitPress 为死方法) | 给 PolylineView 的 polyline 设 `object=this` + configureMap 加 `setOnPolylineClickListener` 路由;Polygon 多数 AMap 版本无点击回调→文档化 best-effort | ⬜ |
-| F4 | ⚪ minor(parity) | `PolygonView.kt` / `PolygonManager.kt` | `holes` 在 Android 静默忽略(`setHoles` no-op),M5_DESIGN 声称支持 | 新版 AMap `PolygonOptions.addHoles()` 可实现;否则文档明确不支持 | ⬜ |
+| F4 | 🟡 cleanup(跨端不一致) | `PolygonView.kt` / `PolygonManager.kt` | **`holes` 在 iOS 已实现(`interiorPolygons:`)、Android 静默忽略** → 同一 API 双端行为不一致(更值得修);M5_DESIGN 声称支持 | 新版 AMap `PolygonOptions.addHoles()` 实现 Android holes,对齐 iOS | ⬜ |
 | F1 | ⚪ minor(perf) | `MarkerView.kt` | 自定义内容每次 `Bitmap.createBitmap` 不 recycle 旧 `customBitmap`,`tracksViewChanges` 频繁重绘 GC 压力 | 替换前 recycle 旧位图;detach 时也 recycle | ⬜ |
 | F2 | ⚪ minor(robustness) | `MarkerView.kt` / `OverlayView.kt` / `UrlTileView.kt` / `HeatmapView.kt` | 网络图/瓦片解码用 `URL.openStream()` 无超时,坏网络挂住线程;每张图新建 `Thread`(无线程池) | 设连接/读超时;考虑共享线程池 | ⬜ |
 
@@ -87,7 +87,9 @@ _(待走读)_
 
 ## I–J 组:iOS marker/覆盖物/瓦片
 
-_(待走读)_
+> 已走读:整体干净,质量与 Android 相当。`RNMapsMarker.mm`(CADisplayLink 正确 invalidate、无保留环;图片 weak+stale;`UIGraphicsImageRenderer` 栅格化)、`RNMapsPolygon.mm`(**holes 已实现**)、`RNMapsCallout.mm`/`RNMapsCircle.mm` 均无独立问题。iOS 图片走 `NSURLSession`(默认 60s 超时),不像 Android F2 裸流无超时。
+>
+> 唯一登记项已并入 **F4**(holes 跨端不一致)与 **H-arch**(iOS 整体未真机编译)。本组无新增独立 finding。
 
 ## K 组:example + 配置(podspec / gradle)
 
