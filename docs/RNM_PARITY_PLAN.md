@@ -21,7 +21,7 @@
 | M11 | UrlTile / LocalTile(自定义瓦片) | P0 | 🚧 | CustomTiles / CustomTilesLocal / CacheURLTiles |
 | M12 | Overlay(图片覆盖物) | P0 | 🚧 | ImageOverlayWith{Assets,URL,Bearing} |
 | M13 | takeSnapshot(地图截图) | P1 | 🚧 | TakeSnapshot |
-| M14 | Geojson(纯 JS 渲染) | P1 | ⬜ | Geojson |
+| M14 | Geojson(纯 JS 渲染) | P1 | ✅ | Geojson |
 | M15 | MapView 命令补全 | P1 | ⬜ | FitToCoordinates / MapBoundaries / DisplayLatLng |
 | M16 | Polyline 渐变 + 线型补全 | P2 | ⬜ | GradientPolylines(Functional) |
 | M17 | Heatmap(热力图) | P2 | ⬜ | HeatMap |
@@ -91,9 +91,12 @@
 - JS:`MapGeojson` 改为解析 GeoJSON → 渲染对应子组件;支持 `strokeColor`/`fillColor`/`strokeWidth`/`color`/`zIndex`/`markerComponent` 等覆盖样式。
 - 坐标系:按 `<MapView coordinateSystem>` 在 JS 层统一转换(沿用现有 coordinate.ts)。
 - 验收:
-  - [ ] Point / LineString / Polygon / Multi* 均渲染
-  - [ ] 样式 props 生效
-  - [ ] example 演示页 + 单测(给定 FeatureCollection 断言渲染出的子组件数量/类型)
+  - [x] 纯 JS 实现(`flattenGeojson` + 复用 Marker/Polyline/Polygon)+ typecheck/lint/jest 通过
+  - [x] Point / MultiPoint / LineString / MultiLineString / Polygon(含内孔)/ MultiPolygon / GeometryCollection / Feature / FeatureCollection
+  - [x] 样式 props(stroke/fill/dash/zIndex/marker 外观)生效
+  - [x] example "Geojson" 开关 + 单测(各几何类型 + 畸形输入 → `[]`)
+  - [ ] Android 真机验证(低风险,复用已落地组件)
+  - 详细设计见 [M14_DESIGN.md](M14_DESIGN.md)
 
 ## M15 — MapView 命令补全 · P1
 
