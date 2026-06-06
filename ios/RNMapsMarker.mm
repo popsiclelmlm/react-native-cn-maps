@@ -276,7 +276,10 @@ static void RNMapsLoadMarkerImage(NSString *uri, void (^completion)(UIImage *_Nu
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsMarkerProps const>(oldProps);
+  // Use `_props`, not `oldProps`: the parameter is nullptr on the first
+  // updateProps and dereferencing it crashes (EXC_BAD_ACCESS). `_props` holds
+  // the last-applied props (defaultProps initially), so it's always valid.
+  const auto &oldViewProps = *std::static_pointer_cast<RNMapsMarkerProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<RNMapsMarkerProps const>(props);
 
   _annotation.identifier = RNMapsMarkerNSStringFromString(newViewProps.identifier);

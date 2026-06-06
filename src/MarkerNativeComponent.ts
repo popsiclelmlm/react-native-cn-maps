@@ -56,7 +56,10 @@ export interface NativeProps extends ViewProps {
   // Interaction (PR-4). All carry the marker's `{ coordinate }` (drag events
   // report the new position); the JS facade re-attaches `identifier` and converts
   // the coordinate back out of the provider system.
-  onPress?: CodegenTypes.DirectEventHandler<NativeMarkerPressEvent>;
+  // `onPress` collides with iOS's built-in bubbling `topPress` (BaseViewConfig
+  // registers it globally), so it must be bubbling too — a Direct handler throws
+  // "Event cannot be both direct and bubbling: topPress" (same as onSelect below).
+  onPress?: CodegenTypes.BubblingEventHandler<NativeMarkerPressEvent>;
   // `onSelect` collides with React Native's built-in bubbling `topSelect`
   // (BaseViewConfig registers it globally with bubbled name `onSelect`), so it
   // must be declared bubbling — a Direct handler triggers the runtime invariant

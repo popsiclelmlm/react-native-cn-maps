@@ -12,7 +12,11 @@ export interface NativeProps extends ViewProps {
   // tooltip = no system frame around the content (pure custom bubble).
   tooltip?: CodegenTypes.WithDefault<boolean, false>;
 
-  onPress?: CodegenTypes.DirectEventHandler<Readonly<{}>>;
+  // BubblingEventHandler, not Direct: iOS's BaseViewConfig already registers
+  // `topPress` as a bubbling event, so a direct registration throws
+  // "Event cannot be both direct and bubbling: topPress". (Android has no core
+  // topPress, so bubbling is safe there too.)
+  onPress?: CodegenTypes.BubblingEventHandler<Readonly<{}>>;
 }
 
 export default codegenNativeComponent<NativeProps>(

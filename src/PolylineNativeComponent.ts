@@ -29,7 +29,9 @@ export interface NativeProps extends ViewProps {
   overlayZIndex?: CodegenTypes.WithDefault<CodegenTypes.Double, 0>;
   tappable?: CodegenTypes.WithDefault<boolean, false>;
 
-  onPress?: CodegenTypes.DirectEventHandler<Readonly<{}>>;
+  // Bubbling (not Direct): iOS core registers `topPress` as bubbling — a direct
+  // registration throws "Event cannot be both direct and bubbling: topPress".
+  onPress?: CodegenTypes.BubblingEventHandler<Readonly<{}>>;
 }
 
 export default codegenNativeComponent<NativeProps>(

@@ -69,7 +69,10 @@ using namespace facebook::react;
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsCircleProps const>(oldProps);
+  // Use `_props` (the last-applied props), not the `oldProps` parameter: on the
+  // first updateProps the parameter is nullptr and dereferencing it crashes
+  // (EXC_BAD_ACCESS). `_props` is seeded with defaultProps in init, so it's safe.
+  const auto &oldViewProps = *std::static_pointer_cast<RNMapsCircleProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<RNMapsCircleProps const>(props);
 
   _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];

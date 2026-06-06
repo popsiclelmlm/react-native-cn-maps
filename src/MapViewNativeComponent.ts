@@ -141,7 +141,9 @@ export interface NativeProps extends ViewProps {
   onMapLoaded?: CodegenTypes.DirectEventHandler<Readonly<{}>>;
 
   // Gestures
-  onPress?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
+  // onPress is Bubbling (not Direct): iOS core registers `topPress` as bubbling,
+  // so a direct registration throws "Event cannot be both direct and bubbling".
+  onPress?: CodegenTypes.BubblingEventHandler<NativeMapPressEvent>;
   onLongPress?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
   onDoublePress?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
   onPanDrag?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;

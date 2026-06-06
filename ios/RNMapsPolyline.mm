@@ -160,7 +160,9 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsPolylineProps const>(oldProps);
+  // Use `_props`, not `oldProps`: the parameter is nullptr on the first
+  // updateProps and dereferencing it crashes. `_props` is always valid.
+  const auto &oldViewProps = *std::static_pointer_cast<RNMapsPolylineProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<RNMapsPolylineProps const>(props);
 
   _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];
