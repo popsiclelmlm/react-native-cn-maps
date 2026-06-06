@@ -17,7 +17,7 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| A1 | 🟡 cleanup | `src/_warnings.ts` | `useWarnNotImplemented` / `__resetWarningsForTests` 已无任何调用方(M11–M18 把 6 个 stub 全转真实现),整文件死代码 | 删除 `src/_warnings.ts` | ⬜ |
+| A1 | 🟡 cleanup | `src/_warnings.ts` | `useWarnNotImplemented` / `__resetWarningsForTests` 已无任何调用方(M11–M18 把 6 个 stub 全转真实现),整文件死代码 | 删除 `src/_warnings.ts` | ✅ 已删 |
 | A2 | 🔴 correctness | `src/coordinate.ts` | `toProviderCoordinate/fromProviderCoordinate` 用 `=== 'wgs84'` 二元判断,`bd09` 源坐标落入 `else` 被**静默当作 gcj02**,错位数百米。`CoordinateSystem` 类型声明了 3 种但只处理 2 种 | 补 `bd09ToGcj02 / gcj02ToBd09`(BD-09↔GCJ-02 标准公式),把两个函数改成对**源坐标系**的显式三分派;或至少对 `bd09` 显式 `__DEV__` 警告,避免静默错位 | ✅ 已补 bd09↔gcj02 + 三分派 + 单测 |
 | A3 | ⚪ minor | `src/coordinate.ts` | `gcj02ToWgs84` 用一次"减法粗反解"(`原值*2 - 正解`),误差约 1–2 米 | 如需更高精度可改 2–3 次迭代逼近;一般地图够用,可不改 | ⬜ |
 
@@ -59,9 +59,9 @@
 
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
-| E1 | ⚪ minor(correctness) | `android/.../MapView.kt` | `isGesture` 在 ACTION_DOWN 置真,仅 `onCameraChangeFinish` 复位;纯点击后会粘住 → 下次(程序化)相机变化误报 `isGesture=true` | ACTION_UP/CANCEL 复位,或只在 MOVE 置真 | ⬜ |
-| E2 | ⚪ minor(behavior) | `android/.../MapView.kt` | `setOnMarkerClickListener` 返回 `false` → AMap 默认把地图居中到 marker,RNM 不会 | 返回 `true` 并按需手动 `showInfoWindow()` | ⬜ |
-| E9 | 🟡 cleanup(perf/ANR) | `android/.../MapView.kt` | `takeSnapshotResult` 在主线程回调里同步 `Bitmap.compress` + 写盘,大图可能卡顿/ANR | 压缩+写盘移到后台线程,完成再 `dispatchCommandResult` | ⬜ |
+| E1 | ⚪ minor(correctness) | `android/.../MapView.kt` | `isGesture` 在 ACTION_DOWN 置真,仅 `onCameraChangeFinish` 复位;纯点击后会粘住 → 下次(程序化)相机变化误报 `isGesture=true` | ACTION_UP/CANCEL 复位,或只在 MOVE 置真 | ✅ DOWN 清零 + MOVE 置真 |
+| E2 | ⚪ minor(behavior) | `android/.../MapView.kt` | `setOnMarkerClickListener` 返回 `false` → AMap 默认把地图居中到 marker,RNM 不会 | 返回 `true` 并按需手动 `showInfoWindow()` | ✅ consume + 有内容才 showInfoWindow |
+| E9 | 🟡 cleanup(perf/ANR) | `android/.../MapView.kt` | `takeSnapshotResult` 在主线程回调里同步 `Bitmap.compress` + 写盘,大图可能卡顿/ANR | 压缩+写盘移到后台线程,完成再 `dispatchCommandResult` | ✅ deliverSnapshot 移入后台 Thread |
 | E4 | ⚪ minor(parity) | `android/.../MapView.kt` | `fitToCoordinates` 的 edgePadding 取四边最大值(单一 padding) | 改用 `CameraUpdateFactory.newLatLngBoundsRect(bounds,l,r,t,b)` 逐边 | ⬜ |
 | E6 | ⚪ minor(semantic) | `android/.../MapView.kt` | `showsPointsOfInterest` → `showMapText` 会隐藏所有文字标注,非仅 POI | 文档说明;AMap 无 POI-only 开关 | ⬜ |
 | E8 | ⚪ info | `android/.../MapView.kt` | `addFeature` 未知子 view `else->return` 不计入 features,理论上 getChildCount 可能不一致 | 实际只 mount 已知类型,低风险;可加断言 | ⬜ |
@@ -71,7 +71,7 @@
 | ID | 级别 | 文件 | 问题 | 建议修法 | 状态 |
 |----|------|------|------|----------|------|
 | F3 | 🟡 cleanup(parity/correctness) | `MapView.kt` + `PolylineView.kt` / `PolygonView.kt` | Polyline/Polygon 的 `emitPress()` **从未被调用**——configureMap 无 `setOnPolylineClickListener`/polygon 点击监听,`onPress`/`tappable` 在 Android 上不触发(M5_DESIGN 却声称已支持,文档与实现不符;emitPress 为死方法) | 给 PolylineView 的 polyline 设 `object=this` + configureMap 加 `setOnPolylineClickListener` 路由;Polygon 多数 AMap 版本无点击回调→文档化 best-effort | ✅ Polyline:接 `setOnPolylineClickListener` 按 tappable 路由 emitPress(编译确认 AMap 有此 API);Polygon:AMap Android 无点击 API,文档化不支持 |
-| F4 | 🟡 cleanup(跨端不一致) | `PolygonView.kt` / `PolygonManager.kt` | **`holes` 在 iOS 已实现(`interiorPolygons:`)、Android 静默忽略** → 同一 API 双端行为不一致(更值得修);M5_DESIGN 声称支持 | 新版 AMap `PolygonOptions.addHoles()` 实现 Android holes,对齐 iOS | ⬜ |
+| F4 | 🟡 cleanup(跨端不一致) | `PolygonView.kt` / `PolygonManager.kt` | **`holes` 在 iOS 已实现(`interiorPolygons:`)、Android 静默忽略** → 同一 API 双端行为不一致(更值得修);M5_DESIGN 声称支持 | 新版 AMap `PolygonOptions.addHoles()` 实现 Android holes,对齐 iOS | ✅ PolygonHoleOptions.addHoles,双端一致 |
 | F1 | ⚪ minor(perf) | `MarkerView.kt` | 自定义内容每次 `Bitmap.createBitmap` 不 recycle 旧 `customBitmap`,`tracksViewChanges` 频繁重绘 GC 压力 | 替换前 recycle 旧位图;detach 时也 recycle | ⬜ |
 | F2 | ⚪ minor(robustness) | `MarkerView.kt` / `OverlayView.kt` / `UrlTileView.kt` / `HeatmapView.kt` | 网络图/瓦片解码用 `URL.openStream()` 无超时,坏网络挂住线程;每张图新建 `Thread`(无线程池) | 设连接/读超时;考虑共享线程池 | ⬜ |
 
