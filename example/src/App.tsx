@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -128,6 +129,7 @@ export default function App() {
   const [camera, setCamera] = useState<Camera | undefined>(undefined);
   const [showTiles, setShowTiles] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
   const [flags, setFlags] = useState(INITIAL_FLAGS);
   const [log, setLog] = useState<string[]>([]);
   const [pan, setPan] = useState('onPanDrag —');
@@ -157,6 +159,16 @@ export default function App() {
     setCamera(undefined);
     mapRef.current?.animateToRegion(SHANGHAI, 800);
     pushLog('animateToRegion → Shanghai');
+  }, [pushLog]);
+
+  const captureSnapshot = useCallback(async () => {
+    try {
+      const uri = await mapRef.current?.takeSnapshot?.({ result: 'file' });
+      setSnapshotUri(uri ?? null);
+      pushLog(`takeSnapshot → ${uri ? 'ok' : 'empty'}`);
+    } catch (e) {
+      pushLog(`takeSnapshot error: ${String(e)}`);
+    }
   }, [pushLog]);
 
   return (
@@ -362,6 +374,16 @@ export default function App() {
           </Pressable>
         </View>
 
+        <Text style={styles.sectionTitle}>Snapshot (M13)</Text>
+        <View style={styles.buttonRow}>
+          <Pressable style={styles.button} onPress={captureSnapshot}>
+            <Text style={styles.buttonText}>takeSnapshot</Text>
+          </Pressable>
+        </View>
+        {snapshotUri && (
+          <Image source={{ uri: snapshotUri }} style={styles.snapshot} />
+        )}
+
         <Text style={styles.sectionTitle}>Markers (M3)</Text>
         <View style={styles.buttonRow}>
           <Pressable
@@ -477,6 +499,13 @@ const styles = StyleSheet.create({
   panelInner: {
     padding: 12,
     paddingBottom: 32,
+  },
+  snapshot: {
+    width: 160,
+    height: 100,
+    marginTop: 8,
+    borderRadius: 6,
+    backgroundColor: '#eee',
   },
   sectionTitle: {
     fontSize: 13,
