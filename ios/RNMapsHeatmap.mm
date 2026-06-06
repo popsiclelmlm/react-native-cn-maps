@@ -99,6 +99,7 @@ static NSString *RNMapsHeatmapNSString(const std::string &value)
   if (nodes.count > 0) {
     MAHeatMapTileOverlay *overlay = [[MAHeatMapTileOverlay alloc] init];
     overlay.data = nodes;
+    overlay.radius = _radius;
     if (gradient != nil) {
       overlay.gradient = gradient;
     }
@@ -139,7 +140,6 @@ static NSString *RNMapsHeatmapNSString(const std::string &value)
     node.coordinate = CLLocationCoordinate2DMake(
       [dict[@"latitude"] doubleValue], [dict[@"longitude"] doubleValue]);
     node.intensity = dict[@"weight"] ? [dict[@"weight"] floatValue] : 1.0;
-    node.radius = (NSUInteger)_radius;
     [nodes addObject:node];
   }
   return nodes;
@@ -168,10 +168,8 @@ static NSString *RNMapsHeatmapNSString(const std::string &value)
     UIColor *color = [c isKindOfClass:[NSString class]] ? RNMapsHeatmapColor(c) : nil;
     [colors addObject:color ?: [UIColor clearColor]];
   }
-  NSUInteger size = dict[@"colorMapSize"] ? [dict[@"colorMapSize"] unsignedIntegerValue] : 256;
   return [[MAHeatMapGradient alloc] initWithColor:colors
-                               andWithStartPoints:startPoints
-                                      colorMapSize:size];
+                               andWithStartPoints:startPoints];
 }
 
 @end

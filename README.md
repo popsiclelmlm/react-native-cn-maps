@@ -50,6 +50,29 @@ AMapServices.shared().apiKey = "YOUR_AMAP_IOS_KEY"
 
 The podspec depends on `AMap3DMap`, which pulls in `AMapFoundation`.
 
+#### Running on the iOS Simulator (Apple Silicon)
+
+AMap's `MAMapKit` / `AMapFoundation` ship fat `.frameworks` that contain an
+arm64 slice for **device** and an x86_64 slice for **simulator** only — there is
+**no arm64 simulator slice**. On an Apple Silicon Mac the simulator app must
+therefore be built as x86_64 (it runs under Rosetta). AMap's podspec already
+excludes arm64 for the app target, but you must mirror that on every pod target,
+otherwise the pods build arm64 and fail to link. Add this to your `Podfile`'s
+`post_install`:
+
+```ruby
+post_install do |installer|
+  # ... react_native_post_install(...) ...
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |bc|
+      bc.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+end
+```
+
+Real-device (arm64) builds are unaffected — this is simulator-only.
+
 ## Privacy compliance (required)
 
 China map SDKs (AMap, etc.) will not initialize until the host app declares

@@ -30,5 +30,17 @@ target 'CnMapsExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # AMap (MAMapKit / AMapFoundation) ships fat .frameworks with arm64 for
+    # device and x86_64 for simulator only — there is NO arm64 simulator slice.
+    # AMap's podspec already excludes arm64 for the app target on the simulator,
+    # so on Apple Silicon the simulator app builds x86_64. Mirror that on every
+    # pod target, otherwise the pods build arm64 and fail to link against the
+    # x86_64 app. Device (arm64) builds are unaffected (this is sim-only).
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |bc|
+        bc.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+      end
+    end
   end
 end

@@ -152,11 +152,15 @@ static NSArray<MAPolygon *> *RNMapsParseHoles(NSString *json)
     points.push_back(CLLocationCoordinate2DMake(c.latitude, c.longitude));
   }
 
+  MAPolygon *polygon = [MAPolygon polygonWithCoordinates:points.data() count:count];
+
+  // AMap renders holes via the `hollowShapes` property (members must be
+  // MAPolygon/MACircle), not via a MapKit-style `interiorPolygons:` factory.
   NSArray<MAPolygon *> *holes = RNMapsParseHoles(holesJson);
   if (holes != nil) {
-    return [MAPolygon polygonWithCoordinates:points.data() count:count interiorPolygons:holes];
+    polygon.hollowShapes = holes;
   }
-  return [MAPolygon polygonWithCoordinates:points.data() count:count];
+  return polygon;
 }
 
 @end

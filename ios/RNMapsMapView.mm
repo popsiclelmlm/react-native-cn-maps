@@ -96,8 +96,10 @@ static BOOL RNMapsRegionChanged(
 }
 
 // A camera is "present" once it carries a real center; a zero/zero struct is the
-// codegen default and means the prop was never set.
-static BOOL RNMapsCameraIsValid(const RNMapsMapViewCameraStruct &camera)
+// codegen default and means the prop was never set. Templated because codegen
+// emits distinct structs for the `camera` and `initialCamera` props.
+template <typename Camera>
+static BOOL RNMapsCameraIsValid(const Camera &camera)
 {
   return std::isfinite(camera.latitude) &&
     std::isfinite(camera.longitude) &&
@@ -114,6 +116,19 @@ static BOOL RNMapsCameraChanged(
     oldCamera.pitch != newCamera.pitch ||
     oldCamera.zoom != newCamera.zoom ||
     oldCamera.altitude != newCamera.altitude;
+}
+
+// Apply a camera struct to the map. Templated so it accepts both the `camera`
+// and `initialCamera` codegen structs (distinct types with the same fields).
+template <typename Camera>
+static void RNMapsApplyCamera(MAMapView *mapView, const Camera &camera)
+{
+  mapView.centerCoordinate = CLLocationCoordinate2DMake(camera.latitude, camera.longitude);
+  if (std::isfinite(camera.zoom) && camera.zoom > 0) {
+    mapView.zoomLevel = camera.zoom;
+  }
+  mapView.rotationDegree = camera.heading;
+  mapView.cameraDegree = camera.pitch;
 }
 
 static MAMapType RNMapsMapTypeFromProps(
@@ -416,7 +431,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 {
   __weak RNMapsMapView *weakSelf = self;
   [_mapView takeSnapshotInRect:_mapView.bounds
-                  withCallback:^(UIImage *image, NSInteger state) {
+           withCompletionBlock:^(UIImage *image, NSInteger state) {
     RNMapsMapView *strongSelf = weakSelf;
     if (strongSelf == nil) {
       return;
@@ -591,7 +606,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
       _initialRegionApplied = YES;
     }
     if (RNMapsCameraIsValid(newViewProps.initialCamera)) {
-      [self applyCamera:newViewProps.initialCamera];
+      RNMapsApplyCamera(_mapView, newViewProps.initialCamera);
       _initialCameraApplied = YES;
     }
   }
@@ -602,7 +617,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 
   // camera wins over region when both are controlled.
   if (RNMapsCameraIsValid(newViewProps.camera) && RNMapsCameraChanged(oldViewProps.camera, newViewProps.camera)) {
-    [self applyCamera:newViewProps.camera];
+    RNMapsApplyCamera(_mapView, newViewProps.camera);
   }
 
   // NOTE: mapPadding, customMapStyle (JSON), tintColor, kmlSrc, loading* and
@@ -613,16 +628,6 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   // mountChildComponentView:).
 
   [super updateProps:props oldProps:oldProps];
-}
-
-- (void)applyCamera:(const RNMapsMapViewCameraStruct &)camera
-{
-  _mapView.centerCoordinate = CLLocationCoordinate2DMake(camera.latitude, camera.longitude);
-  if (std::isfinite(camera.zoom) && camera.zoom > 0) {
-    _mapView.zoomLevel = camera.zoom;
-  }
-  _mapView.rotationDegree = camera.heading;
-  _mapView.cameraDegree = camera.pitch;
 }
 
 #pragma mark - Event emission

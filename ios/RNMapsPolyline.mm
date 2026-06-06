@@ -82,7 +82,9 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
 
 @implementation RNMapsPolyline {
   __weak MAMapView *_map;
-  MAPolyline *_polyline;
+  // MAShape (not MAPolyline) because a multi-colored line is a MAMultiPolyline,
+  // which is a sibling of MAPolyline under MAMultiPoint — not a subclass.
+  MAShape *_polyline;
   UIColor *_strokeColor;
   NSArray<UIColor *> *_strokeColors;
   CGFloat _strokeWidth;
@@ -135,14 +137,14 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
 {
   MAPolylineRenderer *renderer;
   if (_strokeColors.count > 1 &&
-      [_polyline isKindOfClass:[MAMultiColoredPolyline class]]) {
+      [_polyline isKindOfClass:[MAMultiPolyline class]]) {
     MAMultiColoredPolylineRenderer *multi = [[MAMultiColoredPolylineRenderer alloc]
-      initWithMultiColoredPolyline:(MAMultiColoredPolyline *)_polyline];
+      initWithMultiPolyline:(MAMultiPolyline *)_polyline];
     multi.strokeColors = _strokeColors;
     multi.gradient = YES;
     renderer = multi;
   } else {
-    renderer = [[MAPolylineRenderer alloc] initWithPolyline:_polyline];
+    renderer = [[MAPolylineRenderer alloc] initWithPolyline:(MAPolyline *)_polyline];
     renderer.strokeColor =
       _strokeColors.count == 1 ? _strokeColors.firstObject : _strokeColor;
   }
@@ -175,7 +177,7 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
   BOOL coordinatesChanged =
     !RNMapsCoordinatesEqual(oldViewProps.coordinates, newViewProps.coordinates);
 
-  MAPolyline *previous = _polyline;
+  MAShape *previous = _polyline;
   // Rebuild the overlay when geometry changes or when toggling between a plain
   // and a multi-colored polyline (different overlay classes).
   if (_polyline == nil || coordinatesChanged || wasMultiColored != isMultiColored) {
@@ -195,7 +197,7 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
   [super updateProps:props oldProps:oldProps];
 }
 
-- (MAPolyline *)buildPolyline:(const std::vector<RNMapsPolylineCoordinatesStruct> &)coordinates
+- (MAShape *)buildPolyline:(const std::vector<RNMapsPolylineCoordinatesStruct> &)coordinates
 {
   NSUInteger count = coordinates.size();
   if (count == 0) {
@@ -207,8 +209,23 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
   for (const auto &c : coordinates) {
     points.push_back(CLLocationCoordinate2DMake(c.latitude, c.longitude));
   }
-  if (_strokeColors.count > 1) {
-    return [MAMultiColoredPolyline polylineWithCoordinates:points.data() count:count];
+  if (_strokeColors.count > 1 && count >= 2) {
+    // MAMultiPolyline carries a per-segment style index (count = segments =
+    // points - 1). Spread the stroke colors evenly across the segments; the
+    // MAMultiColoredPolylineRenderer interpolates between them when gradient=YES.
+    NSUInteger segments = count - 1;
+    NSUInteger numColors = _strokeColors.count;
+    NSMutableArray<NSNumber *> *drawStyleIndexes = [NSMutableArray arrayWithCapacity:segments];
+    for (NSUInteger i = 0; i < segments; i++) {
+      NSUInteger idx = (i * numColors) / segments;
+      if (idx >= numColors) {
+        idx = numColors - 1;
+      }
+      [drawStyleIndexes addObject:@(idx)];
+    }
+    return [MAMultiPolyline polylineWithCoordinates:points.data()
+                                              count:count
+                                   drawStyleIndexes:drawStyleIndexes];
   }
   return [MAPolyline polylineWithCoordinates:points.data() count:count];
 }

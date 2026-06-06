@@ -3,7 +3,7 @@ PODS:
     - AMapFoundation (>= 1.8.7)
   - AMapFoundation (1.8.7)
   - CnMaps (0.1.0):
-    - AMap3DMap
+    - AMap3DMap (~> 11.1.200)
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2011,7 +2011,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AMap3DMap: 89c17fdbca2f25e4b46d6a45a8e50346980fc799
   AMapFoundation: e99da1cc722528c60b39340b4763a95305f6c55e
-  CnMaps: 7645391cbd6fddfafb9754a0f9f194b98636afae
+  CnMaps: 42469efcfac318eb38d28a9c240bee7e921429dd
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: 64339f34acdba56952bdf579a2e41a8d8c4d0e26
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257
@@ -2086,6 +2086,6 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: 47cab0019eebba8f9fac4045c16b185715d3a359
   Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
 
-PODFILE CHECKSUM: 0d53714e23cc65f92db9fb42a0556d3d792bbea0
+PODFILE CHECKSUM: 3be94d23b623a5ae6261b1f47875cfc662ef05eb
 
 COCOAPODS: 1.15.2
