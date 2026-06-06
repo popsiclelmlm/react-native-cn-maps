@@ -137,6 +137,18 @@
         },
         "RNMapsCircle": {
           "className": "RNMapsCircle"
+        },
+        "RNMapsUrlTile": {
+          "className": "RNMapsUrlTile"
+        },
+        "RNMapsLocalTile": {
+          "className": "RNMapsLocalTile"
+        },
+        "RNMapsOverlay": {
+          "className": "RNMapsOverlay"
+        },
+        "RNMapsHeatmap": {
+          "className": "RNMapsHeatmap"
         }
       }
     }
