@@ -176,6 +176,19 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   BOOL _initialRegionApplied;
   BOOL _initialCameraApplied;
   BOOL _isGesture;
+  BOOL _mapReady;
+  // initialRegion/initialCamera are captured here during updateProps and applied
+  // in layoutSubviews once the map has a real size. Applying setRegion during the
+  // mount-time updateProps (before layout, bounds == 0) is ignored by AMap, which
+  // leaves the map at its default viewport.
+  MACoordinateRegion _pendingInitialRegion;
+  BOOL _hasPendingInitialRegion;
+  BOOL _hasPendingInitialCamera;
+  double _pendingCamLat;
+  double _pendingCamLng;
+  double _pendingCamHeading;
+  double _pendingCamPitch;
+  double _pendingCamZoom;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -242,7 +255,42 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   [_overlayViews removeAllObjects];
   _initialRegionApplied = NO;
   _initialCameraApplied = NO;
+  _hasPendingInitialRegion = NO;
+  _hasPendingInitialCamera = NO;
   _isGesture = NO;
+  _mapReady = NO;
+}
+
+// Apply the captured initial viewport once the map has a real size. AMap ignores
+// setRegion on a zero-size view, so this is deferred out of mount-time
+// updateProps and run from layoutSubviews. Camera wins over region (RNM parity).
+- (void)applyPendingInitialViewport
+{
+  // Only once the map engine is ready (mapInitComplete) AND the view has a real
+  // size. setRegion before the map is ready applies the center but drops the span
+  // (zoom), leaving the map at the default continental zoom.
+  if (!_mapReady || CGRectIsEmpty(_mapView.bounds)) {
+    return;
+  }
+  if (_hasPendingInitialCamera && !_initialCameraApplied) {
+    _mapView.centerCoordinate = CLLocationCoordinate2DMake(_pendingCamLat, _pendingCamLng);
+    if (std::isfinite(_pendingCamZoom) && _pendingCamZoom > 0) {
+      _mapView.zoomLevel = _pendingCamZoom;
+    }
+    _mapView.rotationDegree = _pendingCamHeading;
+    _mapView.cameraDegree = _pendingCamPitch;
+    _initialCameraApplied = YES;
+    _initialRegionApplied = YES;  // camera supersedes region
+  } else if (_hasPendingInitialRegion && !_initialRegionApplied) {
+    [_mapView setRegion:_pendingInitialRegion animated:NO];
+    _initialRegionApplied = YES;
+  }
+}
+
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  [self applyPendingInitialViewport];
 }
 
 - (void)dealloc
@@ -598,18 +646,23 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   _mapView.rotateEnabled = newViewProps.rotateEnabled;
   _mapView.rotateCameraEnabled = newViewProps.pitchEnabled;
 
-  // Initial camera/region apply once. A camera takes precedence over a region
-  // (RNM semantics), so it is applied last and overwrites the region setup.
-  if (!_initialCameraApplied) {
-    if (!_initialRegionApplied && RNMapsRegionIsValid(newViewProps.initialRegion)) {
-      [_mapView setRegion:RNMapsMACoordinateRegionFromRegion(newViewProps.initialRegion) animated:NO];
-      _initialRegionApplied = YES;
-    }
-    if (RNMapsCameraIsValid(newViewProps.initialCamera)) {
-      RNMapsApplyCamera(_mapView, newViewProps.initialCamera);
-      _initialCameraApplied = YES;
-    }
+  // Capture the initial region/camera and apply them from layoutSubviews once the
+  // map has a real size (applying here, before layout, is ignored by AMap).
+  if (!_initialRegionApplied && !_hasPendingInitialRegion &&
+      RNMapsRegionIsValid(newViewProps.initialRegion)) {
+    _pendingInitialRegion = RNMapsMACoordinateRegionFromRegion(newViewProps.initialRegion);
+    _hasPendingInitialRegion = YES;
   }
+  if (!_initialCameraApplied && !_hasPendingInitialCamera &&
+      RNMapsCameraIsValid(newViewProps.initialCamera)) {
+    _pendingCamLat = newViewProps.initialCamera.latitude;
+    _pendingCamLng = newViewProps.initialCamera.longitude;
+    _pendingCamHeading = newViewProps.initialCamera.heading;
+    _pendingCamPitch = newViewProps.initialCamera.pitch;
+    _pendingCamZoom = newViewProps.initialCamera.zoom;
+    _hasPendingInitialCamera = YES;
+  }
+  [self applyPendingInitialViewport];
 
   if (RNMapsRegionIsValid(newViewProps.region) && RNMapsRegionChanged(oldViewProps.region, newViewProps.region)) {
     [_mapView setRegion:RNMapsMACoordinateRegionFromRegion(newViewProps.region) animated:NO];
@@ -810,6 +863,11 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
 
 - (void)mapInitComplete:(MAMapView *)mapView
 {
+  // The map engine is now ready; apply the captured initial region/camera (which
+  // only takes its zoom/span reliably once the map is fully initialized).
+  _mapReady = YES;
+  [self applyPendingInitialViewport];
+
   auto emitter = [self eventEmitterOrNull];
   if (!emitter) {
     return;
