@@ -2,8 +2,31 @@ PODS:
   - AMap3DMap (11.1.200):
     - AMapFoundation (>= 1.8.7)
   - AMapFoundation (1.8.7)
-  - CnMaps (0.1.0):
+  - CnMaps (0.2.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - CnMapsAMap (0.2.0):
     - AMap3DMap (~> 11.1.200)
+    - CnMaps
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1776,7 +1799,8 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
-  - CnMaps (from `../..`)
+  - CnMaps (from `../../packages/core`)
+  - CnMapsAMap (from `../../packages/amap`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -1859,7 +1883,9 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   CnMaps:
-    :path: "../.."
+    :path: "../../packages/core"
+  CnMapsAMap:
+    :path: "../../packages/amap"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
@@ -2011,7 +2037,8 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AMap3DMap: 89c17fdbca2f25e4b46d6a45a8e50346980fc799
   AMapFoundation: e99da1cc722528c60b39340b4763a95305f6c55e
-  CnMaps: 42469efcfac318eb38d28a9c240bee7e921429dd
+  CnMaps: f9d72a6f78939408d4d5dab97609a3ba83bc5c24
+  CnMapsAMap: 010d79dc691298c49216e8456a5b983e38139681
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: 64339f34acdba56952bdf579a2e41a8d8c4d0e26
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257

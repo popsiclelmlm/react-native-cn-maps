@@ -1,40 +1,16 @@
 {
-  "name": "react-native-cn-maps",
+  "name": "react-native-cn-maps-monorepo",
   "version": "0.2.0",
-  "description": "React Native Map components for iOS + Android",
-  "main": "./lib/module/index.js",
-  "types": "./lib/typescript/src/index.d.ts",
-  "exports": {
-    ".": {
-      "source": "./src/index.tsx",
-      "types": "./lib/typescript/src/index.d.ts",
-      "default": "./lib/module/index.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "src",
-    "lib",
-    "android",
-    "ios",
-    "cpp",
-    "*.podspec",
-    "react-native.config.js",
-    "!ios/build",
-    "!android/build",
-    "!android/gradle",
-    "!android/gradlew",
-    "!android/gradlew.bat",
-    "!android/local.properties",
-    "!**/__tests__",
-    "!**/__fixtures__",
-    "!**/__mocks__",
-    "!**/.*"
+  "description": "Monorepo for react-native-cn-maps (provider-agnostic core + AMap provider)",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "example"
   ],
   "scripts": {
     "example": "yarn workspace react-native-cn-maps-example",
-    "clean": "del-cli android/build ios/build example/android/build example/android/app/build example/ios/build lib",
-    "prepare": "bob build",
+    "clean": "del-cli packages/core/android/build packages/core/ios/build example/android/build example/android/app/build example/ios/build packages/*/lib",
+    "prepare": "yarn workspace react-native-cn-maps prepare",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
@@ -55,9 +31,6 @@
     "url": "https://github.com/popsiclelmlm/react-native-cn-maps/issues"
   },
   "homepage": "https://github.com/popsiclelmlm/react-native-cn-maps#readme",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
-  },
   "devDependencies": {
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/compat": "^2.0.3",
@@ -85,74 +58,7 @@
     "turbo": "^2.8.21",
     "typescript": "^6.0.2"
   },
-  "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
-  },
-  "workspaces": [
-    "example"
-  ],
   "packageManager": "yarn@4.11.0",
-  "react-native-builder-bob": {
-    "source": "src",
-    "output": "lib",
-    "targets": [
-      [
-        "module",
-        {
-          "esm": true
-        }
-      ],
-      [
-        "typescript",
-        {
-          "project": "tsconfig.build.json"
-        }
-      ]
-    ]
-  },
-  "codegenConfig": {
-    "name": "RNMapsSpecs",
-    "type": "all",
-    "jsSrcsDir": "src",
-    "android": {
-      "javaPackageName": "com.cnmaps"
-    },
-    "ios": {
-      "components": {
-        "RNMapsMapView": {
-          "className": "RNMapsMapView"
-        },
-        "RNMapsMarker": {
-          "className": "RNMapsMarker"
-        },
-        "RNMapsCallout": {
-          "className": "RNMapsCallout"
-        },
-        "RNMapsPolyline": {
-          "className": "RNMapsPolyline"
-        },
-        "RNMapsPolygon": {
-          "className": "RNMapsPolygon"
-        },
-        "RNMapsCircle": {
-          "className": "RNMapsCircle"
-        },
-        "RNMapsUrlTile": {
-          "className": "RNMapsUrlTile"
-        },
-        "RNMapsLocalTile": {
-          "className": "RNMapsLocalTile"
-        },
-        "RNMapsOverlay": {
-          "className": "RNMapsOverlay"
-        },
-        "RNMapsHeatmap": {
-          "className": "RNMapsHeatmap"
-        }
-      }
-    }
-  },
   "prettier": {
     "quoteProps": "consistent",
     "singleQuote": true,
@@ -162,9 +68,12 @@
   },
   "jest": {
     "preset": "@react-native/jest-preset",
+    "roots": [
+      "<rootDir>/packages/core/src"
+    ],
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
-      "<rootDir>/lib/"
+      "<rootDir>/packages/core/lib/"
     ]
   },
   "commitlint": {
@@ -190,16 +99,5 @@
         }
       }
     }
-  },
-  "create-react-native-library": {
-    "type": "fabric-view",
-    "languages": "kotlin-objc",
-    "tools": [
-      "eslint",
-      "jest",
-      "lefthook",
-      "release-it"
-    ],
-    "version": "0.62.0"
   }
 }

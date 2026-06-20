@@ -471,10 +471,12 @@ class AMapAdapter(context: Context) : CnMapAdapter {
     if (model.points.isEmpty()) return null
     val weighted = model.points.map { WeightedLatLng(LatLng(it.latitude, it.longitude), it.weight) }
     val builder = HeatmapTileProvider.Builder().weightedData(weighted).radius(model.radius)
-    if (model.gradientColors != null && model.gradientStartPoints != null &&
-      model.gradientColors.isNotEmpty() && model.gradientColors.size == model.gradientStartPoints.size
-    ) {
-      builder.gradient(Gradient(model.gradientColors, model.gradientStartPoints))
+    // Capture into locals: model.* are cross-module (core) properties and can't be
+    // smart-cast to non-null in this (amap) module.
+    val colors = model.gradientColors
+    val starts = model.gradientStartPoints
+    if (colors != null && starts != null && colors.isNotEmpty() && colors.size == starts.size) {
+      builder.gradient(Gradient(colors, starts))
     }
     return aMap.addTileOverlay(TileOverlayOptions().tileProvider(builder.build()))
   }

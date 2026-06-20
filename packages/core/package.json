@@ -1,0 +1,124 @@
+{
+  "name": "react-native-cn-maps",
+  "version": "0.2.0",
+  "description": "React Native Map components for iOS + Android",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.tsx",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "cpp",
+    "*.podspec",
+    "react-native.config.js",
+    "!ios/build",
+    "!android/build",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "prepare": "bob build"
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/popsiclelmlm/react-native-cn-maps.git"
+  },
+  "author": "popsiclelmlm <no_7seven@163.com> (https://github.com/popsiclelmlm)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/popsiclelmlm/react-native-cn-maps/issues"
+  },
+  "homepage": "https://github.com/popsiclelmlm/react-native-cn-maps#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "RNMapsSpecs",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.cnmaps"
+    },
+    "ios": {
+      "components": {
+        "RNMapsMapView": {
+          "className": "RNMapsMapView"
+        },
+        "RNMapsMarker": {
+          "className": "RNMapsMarker"
+        },
+        "RNMapsCallout": {
+          "className": "RNMapsCallout"
+        },
+        "RNMapsPolyline": {
+          "className": "RNMapsPolyline"
+        },
+        "RNMapsPolygon": {
+          "className": "RNMapsPolygon"
+        },
+        "RNMapsCircle": {
+          "className": "RNMapsCircle"
+        },
+        "RNMapsUrlTile": {
+          "className": "RNMapsUrlTile"
+        },
+        "RNMapsLocalTile": {
+          "className": "RNMapsLocalTile"
+        },
+        "RNMapsOverlay": {
+          "className": "RNMapsOverlay"
+        },
+        "RNMapsHeatmap": {
+          "className": "RNMapsHeatmap"
+        }
+      }
+    }
+  },
+  "create-react-native-library": {
+    "type": "fabric-view",
+    "languages": "kotlin-objc",
+    "version": "0.62.0"
+  }
+}

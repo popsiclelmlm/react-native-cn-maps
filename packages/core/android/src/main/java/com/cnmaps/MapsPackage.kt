@@ -1,7 +1,5 @@
 package com.cnmaps
 
-import com.cnmaps.adapter.CnMapAdapterRegistry
-import com.cnmaps.amap.AMapAdapterFactory
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
@@ -9,13 +7,9 @@ import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
 import com.facebook.react.uimanager.ViewManager
 
+// Provider-agnostic core package. The map provider (react-native-cn-maps-amap)
+// registers its adapter from its own ReactPackage, so core references no provider.
 class MapsPackage : BaseReactPackage() {
-  init {
-    // M1: register the bundled AMap provider. M2 relocates this into the amap
-    // package's own ReactPackage, so core no longer references the provider.
-    CnMapAdapterRegistry.register(AMapAdapterFactory)
-  }
-
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
     return listOf(
       MapViewManager(),

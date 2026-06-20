@@ -1,0 +1,69 @@
+buildscript {
+  ext.CnMapsAMap = [
+    kotlinVersion: "2.0.21",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    targetSdkVersion: 36,
+    // Pinned so consumer builds are reproducible — a dynamic version resolves
+    // differently over time and its metadata fetch is flaky. Host apps can still
+    // override with `ext.amapSdkVersion = "..."`.
+    amapSdkVersion: "11.2.000_loc11.2.000_sea9.8.0"
+  ]
+
+  ext.getAMapExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return CnMapsAMap[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.2"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getAMapExtOrDefault('kotlinVersion')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+apply plugin: "com.facebook.react"
+
+android {
+  // Distinct namespace from core so the generated R/BuildConfig don't collide. (D4)
+  namespace "com.cnmaps.amap"
+
+  compileSdkVersion getAMapExtOrDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getAMapExtOrDefault("minSdkVersion")
+    targetSdkVersion getAMapExtOrDefault("targetSdkVersion")
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lint {
+    disable "GradleCompatible"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  // The provider-agnostic adapter contract lives in the core module.
+  implementation project(":react-native-cn-maps")
+  implementation "com.amap.api:3dmap-location-search:${getAMapExtOrDefault('amapSdkVersion')}"
+}
