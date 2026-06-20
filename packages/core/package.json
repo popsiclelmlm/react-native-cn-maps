@@ -2,6 +2,7 @@
   "name": "react-native-cn-maps",
   "version": "0.2.0",
   "description": "React Native Map components for iOS + Android",
+  "source": "./src/index.tsx",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
