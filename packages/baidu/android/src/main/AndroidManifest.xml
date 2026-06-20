@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- No permissions or Baidu AK declared here: the host app declares the
+       com.baidu.lbsapi.API_KEY meta-data and any permissions, so the merged
+       manifest stays free of duplicate declarations. -->
+</manifest>

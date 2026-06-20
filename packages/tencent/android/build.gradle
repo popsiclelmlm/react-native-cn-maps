@@ -1,0 +1,68 @@
+buildscript {
+  ext.CnMapsTencent = [
+    kotlinVersion: "2.0.21",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    targetSdkVersion: 36,
+    // Tencent Map Android (vector) SDK. Pin to the version you verified; host apps
+    // can override with `ext.tencentSdkVersion = "..."`.
+    tencentSdkVersion: "5.6.0"
+  ]
+
+  ext.getTencentExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return CnMapsTencent[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.2"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getTencentExtOrDefault('kotlinVersion')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+apply plugin: "com.facebook.react"
+
+android {
+  namespace "com.cnmaps.tencent"
+
+  compileSdkVersion getTencentExtOrDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getTencentExtOrDefault("minSdkVersion")
+    targetSdkVersion getTencentExtOrDefault("targetSdkVersion")
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lint {
+    disable "GradleCompatible"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  // The provider-agnostic adapter contract lives in the core module.
+  implementation project(":react-native-cn-maps")
+  // Tencent Map Android (vector) SDK. VERIFY artifact coordinates for your version.
+  implementation "com.tencent.map:tencent-map-vector-sdk:${getTencentExtOrDefault('tencentSdkVersion')}"
+}

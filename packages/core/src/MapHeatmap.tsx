@@ -1,6 +1,6 @@
 import React from 'react';
 import NativeHeatmap from './HeatmapNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
 import type { HeatmapProps } from './types';
 
@@ -13,8 +13,9 @@ function HeatmapComponent(props: HeatmapProps) {
   const { points, radius, opacity, gradient } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
+  const provider = React.useContext(MapProviderContext);
   const nativePoints = (points ?? []).map((p) => {
-    const c = toProviderCoordinate(p, coordinateSystem);
+    const c = toProviderCoordinate(p, coordinateSystem, provider);
     return {
       latitude: c.latitude,
       longitude: c.longitude,

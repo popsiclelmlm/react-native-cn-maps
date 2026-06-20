@@ -1,4 +1,10 @@
-import type { CoordinateSystem, Camera, LatLng, Region } from './types';
+import type {
+  CoordinateSystem,
+  Camera,
+  LatLng,
+  MapProvider,
+  Region,
+} from './types';
 import type { NativeCamera } from './MapViewNativeComponent';
 
 const A = 6378245.0;
@@ -124,42 +130,82 @@ export function gcj02ToBd09(coordinate: LatLng): LatLng {
   };
 }
 
-// The provider (AMap) coordinate system is GCJ-02. These convert between the
-// user's declared `coordinateSystem` and the provider's GCJ-02 by dispatching on
-// the source system — `gcj02` passes through, `wgs84`/`bd09` convert.
+// Each provider's native coordinate system. AMap / Tencent are GCJ-02; Baidu is
+// BD-09. GCJ-02 is the conversion hub (coordinate.ts implements wgs84/bd09 ↔ gcj02).
+const PROVIDER_SYSTEM: Record<MapProvider, CoordinateSystem> = {
+  amap: 'gcj02',
+  tencent: 'gcj02',
+  baidu: 'bd09',
+};
+
+/** The native coordinate system a provider's SDK expects. */
+export function providerCoordinateSystem(
+  provider: MapProvider
+): CoordinateSystem {
+  return PROVIDER_SYSTEM[provider] ?? 'gcj02';
+}
+
+// Convert between any two systems via the GCJ-02 hub.
+function convertSystem(
+  coordinate: LatLng,
+  from: CoordinateSystem,
+  to: CoordinateSystem
+): LatLng {
+  if (from === to) {
+    return coordinate;
+  }
+  let gcj02: LatLng;
+  switch (from) {
+    case 'wgs84':
+      gcj02 = wgs84ToGcj02(coordinate);
+      break;
+    case 'bd09':
+      gcj02 = bd09ToGcj02(coordinate);
+      break;
+    default:
+      gcj02 = coordinate;
+  }
+  switch (to) {
+    case 'wgs84':
+      return gcj02ToWgs84(gcj02);
+    case 'bd09':
+      return gcj02ToBd09(gcj02);
+    default:
+      return gcj02;
+  }
+}
+
+// Convert the user's declared `coordinateSystem` into the provider's native
+// system (gcj02 for amap/tencent, bd09 for baidu). `provider` defaults to amap so
+// existing callers / tests keep their previous gcj02 behavior.
 export function toProviderCoordinate(
   coordinate: LatLng,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): LatLng {
-  switch (coordinateSystem) {
-    case 'wgs84':
-      return wgs84ToGcj02(coordinate);
-    case 'bd09':
-      return bd09ToGcj02(coordinate);
-    case 'gcj02':
-    default:
-      return coordinate;
-  }
+  return convertSystem(
+    coordinate,
+    coordinateSystem,
+    providerCoordinateSystem(provider)
+  );
 }
 
 export function fromProviderCoordinate(
   coordinate: LatLng,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): LatLng {
-  switch (coordinateSystem) {
-    case 'wgs84':
-      return gcj02ToWgs84(coordinate);
-    case 'bd09':
-      return gcj02ToBd09(coordinate);
-    case 'gcj02':
-    default:
-      return coordinate;
-  }
+  return convertSystem(
+    coordinate,
+    providerCoordinateSystem(provider),
+    coordinateSystem
+  );
 }
 
 export function toProviderRegion(
   region: Region | undefined,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): Region | undefined {
   if (!region) {
     return undefined;
@@ -167,34 +213,40 @@ export function toProviderRegion(
 
   return {
     ...region,
-    ...toProviderCoordinate(region, coordinateSystem),
+    ...toProviderCoordinate(region, coordinateSystem, provider),
   };
 }
 
 export function fromProviderRegion(
   region: Region,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): Region {
   return {
     ...region,
-    ...fromProviderCoordinate(region, coordinateSystem),
+    ...fromProviderCoordinate(region, coordinateSystem, provider),
   };
 }
 
 /**
  * Convert an RNM {@link Camera} (with a nested `center` LatLng) into the flat
  * {@link NativeCamera} struct the codegen component expects, converting the
- * center into the provider's coordinate system (gcj02) on the way.
+ * center into the provider's native coordinate system on the way.
  */
 export function toProviderCamera(
   camera: Camera | undefined,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): NativeCamera | undefined {
   if (!camera) {
     return undefined;
   }
 
-  const center = toProviderCoordinate(camera.center, coordinateSystem);
+  const center = toProviderCoordinate(
+    camera.center,
+    coordinateSystem,
+    provider
+  );
 
   return {
     latitude: center.latitude,
@@ -208,16 +260,18 @@ export function toProviderCamera(
 
 /**
  * Inverse of {@link toProviderCamera}: rebuild the RNM `{ center }` shape from a
- * native camera struct, converting the center back out of gcj02. Used by the
- * `getCamera` command.
+ * native camera struct, converting the center back out of the provider system.
+ * Used by the `getCamera` command.
  */
 export function fromProviderCamera(
   camera: NativeCamera,
-  coordinateSystem: CoordinateSystem
+  coordinateSystem: CoordinateSystem,
+  provider: MapProvider = 'amap'
 ): Camera {
   const center = fromProviderCoordinate(
     { latitude: camera.latitude, longitude: camera.longitude },
-    coordinateSystem
+    coordinateSystem,
+    provider
   );
 
   return {

@@ -33,7 +33,8 @@ class MapView(private val reactContext: ThemedReactContext) :
   CnMapHost,
   CnMapAdapterDelegate {
 
-  private val adapter: CnMapAdapter? = CnMapAdapterRegistry.createAdapter(reactContext)
+  private var adapter: CnMapAdapter? = null
+  private var currentProvider: String? = null
 
   // Child host components (<Marker> et al.), in mount order. They are NOT added to
   // the FrameLayout — only the adapter's map surface is.
@@ -43,18 +44,56 @@ class MapView(private val reactContext: ThemedReactContext) :
   private var didDestroy = false
 
   init {
-    val mapSurface = adapter?.view
-    if (mapSurface != null) {
-      addView(mapSurface, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-      adapter.delegate = this
-    } else {
+    // Start with the default provider; an explicit `provider` prop may switch it
+    // (via the manager's setProvider) before any children mount.
+    applyProvider(null)
+    reactContext.addLifecycleEventListener(this)
+  }
+
+  // Select the adapter for `provider` ("amap"/"baidu"/"tencent") from the registry.
+  // Provider is "mount-fixed" (JS remounts on change), so this is a no-op once a
+  // matching adapter exists; the recreate path re-attaches any existing children.
+  fun applyProvider(provider: String?) {
+    val requested = provider?.takeIf { it.isNotEmpty() }
+    if (adapter != null && (requested == null || currentProvider == requested)) {
+      return
+    }
+
+    val old = adapter
+    if (old != null) {
+      features.forEach { detachFeatureFromAdapter(it, old) }
+      removeView(old.view)
+      old.onDestroy()
+    }
+
+    val created = CnMapAdapterRegistry.createAdapter(reactContext, requested)
+    adapter = created
+    if (created == null) {
+      currentProvider = null
       Log.e(
         "RNMaps",
-        "No map adapter registered. Install a provider package (react-native-cn-maps-amap) " +
-          "so a map can be created."
+        "No map adapter registered for provider=${requested ?: "(default)"}. Install a provider " +
+          "package (e.g. react-native-cn-maps-amap) so a map can be created."
       )
+      return
     }
-    reactContext.addLifecycleEventListener(this)
+    currentProvider = created.providerName
+    addView(created.view, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+    created.delegate = this
+    // Re-attach any existing children to the freshly created adapter.
+    features.forEach { child ->
+      when (child) {
+        is MarkerView -> child.cnHandle = created.addMarker(child.markerModel(), child.cnChildId ?: nextChildId())
+        is CnOverlayFeature -> child.cnHandle = created.addOverlay(child.overlayModel(), child.cnChildId ?: nextChildId())
+      }
+    }
+  }
+
+  private fun detachFeatureFromAdapter(child: View, target: CnMapAdapter) {
+    when (child) {
+      is MarkerView -> child.cnHandle?.let { target.removeMarker(it) }
+      is CnOverlayFeature -> child.cnHandle?.let { target.removeOverlay(it) }
+    }
   }
 
   // CnMapHost ------------------------------------------------------------------

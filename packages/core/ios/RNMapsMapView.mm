@@ -131,6 +131,7 @@ static BOOL RNMapsCameraChanged(
 
 @implementation RNMapsMapView {
   id<CNMapAdapter> _adapter;
+  NSString *_currentProvider; // provider name of the mounted adapter
   // Child <Marker> host components, in mount order (for fit/frames).
   NSMutableArray<RNMapsMarker *> *_markers;
   // Polyline/Polygon/Circle/... overlay child views, in mount order.
@@ -155,15 +156,56 @@ static BOOL RNMapsCameraChanged(
     _overlayViews = [NSMutableArray new];
     _childrenById = [NSMutableDictionary new];
 
-    _adapter = [CNMapAdapterRegistry createAdapter];
-    _adapter.delegate = self;
-    if (_adapter.mapView != nil) {
-      self.contentView = _adapter.mapView;
-      [self installGestureRecognizers];
-    }
+    // Start with the default provider; an explicit `provider` prop may switch it
+    // on the first updateProps (before any children mount).
+    [self applyProvider:nil];
   }
 
   return self;
+}
+
+// Select the adapter for `provider` ("amap"/"baidu"/"tencent"), creating it from
+// the registry. Provider is "mount-fixed" (JS remounts on change), so this is a
+// no-op once a matching adapter exists; the recreate path re-attaches any children.
+- (void)applyProvider:(NSString *)provider
+{
+  NSString *requested = provider.length > 0 ? provider : nil;
+  if (_adapter != nil && (requested == nil || [_currentProvider isEqualToString:requested])) {
+    return;
+  }
+
+  NSArray<RNMapsMarker *> *markers = [_markers copy];
+  NSArray<id<RNMapsOverlayView>> *overlays = [_overlayViews copy];
+  if (_adapter != nil) {
+    for (RNMapsMarker *marker in markers) {
+      [_adapter removeMarker:marker.cnHandle];
+    }
+    for (id<RNMapsOverlayView> overlay in overlays) {
+      [_adapter removeOverlay:overlay.cnHandle];
+    }
+    [_adapter teardown];
+    _adapter = nil;
+  }
+
+  id<CNMapAdapter> adapter = [CNMapAdapterRegistry createAdapterForProvider:requested];
+  if (adapter == nil) {
+    // No provider package installed; the map cannot render. (Host stays empty.)
+    return;
+  }
+  _adapter = adapter;
+  _currentProvider = _adapter.providerName;
+  _adapter.delegate = self;
+  if (_adapter.mapView != nil) {
+    self.contentView = _adapter.mapView;
+    [self installGestureRecognizers];
+  }
+
+  for (RNMapsMarker *marker in markers) {
+    marker.cnHandle = [_adapter addMarker:marker.markerModel childId:marker.cnChildId];
+  }
+  for (id<RNMapsOverlayView> overlay in overlays) {
+    overlay.cnHandle = [_adapter addOverlay:overlay.overlayModel childId:overlay.cnChildId];
+  }
 }
 
 // onLongPress / onPanDrag / onDoublePress have no first-class provider callback, so
@@ -313,6 +355,9 @@ static BOOL RNMapsCameraChanged(
 {
   const auto &oldViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(_props);
   const auto &newViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(props);
+
+  // Pick the adapter for the `provider` prop before forwarding anything else.
+  [self applyProvider:RNMapsNSString(newViewProps.provider)];
 
   CNMapOptions *options = [CNMapOptions new];
   options.mapType = RNMapsNSString(newViewProps.mapType) ?: @"";

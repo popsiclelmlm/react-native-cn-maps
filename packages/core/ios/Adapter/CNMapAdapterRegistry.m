@@ -43,6 +43,19 @@ static NSMutableArray<Class> *CNRegisteredAdapterClasses(void)
   return [[adapterClass alloc] init];
 }
 
++ (id<CNMapAdapter>)createAdapterForProvider:(NSString *)provider
+{
+  if (provider.length > 0) {
+    for (Class adapterClass in [self registeredAdapterClasses]) {
+      if ([[(Class<CNMapAdapter>)adapterClass providerName] isEqualToString:provider]) {
+        return [[adapterClass alloc] init];
+      }
+    }
+  }
+  // Empty or unmatched provider → default (first-registered).
+  return [self createAdapter];
+}
+
 + (void)applyPrivacyConsentAgreed:(BOOL)agreed contains:(BOOL)contains shown:(BOOL)shown
 {
   for (Class adapterClass in [self registeredAdapterClasses]) {

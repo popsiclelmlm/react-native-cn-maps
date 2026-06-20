@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, type NativeSyntheticEvent } from 'react-native';
 import NativeMapView, { Commands } from './MapViewNativeComponent';
 import { AnimatedRegion } from './AnimatedRegion';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import {
   fromProviderCamera,
   fromProviderCoordinate,
@@ -36,7 +36,7 @@ import type {
   UserLocationChangeEvent,
 } from './types';
 
-const SUPPORTED_PROVIDER: MapProvider = 'amap';
+const DEFAULT_PROVIDER: MapProvider = 'amap';
 const DEFAULT_COORDINATE_SYSTEM: CoordinateSystem = 'gcj02';
 // Query commands reject if the native side hasn't replied within this window,
 // so callers never await a Promise that hangs forever.
@@ -45,7 +45,7 @@ const QUERY_TIMEOUT_MS = 10000;
 export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
   function MapView(
     {
-      provider = SUPPORTED_PROVIDER,
+      provider = DEFAULT_PROVIDER,
       coordinateSystem = DEFAULT_COORDINATE_SYSTEM,
       initialRegion,
       region,
@@ -117,7 +117,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         if (!next) {
           return;
         }
-        const providerRegion = toProviderRegion(next, coordinateSystem);
+        const providerRegion = toProviderRegion(
+          next,
+          coordinateSystem,
+          provider
+        );
         if (providerRegion && nativeRef.current) {
           Commands.animateToRegion(
             nativeRef.current,
@@ -145,13 +149,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           cancelAnimationFrame(frame);
         }
       };
-    }, [region, coordinateSystem]);
-
-    if (__DEV__ && provider !== SUPPORTED_PROVIDER) {
-      console.warn(
-        `[react-native-cn-maps] provider="${provider}" is reserved but not implemented yet. Falling back to "amap".`
-      );
-    }
+    }, [region, coordinateSystem, provider]);
 
     if (__DEV__ && region && camera) {
       console.warn(
@@ -187,7 +185,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
 
       return {
         animateToRegion(nextRegion, duration = 500) {
-          const providerRegion = toProviderRegion(nextRegion, coordinateSystem);
+          const providerRegion = toProviderRegion(
+            nextRegion,
+            coordinateSystem,
+            provider
+          );
           if (providerRegion && nativeRef.current) {
             Commands.animateToRegion(
               nativeRef.current,
@@ -205,7 +207,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             return;
           }
           const center = nextCamera.center
-            ? toProviderCoordinate(nextCamera.center, coordinateSystem)
+            ? toProviderCoordinate(
+                nextCamera.center,
+                coordinateSystem,
+                provider
+              )
             : { latitude: 0, longitude: 0 };
           Commands.animateCamera(
             nativeRef.current,
@@ -223,7 +229,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             return;
           }
           const center = nextCamera.center
-            ? toProviderCoordinate(nextCamera.center, coordinateSystem)
+            ? toProviderCoordinate(
+                nextCamera.center,
+                coordinateSystem,
+                provider
+              )
             : { latitude: 0, longitude: 0 };
           Commands.setCamera(
             nativeRef.current,
@@ -240,7 +250,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             return;
           }
           const providerCoordinates = (coordinates ?? []).map((c) =>
-            toProviderCoordinate(c, coordinateSystem)
+            toProviderCoordinate(c, coordinateSystem, provider)
           );
           Commands.fitToCoordinates(
             nativeRef.current,
@@ -282,7 +292,8 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
                   zoom: Number(data.zoom) || 0,
                   altitude: Number(data.altitude) || 0,
                 },
-                coordinateSystem
+                coordinateSystem,
+                provider
               ),
             (id) => Commands.getCamera(nativeRef.current!, id)
           ),
@@ -295,11 +306,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
               return {
                 northEast: fromProviderCoordinate(
                   { latitude: ne.latitude ?? 0, longitude: ne.longitude ?? 0 },
-                  coordinateSystem
+                  coordinateSystem,
+                  provider
                 ),
                 southWest: fromProviderCoordinate(
                   { latitude: sw.latitude ?? 0, longitude: sw.longitude ?? 0 },
-                  coordinateSystem
+                  coordinateSystem,
+                  provider
                 ),
               };
             },
@@ -309,7 +322,8 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         pointForCoordinate(coordinate) {
           const providerCoordinate = toProviderCoordinate(
             coordinate,
-            coordinateSystem
+            coordinateSystem,
+            provider
           );
           return query<Point>(
             (data) => ({ x: Number(data.x) || 0, y: Number(data.y) || 0 }),
@@ -331,7 +345,8 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
                   latitude: Number(data.latitude) || 0,
                   longitude: Number(data.longitude) || 0,
                 },
-                coordinateSystem
+                coordinateSystem,
+                provider
               ),
             (id) =>
               Commands.coordinateForPoint(
@@ -363,8 +378,16 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         },
 
         setMapBoundaries(northEast, southWest) {
-          const ne = toProviderCoordinate(northEast, coordinateSystem);
-          const sw = toProviderCoordinate(southWest, coordinateSystem);
+          const ne = toProviderCoordinate(
+            northEast,
+            coordinateSystem,
+            provider
+          );
+          const sw = toProviderCoordinate(
+            southWest,
+            coordinateSystem,
+            provider
+          );
           if (nativeRef.current) {
             Commands.setMapBoundaries(
               nativeRef.current,
@@ -398,7 +421,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           );
         },
       };
-    }, [coordinateSystem]);
+    }, [coordinateSystem, provider]);
 
     const handleCommandResult = React.useCallback(
       (event: NativeSyntheticEvent<NativeCommandResultEvent>) => {
@@ -431,12 +454,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             ...event.nativeEvent,
             region: fromProviderRegion(
               event.nativeEvent.region,
-              coordinateSystem
+              coordinateSystem,
+              provider
             ),
           },
         } satisfies RegionChangeEvent);
       },
-      [coordinateSystem, onRegionChange]
+      [coordinateSystem, provider, onRegionChange]
     );
 
     const handleRegionChangeComplete = React.useCallback(
@@ -446,12 +470,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
             ...event.nativeEvent,
             region: fromProviderRegion(
               event.nativeEvent.region,
-              coordinateSystem
+              coordinateSystem,
+              provider
             ),
           },
         } satisfies RegionChangeEvent);
       },
-      [coordinateSystem, onRegionChangeComplete]
+      [coordinateSystem, provider, onRegionChangeComplete]
     );
 
     // onPress / onLongPress / onDoublePress / onPanDrag all carry the same
@@ -471,14 +496,15 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
                 nativeEvent: {
                   coordinate: fromProviderCoordinate(
                     event.nativeEvent.coordinate,
-                    coordinateSystem
+                    coordinateSystem,
+                    provider
                   ),
                   position: event.nativeEvent.position,
                 },
               });
             }
           : undefined,
-      [coordinateSystem]
+      [coordinateSystem, provider]
     );
 
     const handlePress = React.useMemo(
@@ -504,14 +530,15 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           nativeEvent: {
             coordinate: fromProviderCoordinate(
               event.nativeEvent.coordinate,
-              coordinateSystem
+              coordinateSystem,
+              provider
             ),
             placeId: event.nativeEvent.placeId,
             name: event.nativeEvent.name,
           },
         } satisfies PoiClickEvent);
       },
-      [coordinateSystem, onPoiClick]
+      [coordinateSystem, provider, onPoiClick]
     );
 
     const handleUserLocationChange = React.useCallback(
@@ -521,7 +548,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           nativeEvent: {
             coordinate: native
               ? {
-                  ...fromProviderCoordinate(native, coordinateSystem),
+                  ...fromProviderCoordinate(native, coordinateSystem, provider),
                   altitude: native.altitude,
                   accuracy: native.accuracy,
                   speed: native.speed,
@@ -532,23 +559,31 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           },
         } satisfies UserLocationChangeEvent);
       },
-      [coordinateSystem, onUserLocationChange]
+      [coordinateSystem, provider, onUserLocationChange]
     );
 
     return (
       <NativeMapView
         {...rest}
         ref={nativeRef}
-        provider={SUPPORTED_PROVIDER}
+        provider={DEFAULT_PROVIDER}
         coordinateSystem={coordinateSystem}
-        initialRegion={toProviderRegion(initialRegion, coordinateSystem)}
+        initialRegion={toProviderRegion(
+          initialRegion,
+          coordinateSystem,
+          provider
+        )}
         region={
           region instanceof AnimatedRegion
             ? undefined
-            : toProviderRegion(region, coordinateSystem)
+            : toProviderRegion(region, coordinateSystem, provider)
         }
-        initialCamera={toProviderCamera(initialCamera, coordinateSystem)}
-        camera={toProviderCamera(camera, coordinateSystem)}
+        initialCamera={toProviderCamera(
+          initialCamera,
+          coordinateSystem,
+          provider
+        )}
+        camera={toProviderCamera(camera, coordinateSystem, provider)}
         customMapStyle={
           customMapStyle ? JSON.stringify(customMapStyle) : undefined
         }
@@ -567,10 +602,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
         onCommandResult={handleCommandResult}
       >
         {/* Children (<Marker> et al.) mount as native child host components and
-            read the coordinate system from context to convert to gcj02. */}
-        <MapCoordinateSystemContext.Provider value={coordinateSystem}>
-          {children}
-        </MapCoordinateSystemContext.Provider>
+            read the coordinate system + provider from context to convert into the
+            provider's native system (gcj02 for amap/tencent, bd09 for baidu). */}
+        <MapProviderContext.Provider value={provider}>
+          <MapCoordinateSystemContext.Provider value={coordinateSystem}>
+            {children}
+          </MapCoordinateSystemContext.Provider>
+        </MapProviderContext.Provider>
       </NativeMapView>
     );
   }

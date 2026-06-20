@@ -8,6 +8,8 @@ import android.view.View
 // calls; the host owns Fabric/ViewGroup lifecycle, child routing and event
 // dispatch. No method here exposes a provider (AMap) or codegen type.
 interface CnMapAdapter {
+  // Provider identity ("amap"/"baidu"/"tencent"); the host tracks which is mounted.
+  val providerName: String
   // The view to add into the host FrameLayout.
   val view: View
   var delegate: CnMapAdapterDelegate?
@@ -88,6 +90,9 @@ interface CnMapAdapter {
 // the per-map adapter so the registry can create maps and fan privacy out without
 // a live map instance.
 interface CnMapAdapterFactory {
+  // Provider name this factory produces; the registry matches it against the
+  // JS `provider` prop.
+  val providerName: String
   fun create(context: android.content.Context): CnMapAdapter
   fun applyPrivacyConsent(context: android.content.Context, agreed: Boolean, contains: Boolean, shown: Boolean)
 }

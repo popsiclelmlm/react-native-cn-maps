@@ -1,6 +1,6 @@
 import React from 'react';
 import NativePolygon from './PolygonNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
 import type { MapPressEvent, PolygonProps } from './types';
 
@@ -22,11 +22,12 @@ function PolygonComponent(props: PolygonProps) {
   } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
+  const provider = React.useContext(MapProviderContext);
   const nativeCoordinates = (coordinates ?? []).map((c) =>
-    toProviderCoordinate(c, coordinateSystem)
+    toProviderCoordinate(c, coordinateSystem, provider)
   );
   const nativeHoles = holes?.map((ring) =>
-    ring.map((c) => toProviderCoordinate(c, coordinateSystem))
+    ring.map((c) => toProviderCoordinate(c, coordinateSystem, provider))
   );
 
   return (

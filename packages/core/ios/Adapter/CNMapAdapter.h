@@ -13,6 +13,12 @@ NS_ASSUME_NONNULL_BEGIN
 // emission. No method here exposes a provider (AMap) or codegen (RNMapsSpecs) type.
 @protocol CNMapAdapter <NSObject>
 
+// Provider identity. The class method lets the registry pick a class by the JS
+// `provider` prop ("amap"/"baidu"/"tencent") before instantiating; the instance
+// getter lets the host track which provider is currently mounted.
++ (NSString *)providerName;
+@property (nonatomic, readonly) NSString *providerName;
+
 // The view to mount as the host's contentView. Gesture recognizers for the
 // host-owned gestures (long press / double tap / pan) are installed on it.
 @property (nonatomic, readonly) UIView *mapView;

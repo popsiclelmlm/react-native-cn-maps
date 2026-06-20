@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, Image } from 'react-native';
 import NativeOverlay from './OverlayNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
 import type { LatLng, OverlayProps } from './types';
 
@@ -40,12 +40,13 @@ function OverlayComponent(props: OverlayProps) {
   const { image, bounds, bearing, opacity, zIndex } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
+  const provider = React.useContext(MapProviderContext);
   const [cornerA, cornerB] = bounds ?? [];
   const normalized =
     cornerA && cornerB
       ? normalizeOverlayBounds(
-          toProviderCoordinate(cornerA, coordinateSystem),
-          toProviderCoordinate(cornerB, coordinateSystem)
+          toProviderCoordinate(cornerA, coordinateSystem, provider),
+          toProviderCoordinate(cornerB, coordinateSystem, provider)
         )
       : undefined;
 

@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- No permissions or Tencent key declared here: the host app declares the
+       TencentMapSDK meta-data and any permissions, so the merged manifest stays
+       free of duplicate declarations. -->
+</manifest>

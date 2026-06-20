@@ -18,6 +18,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Instantiate the default (first-registered) adapter, or nil if none registered.
 + (nullable id<CNMapAdapter>)createAdapter;
 
+// Instantiate the adapter whose +providerName matches `provider`, falling back to
+// the default (first-registered) when `provider` is empty or unmatched.
++ (nullable id<CNMapAdapter>)createAdapterForProvider:(nullable NSString *)provider;
+
 // Fan a privacy-compliance declaration out to every registered adapter class that
 // conforms to CNMapAdapterPrivacy.
 + (void)applyPrivacyConsentAgreed:(BOOL)agreed contains:(BOOL)contains shown:(BOOL)shown;

@@ -1,0 +1,71 @@
+buildscript {
+  ext.CnMapsBaidu = [
+    kotlinVersion: "2.0.21",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    targetSdkVersion: 36,
+    // Baidu Map Android SDK (Maven group com.baidu.lbsyun). Pin to the version you
+    // verified; host apps can override with `ext.baiduSdkVersion = "..."`.
+    baiduSdkVersion: "7.6.4"
+  ]
+
+  ext.getBaiduExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return CnMapsBaidu[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.2"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getBaiduExtOrDefault('kotlinVersion')}"
+  }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+apply plugin: "com.facebook.react"
+
+android {
+  namespace "com.cnmaps.baidu"
+
+  compileSdkVersion getBaiduExtOrDefault("compileSdkVersion")
+
+  defaultConfig {
+    minSdkVersion getBaiduExtOrDefault("minSdkVersion")
+    targetSdkVersion getBaiduExtOrDefault("targetSdkVersion")
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  lint {
+    disable "GradleCompatible"
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  // The provider-agnostic adapter contract lives in the core module.
+  implementation project(":react-native-cn-maps")
+  // Baidu Map Android SDK. Map + Base are required; Util/Search optional.
+  def baidu = getBaiduExtOrDefault('baiduSdkVersion')
+  implementation "com.baidu.lbsyun:BaiduMapSDK_Map:${baidu}"
+  implementation "com.baidu.lbsyun:BaiduMapSDK_Base:${baidu}"
+  implementation "com.baidu.lbsyun:BaiduMapSDK_Util:${baidu}"
+}

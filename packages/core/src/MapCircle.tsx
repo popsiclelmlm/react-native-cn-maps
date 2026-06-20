@@ -1,6 +1,6 @@
 import React from 'react';
 import NativeCircle from './CircleNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
 import type { CircleProps, MapPressEvent } from './types';
 
@@ -22,7 +22,12 @@ function CircleComponent(props: CircleProps) {
   } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
-  const providerCenter = toProviderCoordinate(center, coordinateSystem);
+  const provider = React.useContext(MapProviderContext);
+  const providerCenter = toProviderCoordinate(
+    center,
+    coordinateSystem,
+    provider
+  );
 
   return (
     <NativeCircle

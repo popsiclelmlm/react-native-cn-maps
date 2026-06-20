@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import NativeMarker, { Commands } from './MarkerNativeComponent';
 import type { NativeMarkerPressEvent } from './MarkerNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { fromProviderCoordinate, toProviderCoordinate } from './coordinate';
 import { markerColorToString } from './markerUtils';
 import type {
@@ -74,7 +74,12 @@ function MarkerComponent(
 
   const nativeRef = React.useRef<React.ElementRef<typeof NativeMarker>>(null);
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
-  const providerCoordinate = toProviderCoordinate(coordinate, coordinateSystem);
+  const provider = React.useContext(MapProviderContext);
+  const providerCoordinate = toProviderCoordinate(
+    coordinate,
+    coordinateSystem,
+    provider
+  );
   // RNM keeps `image` and `icon` as aliases for the same custom marker bitmap.
   // Custom React children, when present, take precedence over `image` natively.
   const imageUri = resolveImageUri(image ?? icon);
@@ -104,7 +109,11 @@ function MarkerComponent(
       },
       animateMarkerToCoordinate(target, duration = 500) {
         if (nativeRef.current) {
-          const providerTarget = toProviderCoordinate(target, coordinateSystem);
+          const providerTarget = toProviderCoordinate(
+            target,
+            coordinateSystem,
+            provider
+          );
           Commands.animateMarkerToCoordinate(
             nativeRef.current,
             providerTarget.latitude,
@@ -114,7 +123,7 @@ function MarkerComponent(
         }
       },
     }),
-    [coordinateSystem]
+    [coordinateSystem, provider]
   );
 
   // onPress / onSelect / onDeselect / onDragStart / onDrag / onDragEnd all carry
@@ -126,11 +135,12 @@ function MarkerComponent(
         identifier: identifier ?? '',
         coordinate: fromProviderCoordinate(
           event.nativeEvent.coordinate,
-          coordinateSystem
+          coordinateSystem,
+          provider
         ),
       },
     }),
-    [coordinateSystem, identifier]
+    [coordinateSystem, identifier, provider]
   );
 
   return (

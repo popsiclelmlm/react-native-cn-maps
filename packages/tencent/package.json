@@ -1,0 +1,43 @@
+{
+  "name": "react-native-cn-maps-tencent",
+  "version": "0.2.0",
+  "description": "Tencent (腾讯地图) map provider for react-native-cn-maps",
+  "files": [
+    "ios",
+    "android",
+    "*.podspec",
+    "react-native.config.js",
+    "!ios/build",
+    "!android/build",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/.*"
+  ],
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "tencent",
+    "腾讯地图"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/popsiclelmlm/react-native-cn-maps.git"
+  },
+  "author": "popsiclelmlm <no_7seven@163.com> (https://github.com/popsiclelmlm)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/popsiclelmlm/react-native-cn-maps/issues"
+  },
+  "homepage": "https://github.com/popsiclelmlm/react-native-cn-maps#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-cn-maps": "*"
+  }
+}

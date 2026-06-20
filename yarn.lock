@@ -9685,6 +9685,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"react-native-cn-maps-baidu@workspace:packages/baidu":
+  version: 0.0.0-use.local
+  resolution: "react-native-cn-maps-baidu@workspace:packages/baidu"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-cn-maps: "*"
+  languageName: unknown
+  linkType: soft
+
 "react-native-cn-maps-example@workspace:example":
   version: 0.0.0-use.local
   resolution: "react-native-cn-maps-example@workspace:example"
@@ -9738,6 +9748,16 @@ __metadata:
     release-it: "npm:^19.2.4"
     turbo: "npm:^2.8.21"
     typescript: "npm:^6.0.2"
+  languageName: unknown
+  linkType: soft
+
+"react-native-cn-maps-tencent@workspace:packages/tencent":
+  version: 0.0.0-use.local
+  resolution: "react-native-cn-maps-tencent@workspace:packages/tencent"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-cn-maps: "*"
   languageName: unknown
   linkType: soft
 

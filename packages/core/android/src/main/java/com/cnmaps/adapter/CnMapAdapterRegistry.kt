@@ -26,6 +26,19 @@ object CnMapAdapterRegistry {
   @Synchronized
   fun createAdapter(context: Context): CnMapAdapter? = factories.firstOrNull()?.create(context)
 
+  // Create the adapter whose providerName matches `provider`, falling back to the
+  // default (first-registered) when `provider` is blank or unmatched.
+  @JvmStatic
+  @Synchronized
+  fun createAdapter(context: Context, provider: String?): CnMapAdapter? {
+    val factory = if (!provider.isNullOrEmpty()) {
+      factories.firstOrNull { it.providerName == provider }
+    } else {
+      null
+    }
+    return (factory ?: factories.firstOrNull())?.create(context)
+  }
+
   // Fan a privacy-compliance declaration out to every registered factory.
   @JvmStatic
   @Synchronized

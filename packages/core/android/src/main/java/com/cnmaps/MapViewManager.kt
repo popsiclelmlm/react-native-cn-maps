@@ -66,7 +66,8 @@ class MapViewManager : ViewGroupManager<MapView>(),
 
   @ReactProp(name = "provider")
   override fun setProvider(view: MapView, value: String?) {
-    // Fabric schema reserves future providers; the current native implementation is AMap only.
+    // Select the map provider ("amap"/"baidu"/"tencent"); fixed at mount.
+    view.applyProvider(value)
   }
 
   @ReactProp(name = "coordinateSystem")

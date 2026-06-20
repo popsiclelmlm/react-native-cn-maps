@@ -227,6 +227,16 @@ static std::vector<CLLocationCoordinate2D> CNUnboxCoordinates(NSArray<NSValue *>
   [CNMapAdapterRegistry registerAdapterClass:self];
 }
 
++ (NSString *)providerName
+{
+  return @"amap";
+}
+
+- (NSString *)providerName
+{
+  return [[self class] providerName];
+}
+
 - (instancetype)init
 {
   if (self = [super init]) {

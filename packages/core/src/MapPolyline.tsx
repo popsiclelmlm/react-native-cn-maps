@@ -1,6 +1,6 @@
 import React from 'react';
 import NativePolyline from './PolylineNativeComponent';
-import { MapCoordinateSystemContext } from './MapContext';
+import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
 import type { MapPressEvent, PolylineProps } from './types';
 
@@ -27,8 +27,9 @@ function PolylineComponent(props: PolylineProps) {
   } = props;
 
   const coordinateSystem = React.useContext(MapCoordinateSystemContext);
+  const provider = React.useContext(MapProviderContext);
   const nativeCoordinates = (coordinates ?? []).map((c) =>
-    toProviderCoordinate(c, coordinateSystem)
+    toProviderCoordinate(c, coordinateSystem, provider)
   );
 
   return (

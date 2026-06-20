@@ -78,6 +78,7 @@ class AMapAdapter(context: Context) : CnMapAdapter {
   private val aMap: AMap = mapView.map
   private val gestureDetector = GestureDetector(context, GestureListener())
 
+  override val providerName: String get() = "amap"
   override val view: View get() = mapView
   override var delegate: CnMapAdapterDelegate? = null
 
@@ -787,6 +788,8 @@ class AMapAdapter(context: Context) : CnMapAdapter {
 
 // Factory + privacy entry point registered with CnMapAdapterRegistry.
 object AMapAdapterFactory : CnMapAdapterFactory {
+  override val providerName: String = "amap"
+
   override fun create(context: Context): CnMapAdapter = AMapAdapter(context)
 
   override fun applyPrivacyConsent(context: Context, agreed: Boolean, contains: Boolean, shown: Boolean) {
