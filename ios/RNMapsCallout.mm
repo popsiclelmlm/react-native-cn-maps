@@ -34,6 +34,15 @@ using namespace facebook::react;
   const auto &newViewProps = *std::static_pointer_cast<RNMapsCalloutProps const>(props);
   _tooltip = newViewProps.tooltip;
   [super updateProps:props oldProps:oldProps];
+  [_calloutOwner calloutContentChanged];
+}
+
+// The callout subtree is laid out by Fabric even though it never enters a window;
+// re-rasterize through the owner once it has a real size.
+- (void)layoutSubviews
+{
+  [super layoutSubviews];
+  [_calloutOwner calloutContentChanged];
 }
 
 // Offscreen rasterization (the callout never enters a window): render the layer.

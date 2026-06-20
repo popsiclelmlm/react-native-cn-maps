@@ -37,11 +37,10 @@ static NSString *RNMapsHeatmapNSString(const std::string &value)
 @interface RNMapsHeatmap () <RCTRNMapsHeatmapViewProtocol>
 @end
 
-@implementation RNMapsHeatmap {
-  __weak MAMapView *_map;
-  MAHeatMapTileOverlay *_overlay;
-  NSInteger _radius;
-}
+@implementation RNMapsHeatmap
+@synthesize cnChildId = _cnChildId;
+@synthesize cnHandle = _cnHandle;
+@synthesize mapHost = _mapHost;
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
@@ -53,123 +52,86 @@ static NSString *RNMapsHeatmapNSString(const std::string &value)
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsHeatmapProps>();
     _props = defaultProps;
-    _radius = 20;
   }
   return self;
 }
 
-- (id<MAOverlay>)overlay
+- (CNOverlayModel *)overlayModel
 {
-  return _overlay;
+  const auto &p = *std::static_pointer_cast<RNMapsHeatmapProps const>(_props);
+  CNHeatmapModel *model = [CNHeatmapModel new];
+  model.type = CNOverlayTypeHeatmap;
+  model.radius = p.radius > 0 ? p.radius : 20;
+
+  NSMutableArray<NSValue *> *points = [NSMutableArray array];
+  NSMutableArray<NSNumber *> *weights = [NSMutableArray array];
+  [self parsePoints:RNMapsHeatmapNSString(p.points) intoPoints:points weights:weights];
+  model.points = points;
+  model.weights = weights;
+
+  NSMutableArray<UIColor *> *colors = [NSMutableArray array];
+  NSMutableArray<NSNumber *> *startPoints = [NSMutableArray array];
+  [self parseGradient:RNMapsHeatmapNSString(p.gradient) intoColors:colors startPoints:startPoints];
+  model.gradientColors = colors;
+  model.gradientStartPoints = startPoints;
+  return model;
 }
 
-- (void)addToMap:(MAMapView *)map
-{
-  _map = map;
-  if (_overlay != nil) {
-    [map addOverlay:_overlay];
-  }
-}
-
-- (void)removeFromMap
-{
-  if (_map != nil && _overlay != nil) {
-    [_map removeOverlay:_overlay];
-  }
-  _map = nil;
-}
-
-- (MAOverlayRenderer *)overlayRenderer
-{
-  return [[MATileOverlayRenderer alloc] initWithTileOverlay:_overlay];
-}
-
-- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
-{
-  const auto &newViewProps = *std::static_pointer_cast<RNMapsHeatmapProps const>(props);
-
-  _radius = newViewProps.radius > 0 ? newViewProps.radius : 20;
-
-  NSArray<MAHeatMapNode *> *nodes =
-    [self parseNodes:RNMapsHeatmapNSString(newViewProps.points)];
-  MAHeatMapGradient *gradient =
-    [self parseGradient:RNMapsHeatmapNSString(newViewProps.gradient)];
-
-  MAHeatMapTileOverlay *previous = _overlay;
-  if (nodes.count > 0) {
-    MAHeatMapTileOverlay *overlay = [[MAHeatMapTileOverlay alloc] init];
-    overlay.data = nodes;
-    overlay.radius = _radius;
-    if (gradient != nil) {
-      overlay.gradient = gradient;
-    }
-    _overlay = overlay;
-  } else {
-    _overlay = nil;
-  }
-
-  if (_map != nil) {
-    if (previous != nil) {
-      [_map removeOverlay:previous];
-    }
-    if (_overlay != nil) {
-      [_map addOverlay:_overlay];
-    }
-  }
-
-  [super updateProps:props oldProps:oldProps];
-}
-
-- (NSArray<MAHeatMapNode *> *)parseNodes:(NSString *)json
+- (void)parsePoints:(NSString *)json
+         intoPoints:(NSMutableArray<NSValue *> *)points
+            weights:(NSMutableArray<NSNumber *> *)weights
 {
   if (json.length == 0) {
-    return @[];
+    return;
   }
   NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
   id parsed = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if (![parsed isKindOfClass:[NSArray class]]) {
-    return @[];
+    return;
   }
-  NSMutableArray<MAHeatMapNode *> *nodes = [NSMutableArray array];
   for (id entry in (NSArray *)parsed) {
     if (![entry isKindOfClass:[NSDictionary class]]) {
       continue;
     }
     NSDictionary *dict = (NSDictionary *)entry;
-    MAHeatMapNode *node = [[MAHeatMapNode alloc] init];
-    node.coordinate = CLLocationCoordinate2DMake(
+    CLLocationCoordinate2D coordinate = CLLocationCoordinate2DMake(
       [dict[@"latitude"] doubleValue], [dict[@"longitude"] doubleValue]);
-    node.intensity = dict[@"weight"] ? [dict[@"weight"] floatValue] : 1.0;
-    [nodes addObject:node];
+    [points addObject:CNBoxCoordinate(coordinate)];
+    [weights addObject:dict[@"weight"] ? @([dict[@"weight"] floatValue]) : @(1.0)];
   }
-  return nodes;
 }
 
-- (MAHeatMapGradient *)parseGradient:(NSString *)json
+- (void)parseGradient:(NSString *)json
+           intoColors:(NSMutableArray<UIColor *> *)colors
+          startPoints:(NSMutableArray<NSNumber *> *)startPoints
 {
   if (json.length == 0) {
-    return nil;
+    return;
   }
   NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
   id parsed = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if (![parsed isKindOfClass:[NSDictionary class]]) {
-    return nil;
+    return;
   }
   NSDictionary *dict = (NSDictionary *)parsed;
   NSArray *colorStrings = dict[@"colors"];
-  NSArray *startPoints = dict[@"startPoints"];
+  NSArray *points = dict[@"startPoints"];
   if (![colorStrings isKindOfClass:[NSArray class]] ||
-      ![startPoints isKindOfClass:[NSArray class]] ||
-      colorStrings.count == 0 || colorStrings.count != startPoints.count) {
-    return nil;
+      ![points isKindOfClass:[NSArray class]] ||
+      colorStrings.count == 0 || colorStrings.count != points.count) {
+    return;
   }
-  NSMutableArray<UIColor *> *colors = [NSMutableArray array];
   for (id c in colorStrings) {
     UIColor *color = [c isKindOfClass:[NSString class]] ? RNMapsHeatmapColor(c) : nil;
     [colors addObject:color ?: [UIColor clearColor]];
   }
-  return [[MAHeatMapGradient alloc] initWithColor:colors
-                               andWithStartPoints:startPoints];
+  [startPoints addObjectsFromArray:points];
+}
+
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
+{
+  [super updateProps:props oldProps:oldProps];
+  [self.mapHost childDidUpdateModel:self];
 }
 
 @end

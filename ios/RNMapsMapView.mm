@@ -2,7 +2,9 @@
 #import "RNMapsMarker.h"
 #import "RNMapsOverlay.h"
 
-#import <MAMapKit/MAMapKit.h>
+#import "CNMapAdapter.h"
+#import "CNMapAdapterRegistry.h"
+
 #import <React/RCTConversions.h>
 #import <React/RCTUtils.h>
 
@@ -27,8 +29,16 @@ typedef NS_ENUM(NSInteger, RNMapsPressKind) {
   RNMapsPressKindPanDrag,
 };
 
-@interface RNMapsMapView () <MAMapViewDelegate, UIGestureRecognizerDelegate, RCTRNMapsMapViewViewProtocol>
+@interface RNMapsMapView () <UIGestureRecognizerDelegate,
+                             RCTRNMapsMapViewViewProtocol,
+                             CNMapAdapterDelegate,
+                             RNMapsChildHost>
 @end
+
+static NSString *RNMapsNSString(const std::string &value)
+{
+  return value.empty() ? nil : [NSString stringWithUTF8String:value.c_str()];
+}
 
 static NSArray *RNMapsJSONArray(NSString *json)
 {
@@ -39,6 +49,22 @@ static NSArray *RNMapsJSONArray(NSString *json)
                                               options:0
                                                 error:nil];
   return [parsed isKindOfClass:[NSArray class]] ? parsed : @[];
+}
+
+// Parse a JSON array of { latitude, longitude } into NSValue-boxed coordinates.
+static NSArray<NSValue *> *RNMapsBoxedCoordinatesFromJSON(NSString *json)
+{
+  NSArray *raw = RNMapsJSONArray(json);
+  NSMutableArray<NSValue *> *out = [NSMutableArray arrayWithCapacity:raw.count];
+  for (id entry in raw) {
+    if (![entry isKindOfClass:[NSDictionary class]]) {
+      continue;
+    }
+    CLLocationCoordinate2D coordinate = CLLocationCoordinate2DMake(
+      [entry[@"latitude"] doubleValue], [entry[@"longitude"] doubleValue]);
+    [out addObject:CNBoxCoordinate(coordinate)];
+  }
+  return out;
 }
 
 static UIEdgeInsets RNMapsEdgeInsets(NSString *json)
@@ -62,32 +88,19 @@ static std::string RNMapsStdStringFromNSString(NSString *value)
   if (value.length == 0) {
     return std::string();
   }
-
   return std::string(value.UTF8String);
 }
 
 template <typename Region>
 static BOOL RNMapsRegionIsValid(const Region &region)
 {
-  return std::isfinite(region.latitude) &&
-    std::isfinite(region.longitude) &&
-    std::isfinite(region.latitudeDelta) &&
-    std::isfinite(region.longitudeDelta) &&
-    region.latitudeDelta > 0 &&
-    region.longitudeDelta > 0;
-}
-
-template <typename Region>
-static MACoordinateRegion RNMapsMACoordinateRegionFromRegion(const Region &region)
-{
-  CLLocationCoordinate2D center = CLLocationCoordinate2DMake(region.latitude, region.longitude);
-  MACoordinateSpan span = MACoordinateSpanMake(region.latitudeDelta, region.longitudeDelta);
-  return MACoordinateRegionMake(center, span);
+  return std::isfinite(region.latitude) && std::isfinite(region.longitude) &&
+    std::isfinite(region.latitudeDelta) && std::isfinite(region.longitudeDelta) &&
+    region.latitudeDelta > 0 && region.longitudeDelta > 0;
 }
 
 static BOOL RNMapsRegionChanged(
-  const RNMapsMapViewRegionStruct &oldRegion,
-  const RNMapsMapViewRegionStruct &newRegion)
+  const RNMapsMapViewRegionStruct &oldRegion, const RNMapsMapViewRegionStruct &newRegion)
 {
   return oldRegion.latitude != newRegion.latitude ||
     oldRegion.longitude != newRegion.longitude ||
@@ -101,14 +114,12 @@ static BOOL RNMapsRegionChanged(
 template <typename Camera>
 static BOOL RNMapsCameraIsValid(const Camera &camera)
 {
-  return std::isfinite(camera.latitude) &&
-    std::isfinite(camera.longitude) &&
+  return std::isfinite(camera.latitude) && std::isfinite(camera.longitude) &&
     (camera.latitude != 0.0 || camera.longitude != 0.0);
 }
 
 static BOOL RNMapsCameraChanged(
-  const RNMapsMapViewCameraStruct &oldCamera,
-  const RNMapsMapViewCameraStruct &newCamera)
+  const RNMapsMapViewCameraStruct &oldCamera, const RNMapsMapViewCameraStruct &newCamera)
 {
   return oldCamera.latitude != newCamera.latitude ||
     oldCamera.longitude != newCamera.longitude ||
@@ -118,77 +129,15 @@ static BOOL RNMapsCameraChanged(
     oldCamera.altitude != newCamera.altitude;
 }
 
-// Apply a camera struct to the map. Templated so it accepts both the `camera`
-// and `initialCamera` codegen structs (distinct types with the same fields).
-template <typename Camera>
-static void RNMapsApplyCamera(MAMapView *mapView, const Camera &camera)
-{
-  mapView.centerCoordinate = CLLocationCoordinate2DMake(camera.latitude, camera.longitude);
-  if (std::isfinite(camera.zoom) && camera.zoom > 0) {
-    mapView.zoomLevel = camera.zoom;
-  }
-  mapView.rotationDegree = camera.heading;
-  mapView.cameraDegree = camera.pitch;
-}
-
-static MAMapType RNMapsMapTypeFromProps(
-  const std::string &mapType,
-  const std::string &userInterfaceStyle)
-{
-  // AMap iOS has no dedicated hybrid/terrain/none surface; everything that is
-  // not explicitly satellite collapses to the standard basemap (best-effort).
-  MAMapType type = MAMapTypeStandard;
-  if (mapType == "satellite" || mapType == "hybrid") {
-    type = MAMapTypeSatellite;
-  }
-
-  if (type == MAMapTypeStandard && userInterfaceStyle == "dark") {
-    type = MAMapTypeStandardNight;
-  }
-
-  return type;
-}
-
-static MAPinAnnotationColor RNMapsPinColor(NSString *color)
-{
-  NSString *lowercaseColor = [color lowercaseString];
-
-  if ([lowercaseColor containsString:@"green"] || [lowercaseColor isEqualToString:@"#00ff00"]) {
-    return MAPinAnnotationColorGreen;
-  }
-
-  if ([lowercaseColor containsString:@"purple"] || [lowercaseColor containsString:@"violet"]) {
-    return MAPinAnnotationColorPurple;
-  }
-
-  return MAPinAnnotationColorRed;
-}
-
 @implementation RNMapsMapView {
-  MAMapView *_mapView;
-  // Child <Marker> host components currently attached to the map. They are kept
-  // in mount order so get/unmount can index into them; the annotation's weak
-  // `marker` back-ref handles delegate routing.
+  id<CNMapAdapter> _adapter;
+  // Child <Marker> host components, in mount order (for fit/frames).
   NSMutableArray<RNMapsMarker *> *_markers;
-  // Polyline/Polygon/Circle child views; scanned in rendererForOverlay: to match
-  // an overlay back to its styling view.
+  // Polyline/Polygon/Circle/... overlay child views, in mount order.
   NSMutableArray<id<RNMapsOverlayView>> *_overlayViews;
-  BOOL _initialRegionApplied;
-  BOOL _initialCameraApplied;
-  BOOL _isGesture;
-  BOOL _mapReady;
-  // initialRegion/initialCamera are captured here during updateProps and applied
-  // in layoutSubviews once the map has a real size. Applying setRegion during the
-  // mount-time updateProps (before layout, bounds == 0) is ignored by AMap, which
-  // leaves the map at its default viewport.
-  MACoordinateRegion _pendingInitialRegion;
-  BOOL _hasPendingInitialRegion;
-  BOOL _hasPendingInitialCamera;
-  double _pendingCamLat;
-  double _pendingCamLng;
-  double _pendingCamHeading;
-  double _pendingCamPitch;
-  double _pendingCamZoom;
+  // childId → child, for routing adapter callbacks back to the owning child.
+  NSMutableDictionary<NSString *, id> *_childrenById;
+  NSUInteger _childIdCounter;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -202,100 +151,235 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     static const auto defaultProps = std::make_shared<const RNMapsMapViewProps>();
     _props = defaultProps;
 
-    _mapView = [[MAMapView alloc] initWithFrame:self.bounds];
-    _mapView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    _mapView.delegate = self;
-    _mapView.zoomEnabled = YES;
-    _mapView.scrollEnabled = YES;
-    _mapView.rotateEnabled = YES;
-    _mapView.rotateCameraEnabled = YES;
-
     _markers = [NSMutableArray new];
     _overlayViews = [NSMutableArray new];
-    self.contentView = _mapView;
+    _childrenById = [NSMutableDictionary new];
 
-    [self installGestureRecognizers];
+    _adapter = [CNMapAdapterRegistry createAdapter];
+    _adapter.delegate = self;
+    if (_adapter.mapView != nil) {
+      self.contentView = _adapter.mapView;
+      [self installGestureRecognizers];
+    }
   }
 
   return self;
 }
 
-// onLongPress / onPanDrag / onDoublePress have no first-class delegate callback,
-// so they ride on UIKit gesture recognizers that recognize alongside the map's
-// own gestures (see the simultaneous-recognition delegate below).
+// onLongPress / onPanDrag / onDoublePress have no first-class provider callback, so
+// they ride on UIKit gesture recognizers installed on the adapter's map view, which
+// recognize alongside the provider's own gestures.
 - (void)installGestureRecognizers
 {
+  UIView *mapView = _adapter.mapView;
+
   UILongPressGestureRecognizer *longPress =
     [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
   longPress.delegate = self;
-  [_mapView addGestureRecognizer:longPress];
+  [mapView addGestureRecognizer:longPress];
 
   UITapGestureRecognizer *doubleTap =
     [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleDoublePress:)];
   doubleTap.numberOfTapsRequired = 2;
   doubleTap.delegate = self;
-  [_mapView addGestureRecognizer:doubleTap];
+  [mapView addGestureRecognizer:doubleTap];
 
   UIPanGestureRecognizer *pan =
     [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePanDrag:)];
   pan.delegate = self;
-  [_mapView addGestureRecognizer:pan];
+  [mapView addGestureRecognizer:pan];
 }
 
 - (void)prepareForRecycle
 {
   [super prepareForRecycle];
   for (RNMapsMarker *marker in _markers) {
-    [marker removeFromMap];
+    marker.mapHost = nil;
   }
   [_markers removeAllObjects];
   for (id<RNMapsOverlayView> overlayView in _overlayViews) {
-    [overlayView removeFromMap];
+    overlayView.mapHost = nil;
   }
   [_overlayViews removeAllObjects];
-  _initialRegionApplied = NO;
-  _initialCameraApplied = NO;
-  _hasPendingInitialRegion = NO;
-  _hasPendingInitialCamera = NO;
-  _isGesture = NO;
-  _mapReady = NO;
-}
-
-// Apply the captured initial viewport once the map has a real size. AMap ignores
-// setRegion on a zero-size view, so this is deferred out of mount-time
-// updateProps and run from layoutSubviews. Camera wins over region (RNM parity).
-- (void)applyPendingInitialViewport
-{
-  // Only once the map engine is ready (mapInitComplete) AND the view has a real
-  // size. setRegion before the map is ready applies the center but drops the span
-  // (zoom), leaving the map at the default continental zoom.
-  if (!_mapReady || CGRectIsEmpty(_mapView.bounds)) {
-    return;
-  }
-  if (_hasPendingInitialCamera && !_initialCameraApplied) {
-    _mapView.centerCoordinate = CLLocationCoordinate2DMake(_pendingCamLat, _pendingCamLng);
-    if (std::isfinite(_pendingCamZoom) && _pendingCamZoom > 0) {
-      _mapView.zoomLevel = _pendingCamZoom;
-    }
-    _mapView.rotationDegree = _pendingCamHeading;
-    _mapView.cameraDegree = _pendingCamPitch;
-    _initialCameraApplied = YES;
-    _initialRegionApplied = YES;  // camera supersedes region
-  } else if (_hasPendingInitialRegion && !_initialRegionApplied) {
-    [_mapView setRegion:_pendingInitialRegion animated:NO];
-    _initialRegionApplied = YES;
-  }
+  [_childrenById removeAllObjects];
+  [_adapter reset];
 }
 
 - (void)layoutSubviews
 {
   [super layoutSubviews];
-  [self applyPendingInitialViewport];
+  [_adapter didLayout];
 }
 
 - (void)dealloc
 {
-  _mapView.delegate = nil;
+  [_adapter teardown];
+}
+
+- (NSString *)nextChildId
+{
+  return [NSString stringWithFormat:@"cn-%lu", (unsigned long)(++_childIdCounter)];
+}
+
+#pragma mark - Child mounting
+
+// Marker / overlay children never enter the UIView hierarchy: they are registered
+// with the adapter (which owns the SDK map) instead. Any other child falls through
+// to the default RCTViewComponentView behavior.
+- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
+    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
+    NSString *childId = [self nextChildId];
+    marker.cnChildId = childId;
+    marker.mapHost = self;
+    NSUInteger insertionIndex = MIN((NSUInteger)index, _markers.count);
+    [_markers insertObject:marker atIndex:insertionIndex];
+    _childrenById[childId] = marker;
+    marker.cnHandle = [_adapter addMarker:marker.markerModel childId:childId];
+    return;
+  }
+
+  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
+    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
+    NSString *childId = [self nextChildId];
+    overlayView.cnChildId = childId;
+    overlayView.mapHost = self;
+    [_overlayViews addObject:overlayView];
+    _childrenById[childId] = overlayView;
+    overlayView.cnHandle = [_adapter addOverlay:overlayView.overlayModel childId:childId];
+    return;
+  }
+
+  [super mountChildComponentView:childComponentView index:index];
+}
+
+- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
+{
+  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
+    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
+    [_adapter removeMarker:marker.cnHandle];
+    [_markers removeObject:marker];
+    if (marker.cnChildId != nil) {
+      [_childrenById removeObjectForKey:marker.cnChildId];
+    }
+    marker.mapHost = nil;
+    return;
+  }
+
+  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
+    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
+    [_adapter removeOverlay:overlayView.cnHandle];
+    [_overlayViews removeObject:overlayView];
+    if (overlayView.cnChildId != nil) {
+      [_childrenById removeObjectForKey:overlayView.cnChildId];
+    }
+    overlayView.mapHost = nil;
+    return;
+  }
+
+  [super unmountChildComponentView:childComponentView index:index];
+}
+
+#pragma mark - RNMapsChildHost
+
+- (id<CNMapAdapter>)mapAdapter
+{
+  return _adapter;
+}
+
+// A child re-applies its model (prop change, or async image/raster) through the
+// adapter. No-op until the child has been mounted (handle assigned).
+- (void)childDidUpdateModel:(UIView *)child
+{
+  if ([child isKindOfClass:[RNMapsMarker class]]) {
+    RNMapsMarker *marker = (RNMapsMarker *)child;
+    if (marker.cnHandle != nil) {
+      [_adapter updateMarker:marker.cnHandle model:marker.markerModel];
+    }
+    return;
+  }
+  if ([child conformsToProtocol:@protocol(RNMapsOverlayView)]) {
+    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)child;
+    if (overlayView.cnHandle != nil) {
+      [_adapter updateOverlay:overlayView.cnHandle model:overlayView.overlayModel];
+    }
+  }
+}
+
+#pragma mark - Props
+
+- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
+{
+  const auto &oldViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(_props);
+  const auto &newViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(props);
+
+  CNMapOptions *options = [CNMapOptions new];
+  options.mapType = RNMapsNSString(newViewProps.mapType) ?: @"";
+  options.userInterfaceStyle = RNMapsNSString(newViewProps.userInterfaceStyle) ?: @"";
+  options.minZoomLevel = newViewProps.minZoomLevel;
+  options.maxZoomLevel = newViewProps.maxZoomLevel;
+  options.showsUserLocation = newViewProps.showsUserLocation;
+  options.showsCompass = newViewProps.showsCompass;
+  options.showsScale = newViewProps.showsScale;
+  options.showsTraffic = newViewProps.showsTraffic;
+  options.showsBuildings = newViewProps.showsBuildings;
+  options.showsIndoors = newViewProps.showsIndoors;
+  options.showsPointsOfInterest = newViewProps.showsPointsOfInterest;
+  options.zoomEnabled = newViewProps.zoomEnabled;
+  options.scrollEnabled = newViewProps.scrollEnabled;
+  options.rotateEnabled = newViewProps.rotateEnabled;
+  options.pitchEnabled = newViewProps.pitchEnabled;
+  [_adapter applyOptions:options];
+
+  // Capture the initial region/camera; the adapter applies them once ready & sized.
+  if (RNMapsRegionIsValid(newViewProps.initialRegion)) {
+    [_adapter setPendingInitialRegionLatitude:newViewProps.initialRegion.latitude
+                                    longitude:newViewProps.initialRegion.longitude
+                                latitudeDelta:newViewProps.initialRegion.latitudeDelta
+                               longitudeDelta:newViewProps.initialRegion.longitudeDelta];
+  }
+  if (RNMapsCameraIsValid(newViewProps.initialCamera)) {
+    [_adapter setPendingInitialCameraLatitude:newViewProps.initialCamera.latitude
+                                    longitude:newViewProps.initialCamera.longitude
+                                      heading:newViewProps.initialCamera.heading
+                                        pitch:newViewProps.initialCamera.pitch
+                                         zoom:newViewProps.initialCamera.zoom];
+  }
+
+  if (RNMapsRegionIsValid(newViewProps.region) &&
+      RNMapsRegionChanged(oldViewProps.region, newViewProps.region)) {
+    [_adapter setRegionLatitude:newViewProps.region.latitude
+                      longitude:newViewProps.region.longitude
+                  latitudeDelta:newViewProps.region.latitudeDelta
+                 longitudeDelta:newViewProps.region.longitudeDelta
+                       animated:NO];
+  }
+
+  // camera wins over region when both are controlled.
+  if (RNMapsCameraIsValid(newViewProps.camera) &&
+      RNMapsCameraChanged(oldViewProps.camera, newViewProps.camera)) {
+    [_adapter setCameraLatitude:newViewProps.camera.latitude
+                      longitude:newViewProps.camera.longitude
+                        heading:newViewProps.camera.heading
+                          pitch:newViewProps.camera.pitch
+                           zoom:newViewProps.camera.zoom
+                       animated:NO
+                       duration:0];
+  }
+
+  // NOTE: mapPadding, customMapStyle (JSON), tintColor, kmlSrc, loading* and
+  // showsMyLocationButton have no clean provider equivalent and are intentionally
+  // ignored on iOS; the JS facade warns where appropriate.
+
+  [super updateProps:props oldProps:oldProps];
+}
+
+#pragma mark - Commands
+
+- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
+{
+  RCTRNMapsMapViewHandleCommand(self, commandName, args);
 }
 
 - (void)animateToRegion:(double)latitude
@@ -304,37 +388,11 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
          longitudeDelta:(double)longitudeDelta
                duration:(NSInteger)duration
 {
-  MACoordinateRegion region = MACoordinateRegionMake(
-    CLLocationCoordinate2DMake(latitude, longitude),
-    MACoordinateSpanMake(latitudeDelta, longitudeDelta)
-  );
-
-  [_mapView setRegion:region animated:duration > 0];
-}
-
-- (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
-{
-  RCTRNMapsMapViewHandleCommand(self, commandName, args);
-}
-
-#pragma mark - Imperative commands
-
-- (void)applyCameraLatitude:(double)latitude
-                  longitude:(double)longitude
-                    heading:(double)heading
-                      pitch:(double)pitch
-                       zoom:(double)zoom
-                   animated:(BOOL)animated
-                   duration:(NSTimeInterval)duration
-{
-  if (latitude != 0.0 || longitude != 0.0) {
-    [_mapView setCenterCoordinate:CLLocationCoordinate2DMake(latitude, longitude) animated:animated];
-  }
-  if (std::isfinite(zoom) && zoom > 0) {
-    [_mapView setZoomLevel:zoom animated:animated];
-  }
-  [_mapView setRotationDegree:heading animated:animated duration:duration];
-  [_mapView setCameraDegree:pitch animated:animated duration:duration];
+  [_adapter setRegionLatitude:latitude
+                    longitude:longitude
+                latitudeDelta:latitudeDelta
+               longitudeDelta:longitudeDelta
+                     animated:duration > 0];
 }
 
 - (void)animateCamera:(double)latitude
@@ -344,8 +402,13 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
                  zoom:(double)zoom
              duration:(NSInteger)duration
 {
-  [self applyCameraLatitude:latitude longitude:longitude heading:heading pitch:pitch zoom:zoom
-                   animated:duration > 0 duration:duration / 1000.0];
+  [_adapter setCameraLatitude:latitude
+                    longitude:longitude
+                      heading:heading
+                        pitch:pitch
+                         zoom:zoom
+                     animated:duration > 0
+                     duration:duration / 1000.0];
 }
 
 - (void)setCamera:(double)latitude
@@ -354,38 +417,31 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
             pitch:(double)pitch
              zoom:(double)zoom
 {
-  [self applyCameraLatitude:latitude longitude:longitude heading:heading pitch:pitch zoom:zoom
-                   animated:NO duration:0];
+  [_adapter setCameraLatitude:latitude
+                    longitude:longitude
+                      heading:heading
+                        pitch:pitch
+                         zoom:zoom
+                     animated:NO
+                     duration:0];
 }
 
 - (void)fitToCoordinates:(NSString *)coordinatesJSON
          edgePaddingJSON:(NSString *)edgePaddingJSON
                 animated:(BOOL)animated
 {
-  NSArray *coords = RNMapsJSONArray(coordinatesJSON);
-  if (coords.count == 0) {
+  NSArray<NSValue *> *coordinates = RNMapsBoxedCoordinatesFromJSON(coordinatesJSON);
+  if (coordinates.count == 0) {
     return;
   }
-
-  MAMapRect zoomRect = MAMapRectNull;
-  for (NSDictionary *c in coords) {
-    if (![c isKindOfClass:[NSDictionary class]]) {
-      continue;
-    }
-    MAMapPoint point = MAMapPointForCoordinate(
-      CLLocationCoordinate2DMake([c[@"latitude"] doubleValue], [c[@"longitude"] doubleValue]));
-    MAMapRect pointRect = MAMapRectMake(point.x, point.y, 0.1, 0.1);
-    zoomRect = MAMapRectIsNull(zoomRect) ? pointRect : MAMapRectUnion(zoomRect, pointRect);
-  }
-  if (MAMapRectIsNull(zoomRect)) {
-    return;
-  }
-  [_mapView setVisibleMapRect:zoomRect edgePadding:RNMapsEdgeInsets(edgePaddingJSON) animated:animated];
+  [_adapter fitToCoordinates:coordinates
+                 edgePadding:RNMapsEdgeInsets(edgePaddingJSON)
+                    animated:animated];
 }
 
 - (void)fitToElements:(BOOL)animated
 {
-  [_mapView showAnnotations:_mapView.annotations animated:animated];
+  [_adapter fitToElementsAnimated:animated];
 }
 
 - (void)fitToSuppliedMarkers:(NSString *)markerIDsJSON
@@ -396,15 +452,25 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   if (ids.count == 0) {
     return;
   }
-  NSMutableArray *annotations = [NSMutableArray array];
+  NSMutableArray<CNOverlayHandle *> *handles = [NSMutableArray array];
   for (RNMapsMarker *marker in _markers) {
-    if (marker.annotation.identifier != nil && [ids containsObject:marker.annotation.identifier]) {
-      [annotations addObject:marker.annotation];
+    NSString *identifier = marker.markerModel.identifier;
+    if (identifier != nil && [ids containsObject:identifier] && marker.cnHandle != nil) {
+      [handles addObject:marker.cnHandle];
     }
   }
-  if (annotations.count > 0) {
-    [_mapView showAnnotations:annotations animated:animated];
-  }
+  [_adapter fitToMarkers:handles edgePadding:RNMapsEdgeInsets(edgePaddingJSON) animated:animated];
+}
+
+- (void)setMapBoundaries:(double)neLatitude
+             neLongitude:(double)neLongitude
+              swLatitude:(double)swLatitude
+             swLongitude:(double)swLongitude
+{
+  [_adapter setLimitRegionNELatitude:neLatitude
+                         neLongitude:neLongitude
+                          swLatitude:swLatitude
+                         swLongitude:swLongitude];
 }
 
 #pragma mark - Query commands
@@ -426,50 +492,47 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 
 - (void)getCamera:(NSInteger)requestId
 {
+  CNCamera camera = [_adapter currentCamera];
   [self emitCommandResult:requestId
                      data:@{
-                       @"latitude" : @(_mapView.centerCoordinate.latitude),
-                       @"longitude" : @(_mapView.centerCoordinate.longitude),
-                       @"heading" : @(_mapView.rotationDegree),
-                       @"pitch" : @(_mapView.cameraDegree),
-                       @"zoom" : @(_mapView.zoomLevel),
-                       @"altitude" : @(0),
+                       @"latitude" : @(camera.latitude),
+                       @"longitude" : @(camera.longitude),
+                       @"heading" : @(camera.heading),
+                       @"pitch" : @(camera.pitch),
+                       @"zoom" : @(camera.zoom),
+                       @"altitude" : @(camera.altitude),
                      }];
 }
 
 - (void)getMapBoundaries:(NSInteger)requestId
 {
-  MACoordinateRegion region = _mapView.region;
+  CNRegion region = [_adapter currentRegion];
   [self emitCommandResult:requestId
                      data:@{
                        @"northEast" : @{
-                         @"latitude" : @(region.center.latitude + region.span.latitudeDelta / 2.0),
-                         @"longitude" : @(region.center.longitude + region.span.longitudeDelta / 2.0),
+                         @"latitude" : @(region.latitude + region.latitudeDelta / 2.0),
+                         @"longitude" : @(region.longitude + region.longitudeDelta / 2.0),
                        },
                        @"southWest" : @{
-                         @"latitude" : @(region.center.latitude - region.span.latitudeDelta / 2.0),
-                         @"longitude" : @(region.center.longitude - region.span.longitudeDelta / 2.0),
+                         @"latitude" : @(region.latitude - region.latitudeDelta / 2.0),
+                         @"longitude" : @(region.longitude - region.longitudeDelta / 2.0),
                        },
                      }];
 }
 
 - (void)pointForCoordinate:(NSInteger)requestId latitude:(double)latitude longitude:(double)longitude
 {
-  CGPoint point = [_mapView convertCoordinate:CLLocationCoordinate2DMake(latitude, longitude)
-                                toPointToView:_mapView];
+  CGPoint point = [_adapter pointForCoordinate:CLLocationCoordinate2DMake(latitude, longitude)];
   [self emitCommandResult:requestId data:@{ @"x" : @(point.x), @"y" : @(point.y) }];
 }
 
 - (void)coordinateForPoint:(NSInteger)requestId x:(double)x y:(double)y
 {
-  CLLocationCoordinate2D coordinate = [_mapView convertPoint:CGPointMake(x, y) toCoordinateFromView:_mapView];
+  CLLocationCoordinate2D coordinate = [_adapter coordinateForPoint:CGPointMake(x, y)];
   [self emitCommandResult:requestId
                      data:@{ @"latitude" : @(coordinate.latitude), @"longitude" : @(coordinate.longitude) }];
 }
 
-// Async map snapshot of the current viewport (the `region` option is ignored).
-// Replies with a file:// uri, or raw base64 when result == "base64". AMap may
-// invoke the callback more than once; the JS side resolves on the first reply.
 - (void)takeSnapshot:(NSInteger)requestId
                width:(NSInteger)width
               height:(NSInteger)height
@@ -478,79 +541,27 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
               result:(NSString *)result
 {
   __weak RNMapsMapView *weakSelf = self;
-  [_mapView takeSnapshotInRect:_mapView.bounds
-           withCompletionBlock:^(UIImage *image, NSInteger state) {
-    RNMapsMapView *strongSelf = weakSelf;
-    if (strongSelf == nil) {
-      return;
-    }
-    // state != 1 is an intermediate (still-rendering) callback; wait for the
-    // final one so we don't resolve early with a partial snapshot.
-    if (state != 1) {
-      return;
-    }
-    // A nil final image still resolves the JS promise (with an empty uri) rather
-    // than letting it hang until the timeout.
-    if (image == nil) {
-      [strongSelf emitCommandResult:requestId data:@{ @"uri" : @"" }];
-      return;
-    }
-
-    UIImage *output = image;
-    if (width > 0 && height > 0) {
-      CGSize size = CGSizeMake(width, height);
-      UIGraphicsBeginImageContextWithOptions(size, NO, image.scale);
-      [image drawInRect:CGRectMake(0, 0, size.width, size.height)];
-      output = UIGraphicsGetImageFromCurrentImageContext() ?: image;
-      UIGraphicsEndImageContext();
-    }
-
-    BOOL isJpg = [format isEqualToString:@"jpg"] || [format isEqualToString:@"jpeg"];
-    NSData *data = isJpg ? UIImageJPEGRepresentation(output, MAX(0.0, MIN(1.0, quality)))
-                         : UIImagePNGRepresentation(output);
-
-    NSString *uri = @"";
-    if (data != nil) {
-      if ([result isEqualToString:@"base64"]) {
-        uri = [data base64EncodedStringWithOptions:0];
-      } else {
-        NSString *ext = isJpg ? @"jpg" : @"png";
-        NSString *name = [NSString stringWithFormat:@"map-snapshot-%ld.%@", (long)requestId, ext];
-        NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:name];
-        if ([data writeToFile:path atomically:YES]) {
-          uri = [@"file://" stringByAppendingString:path];
-        }
-      }
-    }
-    [strongSelf emitCommandResult:requestId data:@{ @"uri" : uri }];
+  [_adapter takeSnapshotWidth:width
+                       height:height
+                       format:format
+                      quality:quality
+                       result:result
+                   completion:^(NSString *uri) {
+    [weakSelf emitCommandResult:requestId data:@{ @"uri" : uri ?: @"" }];
   }];
 }
 
-- (void)setMapBoundaries:(double)neLatitude
-            neLongitude:(double)neLongitude
-            swLatitude:(double)swLatitude
-           swLongitude:(double)swLongitude
-{
-  CLLocationCoordinate2D center = CLLocationCoordinate2DMake(
-    (neLatitude + swLatitude) / 2.0, (neLongitude + swLongitude) / 2.0);
-  MACoordinateSpan span = MACoordinateSpanMake(
-    fabs(neLatitude - swLatitude), fabs(neLongitude - swLongitude));
-  _mapView.limitRegion = MACoordinateRegionMake(center, span);
-}
-
 // Screen frames (in points) of all child markers, keyed by identifier.
-// width/height are best-effort 0.
 - (void)getMarkersFrames:(NSInteger)requestId onlyVisible:(BOOL)onlyVisible
 {
   NSMutableDictionary *out = [NSMutableDictionary dictionary];
   for (RNMapsMarker *marker in _markers) {
-    NSString *identifier = marker.annotation.identifier;
-    if (identifier == nil) {
+    NSString *identifier = marker.markerModel.identifier;
+    if (identifier == nil || marker.cnHandle == nil) {
       continue;
     }
-    CGPoint point = [_mapView convertCoordinate:marker.annotation.coordinate
-                                  toPointToView:_mapView];
-    if (onlyVisible && !CGRectContainsPoint(_mapView.bounds, point)) {
+    CGPoint point = [_adapter pointForMarker:marker.cnHandle];
+    if (onlyVisible && !CGRectContainsPoint(self.bounds, point)) {
       continue;
     }
     out[identifier] = @{
@@ -559,128 +570,6 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     };
   }
   [self emitCommandResult:requestId data:out];
-}
-
-#pragma mark - Child mounting
-
-// Marker children are intercepted: they never enter the UIView hierarchy (no
-// super call), they register their annotation on the MAMapView instead. Any
-// other child falls through to the default RCTViewComponentView behavior.
-- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
-{
-  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
-    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
-    NSUInteger insertionIndex = MIN((NSUInteger)index, _markers.count);
-    [_markers insertObject:marker atIndex:insertionIndex];
-    [marker addToMap:_mapView];
-    return;
-  }
-
-  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
-    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
-    [_overlayViews addObject:overlayView];
-    [overlayView addToMap:_mapView];
-    return;
-  }
-
-  [super mountChildComponentView:childComponentView index:index];
-}
-
-- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
-{
-  if ([childComponentView isKindOfClass:[RNMapsMarker class]]) {
-    RNMapsMarker *marker = (RNMapsMarker *)childComponentView;
-    [marker removeFromMap];
-    [_markers removeObject:marker];
-    return;
-  }
-
-  if ([childComponentView conformsToProtocol:@protocol(RNMapsOverlayView)]) {
-    id<RNMapsOverlayView> overlayView = (id<RNMapsOverlayView>)childComponentView;
-    [overlayView removeFromMap];
-    [_overlayViews removeObject:overlayView];
-    return;
-  }
-
-  [super unmountChildComponentView:childComponentView index:index];
-}
-
-- (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
-{
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(_props);
-  const auto &newViewProps = *std::static_pointer_cast<RNMapsMapViewProps const>(props);
-
-  // Appearance ---------------------------------------------------------------
-  if (oldViewProps.mapType != newViewProps.mapType ||
-      oldViewProps.userInterfaceStyle != newViewProps.userInterfaceStyle) {
-    _mapView.mapType = RNMapsMapTypeFromProps(newViewProps.mapType, newViewProps.userInterfaceStyle);
-  }
-
-  // Zoom bounds --------------------------------------------------------------
-  if (oldViewProps.minZoomLevel != newViewProps.minZoomLevel) {
-    _mapView.minZoomLevel = newViewProps.minZoomLevel;
-  }
-  if (oldViewProps.maxZoomLevel != newViewProps.maxZoomLevel) {
-    _mapView.maxZoomLevel = newViewProps.maxZoomLevel;
-  }
-
-  // Display toggles ----------------------------------------------------------
-  // Guard showsUserLocation specifically: re-asserting it on every unrelated
-  // prop change re-arms Core Location. The rest below are idempotent visual
-  // setters with no side effect, so they stay unconditional (guarding them would
-  // risk skipping a first-apply where the RN default differs from the MAMapKit
-  // default). (H1)
-  if (oldViewProps.showsUserLocation != newViewProps.showsUserLocation) {
-    _mapView.showsUserLocation = newViewProps.showsUserLocation;
-  }
-  _mapView.showsCompass = newViewProps.showsCompass;
-  _mapView.showsScale = newViewProps.showsScale;
-  _mapView.showTraffic = newViewProps.showsTraffic;
-  _mapView.showsBuildings = newViewProps.showsBuildings;
-  _mapView.showsIndoorMap = newViewProps.showsIndoors;
-  _mapView.showsLabels = newViewProps.showsPointsOfInterest;
-
-  // Gesture toggles ----------------------------------------------------------
-  _mapView.zoomEnabled = newViewProps.zoomEnabled;
-  _mapView.scrollEnabled = newViewProps.scrollEnabled;
-  _mapView.rotateEnabled = newViewProps.rotateEnabled;
-  _mapView.rotateCameraEnabled = newViewProps.pitchEnabled;
-
-  // Capture the initial region/camera and apply them from layoutSubviews once the
-  // map has a real size (applying here, before layout, is ignored by AMap).
-  if (!_initialRegionApplied && !_hasPendingInitialRegion &&
-      RNMapsRegionIsValid(newViewProps.initialRegion)) {
-    _pendingInitialRegion = RNMapsMACoordinateRegionFromRegion(newViewProps.initialRegion);
-    _hasPendingInitialRegion = YES;
-  }
-  if (!_initialCameraApplied && !_hasPendingInitialCamera &&
-      RNMapsCameraIsValid(newViewProps.initialCamera)) {
-    _pendingCamLat = newViewProps.initialCamera.latitude;
-    _pendingCamLng = newViewProps.initialCamera.longitude;
-    _pendingCamHeading = newViewProps.initialCamera.heading;
-    _pendingCamPitch = newViewProps.initialCamera.pitch;
-    _pendingCamZoom = newViewProps.initialCamera.zoom;
-    _hasPendingInitialCamera = YES;
-  }
-  [self applyPendingInitialViewport];
-
-  if (RNMapsRegionIsValid(newViewProps.region) && RNMapsRegionChanged(oldViewProps.region, newViewProps.region)) {
-    [_mapView setRegion:RNMapsMACoordinateRegionFromRegion(newViewProps.region) animated:NO];
-  }
-
-  // camera wins over region when both are controlled.
-  if (RNMapsCameraIsValid(newViewProps.camera) && RNMapsCameraChanged(oldViewProps.camera, newViewProps.camera)) {
-    RNMapsApplyCamera(_mapView, newViewProps.camera);
-  }
-
-  // NOTE: mapPadding, customMapStyle (JSON), tintColor, kmlSrc, loading* and
-  // showsMyLocationButton have no clean MAMapKit equivalent and are intentionally
-  // ignored on iOS; the JS facade warns where appropriate.
-
-  // Markers are no longer a prop — they mount as child host components (see
-  // mountChildComponentView:).
-
-  [super updateProps:props oldProps:oldProps];
 }
 
 #pragma mark - Event emission
@@ -700,7 +589,7 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
     return;
   }
 
-  CGPoint point = [_mapView convertCoordinate:coordinate toPointToView:_mapView];
+  CGPoint point = [_adapter pointForCoordinate:coordinate];
 
   switch (kind) {
     case RNMapsPressKindPress: {
@@ -744,31 +633,31 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
 
 - (void)emitRegionChangeComplete:(BOOL)complete isGesture:(BOOL)isGesture
 {
-  auto mapViewEventEmitter = [self eventEmitterOrNull];
-  if (!mapViewEventEmitter) {
+  auto emitter = [self eventEmitterOrNull];
+  if (!emitter) {
     return;
   }
 
-  MACoordinateRegion region = _mapView.region;
+  CNRegion region = [_adapter currentRegion];
 
   if (complete) {
     RNMapsMapViewEventEmitter::OnRegionChangeComplete event = {
-      .region.latitude = region.center.latitude,
-      .region.longitude = region.center.longitude,
-      .region.latitudeDelta = region.span.latitudeDelta,
-      .region.longitudeDelta = region.span.longitudeDelta,
+      .region.latitude = region.latitude,
+      .region.longitude = region.longitude,
+      .region.latitudeDelta = region.latitudeDelta,
+      .region.longitudeDelta = region.longitudeDelta,
       .isGesture = static_cast<bool>(isGesture),
     };
-    mapViewEventEmitter->onRegionChangeComplete(event);
+    emitter->onRegionChangeComplete(event);
   } else {
     RNMapsMapViewEventEmitter::OnRegionChange event = {
-      .region.latitude = region.center.latitude,
-      .region.longitude = region.center.longitude,
-      .region.latitudeDelta = region.span.latitudeDelta,
-      .region.longitudeDelta = region.span.longitudeDelta,
+      .region.latitude = region.latitude,
+      .region.longitude = region.longitude,
+      .region.latitudeDelta = region.latitudeDelta,
+      .region.longitudeDelta = region.longitudeDelta,
       .isGesture = static_cast<bool>(isGesture),
     };
-    mapViewEventEmitter->onRegionChange(event);
+    emitter->onRegionChange(event);
   }
 }
 
@@ -779,17 +668,14 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   if (recognizer.state != UIGestureRecognizerStateBegan) {
     return;
   }
-
-  CGPoint point = [recognizer locationInView:_mapView];
-  CLLocationCoordinate2D coordinate = [_mapView convertPoint:point toCoordinateFromView:_mapView];
-  [self emitPress:RNMapsPressKindLongPress atCoordinate:coordinate];
+  CGPoint point = [recognizer locationInView:_adapter.mapView];
+  [self emitPress:RNMapsPressKindLongPress atCoordinate:[_adapter coordinateForPoint:point]];
 }
 
 - (void)handleDoublePress:(UITapGestureRecognizer *)recognizer
 {
-  CGPoint point = [recognizer locationInView:_mapView];
-  CLLocationCoordinate2D coordinate = [_mapView convertPoint:point toCoordinateFromView:_mapView];
-  [self emitPress:RNMapsPressKindDoublePress atCoordinate:coordinate];
+  CGPoint point = [recognizer locationInView:_adapter.mapView];
+  [self emitPress:RNMapsPressKindDoublePress atCoordinate:[_adapter coordinateForPoint:point]];
 }
 
 - (void)handlePanDrag:(UIPanGestureRecognizer *)recognizer
@@ -797,10 +683,8 @@ static MAPinAnnotationColor RNMapsPinColor(NSString *color)
   if (recognizer.state != UIGestureRecognizerStateChanged) {
     return;
   }
-
-  CGPoint point = [recognizer locationInView:_mapView];
-  CLLocationCoordinate2D coordinate = [_mapView convertPoint:point toCoordinateFromView:_mapView];
-  [self emitPress:RNMapsPressKindPanDrag atCoordinate:coordinate];
+  CGPoint point = [recognizer locationInView:_adapter.mapView];
+  [self emitPress:RNMapsPressKindPanDrag atCoordinate:[_adapter coordinateForPoint:point]];
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
@@ -809,93 +693,41 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
   return YES;
 }
 
-#pragma mark - MAMapViewDelegate
+#pragma mark - CNMapAdapterDelegate
 
-- (MAAnnotationView *)mapView:(MAMapView *)mapView viewForAnnotation:(id<MAAnnotation>)annotation
+- (void)mapAdapterDidBecomeReady:(id<CNMapAdapter>)adapter
 {
-  if (![annotation isKindOfClass:[RNMapsMarkerAnnotation class]]) {
-    return nil;
-  }
-
-  RNMapsMarkerAnnotation *marker = (RNMapsMarkerAnnotation *)annotation;
-
-  MAAnnotationView *annotationView;
-  if (marker.image != nil) {
-    // Custom image marker: a plain MAAnnotationView carrying the loaded image.
-    static NSString *imageReuseIdentifier = @"RNMapsMarkerImage";
-    annotationView = [mapView dequeueReusableAnnotationViewWithIdentifier:imageReuseIdentifier];
-    if (annotationView == nil) {
-      annotationView = [[MAAnnotationView alloc] initWithAnnotation:marker reuseIdentifier:imageReuseIdentifier];
-    } else {
-      annotationView.annotation = marker;
-    }
-    annotationView.image = marker.image;
-  } else {
-    // Default pin (optionally color-tinted).
-    static NSString *pinReuseIdentifier = @"RNMapsMarkerPin";
-    MAPinAnnotationView *pinView =
-      (MAPinAnnotationView *)[mapView dequeueReusableAnnotationViewWithIdentifier:pinReuseIdentifier];
-    if (pinView == nil) {
-      pinView = [[MAPinAnnotationView alloc] initWithAnnotation:marker reuseIdentifier:pinReuseIdentifier];
-    } else {
-      pinView.annotation = marker;
-    }
-    if (marker.pinColor != nil) {
-      pinView.pinColor = RNMapsPinColor(marker.pinColor);
-    }
-    annotationView = pinView;
-  }
-
-  [marker applyAppearanceToView:annotationView];
-
-  return annotationView;
-}
-
-- (MAOverlayRenderer *)mapView:(MAMapView *)mapView rendererForOverlay:(id<MAOverlay>)overlay
-{
-  for (id<RNMapsOverlayView> overlayView in _overlayViews) {
-    if (overlayView.overlay == overlay) {
-      return [overlayView overlayRenderer];
-    }
-  }
-  return nil;
-}
-
-- (void)mapInitComplete:(MAMapView *)mapView
-{
-  // The map engine is now ready; apply the captured initial region/camera (which
-  // only takes its zoom/span reliably once the map is fully initialized).
-  _mapReady = YES;
-  [self applyPendingInitialViewport];
-
   auto emitter = [self eventEmitterOrNull];
   if (!emitter) {
     return;
   }
-
-  // AMap exposes a single init-complete callback; surface it as both RNM
-  // lifecycle events (map is ready and the tiles have loaded).
+  // The provider exposes a single init-complete; surface it as both RNM lifecycle
+  // events (map is ready and the tiles have loaded).
   emitter->onMapReady(RNMapsMapViewEventEmitter::OnMapReady{});
   emitter->onMapLoaded(RNMapsMapViewEventEmitter::OnMapLoaded{});
 }
 
-- (void)mapView:(MAMapView *)mapView didSingleTappedAtCoordinate:(CLLocationCoordinate2D)coordinate
+- (void)mapAdapter:(id<CNMapAdapter>)adapter didTapAtCoordinate:(CLLocationCoordinate2D)coordinate
 {
   [self emitPress:RNMapsPressKindPress atCoordinate:coordinate];
 }
 
-- (void)mapView:(MAMapView *)mapView didTouchPois:(NSArray<MATouchPoi *> *)pois
+- (void)mapAdapter:(id<CNMapAdapter>)adapter
+    didChangeRegionComplete:(BOOL)complete
+                  isGesture:(BOOL)isGesture
+{
+  [self emitRegionChangeComplete:complete isGesture:isGesture];
+}
+
+- (void)mapAdapter:(id<CNMapAdapter>)adapter didTapPoi:(CNPoi *)poi
 {
   auto emitter = [self eventEmitterOrNull];
-  if (!emitter || pois.count == 0) {
+  if (!emitter) {
     return;
   }
-
-  MATouchPoi *poi = pois.firstObject;
-  CGPoint point = [_mapView convertCoordinate:poi.coordinate toPointToView:_mapView];
-
+  CGPoint point = [_adapter pointForCoordinate:poi.coordinate];
   RNMapsMapViewEventEmitter::OnPoiClick event{};
-  event.placeId = RNMapsStdStringFromNSString(poi.uid);
+  event.placeId = RNMapsStdStringFromNSString(poi.placeId);
   event.name = RNMapsStdStringFromNSString(poi.name);
   event.coordinate.latitude = poi.coordinate.latitude;
   event.coordinate.longitude = poi.coordinate.longitude;
@@ -904,16 +736,12 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
   emitter->onPoiClick(event);
 }
 
-- (void)mapView:(MAMapView *)mapView
-  didUpdateUserLocation:(MAUserLocation *)userLocation
-       updatingLocation:(BOOL)updatingLocation
+- (void)mapAdapter:(id<CNMapAdapter>)adapter didUpdateUserLocation:(CLLocation *)location
 {
   auto emitter = [self eventEmitterOrNull];
-  CLLocation *location = userLocation.location;
-  if (!emitter || location == nil) {
+  if (!emitter) {
     return;
   }
-
   RNMapsMapViewEventEmitter::OnUserLocationChange event{};
   event.coordinate.latitude = location.coordinate.latitude;
   event.coordinate.longitude = location.coordinate.longitude;
@@ -925,79 +753,14 @@ shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherG
   emitter->onUserLocationChange(event);
 }
 
-- (void)mapViewRegionChanged:(MAMapView *)mapView
+- (void)mapAdapter:(id<CNMapAdapter>)adapter
+       markerChildId:(NSString *)childId
+       didFireEvent:(CNMarkerEventKind)event
+         atCoordinate:(CLLocationCoordinate2D)coordinate
 {
-  [self emitRegionChangeComplete:NO isGesture:_isGesture];
-}
-
-- (void)mapView:(MAMapView *)mapView
-regionWillChangeAnimated:(BOOL)animated
-  wasUserAction:(BOOL)wasUserAction
-{
-  _isGesture = wasUserAction;
-}
-
-- (void)mapView:(MAMapView *)mapView
-regionDidChangeAnimated:(BOOL)animated
-  wasUserAction:(BOOL)wasUserAction
-{
-  [self emitRegionChangeComplete:YES isGesture:wasUserAction];
-  _isGesture = NO;
-}
-
-// AMap map-level annotation callbacks are routed back to the owning child marker
-// view (annotation → weak `marker` ref), which owns its own event emitter.
-- (RNMapsMarker *)markerForAnnotationView:(MAAnnotationView *)view
-{
-  if (![view.annotation isKindOfClass:[RNMapsMarkerAnnotation class]]) {
-    return nil;
-  }
-  return ((RNMapsMarkerAnnotation *)view.annotation).marker;
-}
-
-- (void)mapView:(MAMapView *)mapView didSelectAnnotationView:(MAAnnotationView *)view
-{
-  // RNM fires both onPress and onSelect on selection.
-  RNMapsMarker *marker = [self markerForAnnotationView:view];
-  [marker emitPress];
-  [marker emitSelect];
-  [marker presentCalloutInAnnotationView:view];
-}
-
-- (void)mapView:(MAMapView *)mapView didDeselectAnnotationView:(MAAnnotationView *)view
-{
-  RNMapsMarker *marker = [self markerForAnnotationView:view];
-  [marker dismissCallout];
-  [marker emitDeselect];
-}
-
-- (void)mapView:(MAMapView *)mapView didAnnotationViewCalloutTapped:(MAAnnotationView *)view
-{
-  [[self markerForAnnotationView:view] emitCalloutPress];
-}
-
-- (void)mapView:(MAMapView *)mapView
-    annotationView:(MAAnnotationView *)view
- didChangeDragState:(MAAnnotationViewDragState)newState
-       fromOldState:(MAAnnotationViewDragState)oldState
-{
-  RNMapsMarker *marker = [self markerForAnnotationView:view];
-  if (marker == nil) {
-    return;
-  }
-
-  switch (newState) {
-    case MAAnnotationViewDragStateStarting:
-      [marker emitDragStart];
-      break;
-    case MAAnnotationViewDragStateDragging:
-      [marker emitDrag];
-      break;
-    case MAAnnotationViewDragStateEnding:
-      [marker emitDragEnd];
-      break;
-    default:
-      break;
+  id child = _childrenById[childId];
+  if ([child isKindOfClass:[RNMapsMarker class]]) {
+    [(RNMapsMarker *)child emitAdapterEvent:event atCoordinate:coordinate];
   }
 }
 

@@ -12,13 +12,10 @@ using namespace facebook::react;
 @interface RNMapsCircle () <RCTRNMapsCircleViewProtocol>
 @end
 
-@implementation RNMapsCircle {
-  __weak MAMapView *_map;
-  MACircle *_circle;
-  UIColor *_strokeColor;
-  UIColor *_fillColor;
-  CGFloat _strokeWidth;
-}
+@implementation RNMapsCircle
+@synthesize cnChildId = _cnChildId;
+@synthesize cnHandle = _cnHandle;
+@synthesize mapHost = _mapHost;
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
@@ -30,76 +27,27 @@ using namespace facebook::react;
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsCircleProps>();
     _props = defaultProps;
-    _strokeColor = [UIColor blackColor];
-    _fillColor = [UIColor colorWithWhite:0 alpha:0.25];
-    _strokeWidth = 1;
   }
   return self;
 }
 
-- (id<MAOverlay>)overlay
+- (CNOverlayModel *)overlayModel
 {
-  return _circle;
-}
-
-- (void)addToMap:(MAMapView *)map
-{
-  _map = map;
-  if (_circle != nil) {
-    [map addOverlay:_circle];
-  }
-}
-
-- (void)removeFromMap
-{
-  if (_map != nil && _circle != nil) {
-    [_map removeOverlay:_circle];
-  }
-  _map = nil;
-}
-
-- (MAOverlayRenderer *)overlayRenderer
-{
-  MACircleRenderer *renderer = [[MACircleRenderer alloc] initWithCircle:_circle];
-  renderer.strokeColor = _strokeColor;
-  renderer.fillColor = _fillColor;
-  renderer.lineWidth = _strokeWidth;
-  return renderer;
+  const auto &p = *std::static_pointer_cast<RNMapsCircleProps const>(_props);
+  CNCircleModel *model = [CNCircleModel new];
+  model.type = CNOverlayTypeCircle;
+  model.center = CLLocationCoordinate2DMake(p.latitude, p.longitude);
+  model.radius = p.radius;
+  model.strokeColor = RCTUIColorFromSharedColor(p.strokeColor) ?: [UIColor blackColor];
+  model.fillColor = RCTUIColorFromSharedColor(p.fillColor) ?: [UIColor colorWithWhite:0 alpha:0.25];
+  model.strokeWidth = p.strokeWidth;
+  return model;
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  // Use `_props` (the last-applied props), not the `oldProps` parameter: on the
-  // first updateProps the parameter is nullptr and dereferencing it crashes
-  // (EXC_BAD_ACCESS). `_props` is seeded with defaultProps in init, so it's safe.
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsCircleProps const>(_props);
-  const auto &newViewProps = *std::static_pointer_cast<RNMapsCircleProps const>(props);
-
-  _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];
-  _fillColor = RCTUIColorFromSharedColor(newViewProps.fillColor) ?: [UIColor colorWithWhite:0 alpha:0.25];
-  _strokeWidth = newViewProps.strokeWidth;
-
-  BOOL geometryChanged =
-    oldViewProps.latitude != newViewProps.latitude ||
-    oldViewProps.longitude != newViewProps.longitude ||
-    oldViewProps.radius != newViewProps.radius;
-
-  MACircle *previous = _circle;
-  if (_circle == nil || geometryChanged) {
-    _circle = [MACircle circleWithCenterCoordinate:CLLocationCoordinate2DMake(newViewProps.latitude, newViewProps.longitude)
-                                            radius:newViewProps.radius];
-  }
-
-  if (_map != nil) {
-    if (previous != nil) {
-      [_map removeOverlay:previous];
-    }
-    if (_circle != nil) {
-      [_map addOverlay:_circle];
-    }
-  }
-
   [super updateProps:props oldProps:oldProps];
+  [self.mapHost childDidUpdateModel:self];
 }
 
 @end

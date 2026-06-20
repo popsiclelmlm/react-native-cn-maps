@@ -1,21 +1,18 @@
 #import "RNMapsModule.h"
 
-#import <MAMapKit/MAMapKit.h>
-#import <AMapFoundationKit/AMapFoundationKit.h>
+#import "CNMapAdapterRegistry.h"
 
 @implementation RNMapsModule
 
 RCT_EXPORT_MODULE()
 
-// Mirror of the Android implementation: declare privacy "shown"/"contains" first,
-// then the user's agreement. AMap reads these globally, so any MAMapView created
-// afterwards initializes normally. The library never auto-agrees — the host app
-// must call this after obtaining real user consent.
+// Fan the host app's privacy-compliance declaration out to every registered map
+// adapter (the AMap adapter forwards it to its SDK, which otherwise refuses to
+// initialize). Must be invoked before any <MapView> mounts. The library never
+// auto-agrees — the host app calls this after obtaining real user consent.
 - (void)setPrivacyConsent:(BOOL)agreed contains:(BOOL)contains shown:(BOOL)shown
 {
-  [MAMapView updatePrivacyShow:(shown ? AMapPrivacyShowStatusDidShow : AMapPrivacyShowStatusNotShow)
-                   privacyInfo:(contains ? AMapPrivacyInfoStatusDidContain : AMapPrivacyInfoStatusNotContain)];
-  [MAMapView updatePrivacyAgree:(agreed ? AMapPrivacyAgreeStatusDidAgree : AMapPrivacyAgreeStatusNotAgree)];
+  [CNMapAdapterRegistry applyPrivacyConsentAgreed:agreed contains:contains shown:shown];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

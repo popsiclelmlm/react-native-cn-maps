@@ -4,35 +4,41 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.widget.FrameLayout
-import com.amap.api.maps.AMap
-import com.amap.api.maps.model.BitmapDescriptorFactory
-import com.amap.api.maps.model.GroundOverlay
-import com.amap.api.maps.model.GroundOverlayOptions
-import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.LatLngBounds
+import com.cnmaps.adapter.CnGroundOverlayModel
+import com.cnmaps.adapter.CnLatLng
+import com.cnmaps.adapter.CnOverlayModel
+import com.cnmaps.adapter.OverlayHandle
 import com.facebook.react.uimanager.ThemedReactContext
 
-/**
- * `<Overlay>` child host component; holds an AMap [GroundOverlay] that
- * places an image over a geographic bounding box. The image loads asynchronously
- * (a GroundOverlay must be created with its bitmap), so the overlay is only built
- * once the bitmap is ready; any prop change re-builds it.
- */
+/** Provider-agnostic `<Overlay>` (ground overlay) child host component. */
 class OverlayView(private val reactContext: ThemedReactContext) :
-  FrameLayout(reactContext) {
+  FrameLayout(reactContext), CnOverlayFeature {
+  override var cnChildId: String? = null
+  override var cnHandle: OverlayHandle? = null
+  override var mapHost: CnMapHost? = null
+
   private var imageUri: String? = null
   private var bitmap: Bitmap? = null
-  private var sw: LatLng? = null
-  private var ne: LatLng? = null
+  private var sw: CnLatLng? = null
+  private var ne: CnLatLng? = null
   private var bearing: Float = 0f
   private var opacity: Float = 1f
   private var zIndexValue: Float = 0f
-  private var aMap: AMap? = null
-  private var groundOverlay: GroundOverlay? = null
 
   // This view is intercepted by the map and never attached to a window, so
   // View.post {} would never run — schedule on the main looper directly.
   private val mainHandler = Handler(Looper.getMainLooper())
+
+  override fun overlayModel(): CnOverlayModel = CnGroundOverlayModel(
+    southWest = sw,
+    northEast = ne,
+    bitmap = bitmap,
+    bearing = bearing,
+    opacity = opacity,
+    zIndex = zIndexValue
+  )
+
+  private fun notifyHost() = mapHost?.onChildModelChanged(this)
 
   fun setImage(uri: String?) {
     val normalized = if (uri.isNullOrEmpty()) null else uri
@@ -42,60 +48,21 @@ class OverlayView(private val reactContext: ThemedReactContext) :
     imageUri = normalized
     bitmap = null
     if (normalized == null) {
-      rebuild()
+      notifyHost()
     } else {
       loadImage(normalized)
     }
   }
 
   fun setBounds(swLat: Double, swLng: Double, neLat: Double, neLng: Double) {
-    sw = LatLng(swLat, swLng)
-    ne = LatLng(neLat, neLng)
-    rebuild()
+    sw = CnLatLng(swLat, swLng)
+    ne = CnLatLng(neLat, neLng)
+    notifyHost()
   }
 
-  fun setBearingValue(value: Float) {
-    bearing = value
-    rebuild()
-  }
-
-  fun setOpacityValue(value: Float) {
-    opacity = value
-    rebuild()
-  }
-
-  fun setZIndexValue(value: Float) {
-    zIndexValue = value
-    rebuild()
-  }
-
-  // Parent-driven attach/detach (MapView feature list).
-  fun attachTo(map: AMap) {
-    aMap = map
-    rebuild()
-  }
-
-  fun detach() {
-    groundOverlay?.remove()
-    groundOverlay = null
-    aMap = null
-  }
-
-  private fun rebuild() {
-    val map = aMap ?: return
-    val s = sw ?: return
-    val n = ne ?: return
-    val bmp = bitmap ?: return
-    groundOverlay?.remove()
-    groundOverlay = map.addGroundOverlay(
-      GroundOverlayOptions()
-        .positionFromBounds(LatLngBounds(s, n))
-        .image(BitmapDescriptorFactory.fromBitmap(bmp))
-        .bearing(bearing)
-        .transparency((1f - opacity).coerceIn(0f, 1f))
-        .zIndex(zIndexValue)
-    )
-  }
+  fun setBearingValue(value: Float) { bearing = value; notifyHost() }
+  fun setOpacityValue(value: Float) { opacity = value; notifyHost() }
+  fun setZIndexValue(value: Float) { zIndexValue = value; notifyHost() }
 
   private fun loadImage(uri: String) {
     MapsImageLoader.executor.execute {
@@ -104,7 +71,7 @@ class OverlayView(private val reactContext: ThemedReactContext) :
         // Ignore a stale load if the uri changed again before it resolved.
         if (uri == imageUri) {
           bitmap = loaded
-          rebuild()
+          notifyHost()
         }
       }
     }

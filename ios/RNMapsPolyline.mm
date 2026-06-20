@@ -16,11 +16,8 @@ static NSString *RNMapsPolylineNSString(const std::string &value)
   return value.empty() ? nil : [NSString stringWithUTF8String:value.c_str()];
 }
 
-@interface RNMapsPolyline () <RCTRNMapsPolylineViewProtocol>
-@end
-
-// Parse a JSON array of CSS hex color strings ("#rgb"/"#rrggbb"/"#aarrggbb")
-// into UIColors for the gradient stroke; nil/invalid entries are skipped.
+// Parse a JSON array of CSS hex color strings ("#rgb"/"#rrggbb"/"#aarrggbb") into
+// UIColors for the gradient stroke; nil/invalid entries are skipped.
 static NSArray<UIColor *> *RNMapsParseStrokeColors(NSString *_Nullable json)
 {
   if (json.length == 0) {
@@ -58,41 +55,13 @@ static NSArray<UIColor *> *RNMapsParseStrokeColors(NSString *_Nullable json)
   return colors;
 }
 
-static MALineCapType RNMapsLineCapType(NSString *_Nullable cap)
-{
-  if ([cap isEqualToString:@"round"]) {
-    return kMALineCapRound;
-  }
-  if ([cap isEqualToString:@"square"]) {
-    return kMALineCapSquare;
-  }
-  return kMALineCapButt;
-}
+@interface RNMapsPolyline () <RCTRNMapsPolylineViewProtocol>
+@end
 
-static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
-{
-  if ([join isEqualToString:@"round"]) {
-    return kMALineJoinRound;
-  }
-  if ([join isEqualToString:@"bevel"]) {
-    return kMALineJoinBevel;
-  }
-  return kMALineJoinMiter;
-}
-
-@implementation RNMapsPolyline {
-  __weak MAMapView *_map;
-  // MAShape (not MAPolyline) because a multi-colored line is a MAMultiPolyline,
-  // which is a sibling of MAPolyline under MAMultiPoint — not a subclass.
-  MAShape *_polyline;
-  UIColor *_strokeColor;
-  NSArray<UIColor *> *_strokeColors;
-  CGFloat _strokeWidth;
-  NSArray<NSNumber *> *_lineDashPattern;
-  NSString *_lineCap;
-  NSString *_lineJoin;
-  CGFloat _miterLimit;
-}
+@implementation RNMapsPolyline
+@synthesize cnChildId = _cnChildId;
+@synthesize cnHandle = _cnHandle;
+@synthesize mapHost = _mapHost;
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
@@ -104,132 +73,34 @@ static MALineJoinType RNMapsLineJoinType(NSString *_Nullable join)
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsPolylineProps>();
     _props = defaultProps;
-    _strokeColor = [UIColor blackColor];
-    _strokeColors = @[];
-    _strokeWidth = 1;
-    _miterLimit = 10;
   }
   return self;
 }
 
-- (id<MAOverlay>)overlay
+- (CNOverlayModel *)overlayModel
 {
-  return _polyline;
-}
-
-- (void)addToMap:(MAMapView *)map
-{
-  _map = map;
-  if (_polyline != nil) {
-    [map addOverlay:_polyline];
+  const auto &p = *std::static_pointer_cast<RNMapsPolylineProps const>(_props);
+  CNPolylineModel *model = [CNPolylineModel new];
+  model.type = CNOverlayTypePolyline;
+  NSMutableArray<NSValue *> *coordinates = [NSMutableArray arrayWithCapacity:p.coordinates.size()];
+  for (const auto &c : p.coordinates) {
+    [coordinates addObject:CNBoxCoordinate(CLLocationCoordinate2DMake(c.latitude, c.longitude))];
   }
-}
-
-- (void)removeFromMap
-{
-  if (_map != nil && _polyline != nil) {
-    [_map removeOverlay:_polyline];
-  }
-  _map = nil;
-}
-
-- (MAOverlayRenderer *)overlayRenderer
-{
-  MAPolylineRenderer *renderer;
-  if (_strokeColors.count > 1 &&
-      [_polyline isKindOfClass:[MAMultiPolyline class]]) {
-    MAMultiColoredPolylineRenderer *multi = [[MAMultiColoredPolylineRenderer alloc]
-      initWithMultiPolyline:(MAMultiPolyline *)_polyline];
-    multi.strokeColors = _strokeColors;
-    multi.gradient = YES;
-    renderer = multi;
-  } else {
-    renderer = [[MAPolylineRenderer alloc] initWithPolyline:(MAPolyline *)_polyline];
-    renderer.strokeColor =
-      _strokeColors.count == 1 ? _strokeColors.firstObject : _strokeColor;
-  }
-  renderer.lineWidth = _strokeWidth;
-  renderer.miterLimit = _miterLimit;
-  renderer.lineCapType = RNMapsLineCapType(_lineCap);
-  renderer.lineJoinType = RNMapsLineJoinType(_lineJoin);
-  if (_lineDashPattern.count > 0) {
-    renderer.lineDashType = kMALineDashTypeSquare;
-  }
-  return renderer;
+  model.coordinates = coordinates;
+  model.strokeColor = RCTUIColorFromSharedColor(p.strokeColor) ?: [UIColor blackColor];
+  model.strokeColors = RNMapsParseStrokeColors(RNMapsPolylineNSString(p.strokeColors));
+  model.strokeWidth = p.strokeWidth;
+  model.lineDashPattern = RNMapsParseDashPattern(RNMapsPolylineNSString(p.lineDashPattern));
+  model.lineCap = RNMapsPolylineNSString(p.lineCap);
+  model.lineJoin = RNMapsPolylineNSString(p.lineJoin);
+  model.miterLimit = p.miterLimit;
+  return model;
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  // Use `_props`, not `oldProps`: the parameter is nullptr on the first
-  // updateProps and dereferencing it crashes. `_props` is always valid.
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsPolylineProps const>(_props);
-  const auto &newViewProps = *std::static_pointer_cast<RNMapsPolylineProps const>(props);
-
-  _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];
-  _strokeWidth = newViewProps.strokeWidth;
-  _lineDashPattern = RNMapsParseDashPattern(RNMapsPolylineNSString(newViewProps.lineDashPattern));
-  _lineCap = RNMapsPolylineNSString(newViewProps.lineCap);
-  _lineJoin = RNMapsPolylineNSString(newViewProps.lineJoin);
-  _miterLimit = newViewProps.miterLimit;
-
-  BOOL wasMultiColored = _strokeColors.count > 1;
-  _strokeColors = RNMapsParseStrokeColors(RNMapsPolylineNSString(newViewProps.strokeColors));
-  BOOL isMultiColored = _strokeColors.count > 1;
-
-  BOOL coordinatesChanged =
-    !RNMapsCoordinatesEqual(oldViewProps.coordinates, newViewProps.coordinates);
-
-  MAShape *previous = _polyline;
-  // Rebuild the overlay when geometry changes or when toggling between a plain
-  // and a multi-colored polyline (different overlay classes).
-  if (_polyline == nil || coordinatesChanged || wasMultiColored != isMultiColored) {
-    _polyline = [self buildPolyline:newViewProps.coordinates];
-  }
-
-  // Re-add to force the map to rebuild the renderer with the latest styling.
-  if (_map != nil) {
-    if (previous != nil) {
-      [_map removeOverlay:previous];
-    }
-    if (_polyline != nil) {
-      [_map addOverlay:_polyline];
-    }
-  }
-
   [super updateProps:props oldProps:oldProps];
-}
-
-- (MAShape *)buildPolyline:(const std::vector<RNMapsPolylineCoordinatesStruct> &)coordinates
-{
-  NSUInteger count = coordinates.size();
-  if (count == 0) {
-    return nil;
-  }
-
-  std::vector<CLLocationCoordinate2D> points;
-  points.reserve(count);
-  for (const auto &c : coordinates) {
-    points.push_back(CLLocationCoordinate2DMake(c.latitude, c.longitude));
-  }
-  if (_strokeColors.count > 1 && count >= 2) {
-    // MAMultiPolyline carries a per-segment style index (count = segments =
-    // points - 1). Spread the stroke colors evenly across the segments; the
-    // MAMultiColoredPolylineRenderer interpolates between them when gradient=YES.
-    NSUInteger segments = count - 1;
-    NSUInteger numColors = _strokeColors.count;
-    NSMutableArray<NSNumber *> *drawStyleIndexes = [NSMutableArray arrayWithCapacity:segments];
-    for (NSUInteger i = 0; i < segments; i++) {
-      NSUInteger idx = (i * numColors) / segments;
-      if (idx >= numColors) {
-        idx = numColors - 1;
-      }
-      [drawStyleIndexes addObject:@(idx)];
-    }
-    return [MAMultiPolyline polylineWithCoordinates:points.data()
-                                              count:count
-                                   drawStyleIndexes:drawStyleIndexes];
-  }
-  return [MAPolyline polylineWithCoordinates:points.data() count:count];
+  [self.mapHost childDidUpdateModel:self];
 }
 
 @end

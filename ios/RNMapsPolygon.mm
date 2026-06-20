@@ -7,8 +7,6 @@
 #import <react/renderer/components/RNMapsSpecs/Props.h>
 #import <react/renderer/components/RNMapsSpecs/RCTComponentViewHelpers.h>
 
-#include <vector>
-
 using namespace facebook::react;
 
 static NSString *RNMapsPolygonNSString(const std::string &value)
@@ -16,8 +14,8 @@ static NSString *RNMapsPolygonNSString(const std::string &value)
   return value.empty() ? nil : [NSString stringWithUTF8String:value.c_str()];
 }
 
-// Build interior hole polygons from the JSON string of LatLng[][].
-static NSArray<MAPolygon *> *RNMapsParseHoles(NSString *json)
+// Parse the JSON string of LatLng[][] into boxed-coordinate rings for the model.
+static NSArray<NSArray<NSValue *> *> *RNMapsParseHoles(NSString *json)
 {
   if (json.length == 0) {
     return nil;
@@ -27,23 +25,22 @@ static NSArray<MAPolygon *> *RNMapsParseHoles(NSString *json)
   if (![parsed isKindOfClass:[NSArray class]]) {
     return nil;
   }
-
-  NSMutableArray<MAPolygon *> *holes = [NSMutableArray array];
+  NSMutableArray<NSArray<NSValue *> *> *holes = [NSMutableArray array];
   for (id ring in (NSArray *)parsed) {
     if (![ring isKindOfClass:[NSArray class]]) {
       continue;
     }
-    std::vector<CLLocationCoordinate2D> points;
+    NSMutableArray<NSValue *> *points = [NSMutableArray array];
     for (id point in (NSArray *)ring) {
       if (![point isKindOfClass:[NSDictionary class]]) {
         continue;
       }
-      double lat = [point[@"latitude"] doubleValue];
-      double lng = [point[@"longitude"] doubleValue];
-      points.push_back(CLLocationCoordinate2DMake(lat, lng));
+      CLLocationCoordinate2D coordinate = CLLocationCoordinate2DMake(
+        [point[@"latitude"] doubleValue], [point[@"longitude"] doubleValue]);
+      [points addObject:CNBoxCoordinate(coordinate)];
     }
-    if (!points.empty()) {
-      [holes addObject:[MAPolygon polygonWithCoordinates:points.data() count:points.size()]];
+    if (points.count > 0) {
+      [holes addObject:points];
     }
   }
   return holes.count > 0 ? holes : nil;
@@ -52,13 +49,10 @@ static NSArray<MAPolygon *> *RNMapsParseHoles(NSString *json)
 @interface RNMapsPolygon () <RCTRNMapsPolygonViewProtocol>
 @end
 
-@implementation RNMapsPolygon {
-  __weak MAMapView *_map;
-  MAPolygon *_polygon;
-  UIColor *_strokeColor;
-  UIColor *_fillColor;
-  CGFloat _strokeWidth;
-}
+@implementation RNMapsPolygon
+@synthesize cnChildId = _cnChildId;
+@synthesize cnHandle = _cnHandle;
+@synthesize mapHost = _mapHost;
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
@@ -70,99 +64,31 @@ static NSArray<MAPolygon *> *RNMapsParseHoles(NSString *json)
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsPolygonProps>();
     _props = defaultProps;
-    _strokeColor = [UIColor blackColor];
-    _fillColor = [UIColor colorWithWhite:0 alpha:0.25];
-    _strokeWidth = 1;
   }
   return self;
 }
 
-- (id<MAOverlay>)overlay
+- (CNOverlayModel *)overlayModel
 {
-  return _polygon;
-}
-
-- (void)addToMap:(MAMapView *)map
-{
-  _map = map;
-  if (_polygon != nil) {
-    [map addOverlay:_polygon];
+  const auto &p = *std::static_pointer_cast<RNMapsPolygonProps const>(_props);
+  CNPolygonModel *model = [CNPolygonModel new];
+  model.type = CNOverlayTypePolygon;
+  NSMutableArray<NSValue *> *coordinates = [NSMutableArray arrayWithCapacity:p.coordinates.size()];
+  for (const auto &c : p.coordinates) {
+    [coordinates addObject:CNBoxCoordinate(CLLocationCoordinate2DMake(c.latitude, c.longitude))];
   }
-}
-
-- (void)removeFromMap
-{
-  if (_map != nil && _polygon != nil) {
-    [_map removeOverlay:_polygon];
-  }
-  _map = nil;
-}
-
-- (MAOverlayRenderer *)overlayRenderer
-{
-  MAPolygonRenderer *renderer = [[MAPolygonRenderer alloc] initWithPolygon:_polygon];
-  renderer.strokeColor = _strokeColor;
-  renderer.fillColor = _fillColor;
-  renderer.lineWidth = _strokeWidth;
-  return renderer;
+  model.coordinates = coordinates;
+  model.holes = RNMapsParseHoles(RNMapsPolygonNSString(p.holes));
+  model.strokeColor = RCTUIColorFromSharedColor(p.strokeColor) ?: [UIColor blackColor];
+  model.fillColor = RCTUIColorFromSharedColor(p.fillColor) ?: [UIColor colorWithWhite:0 alpha:0.25];
+  model.strokeWidth = p.strokeWidth;
+  return model;
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
-  // Use `_props`, not `oldProps`: the parameter is nullptr on the first
-  // updateProps and dereferencing it crashes. `_props` is always valid.
-  const auto &oldViewProps = *std::static_pointer_cast<RNMapsPolygonProps const>(_props);
-  const auto &newViewProps = *std::static_pointer_cast<RNMapsPolygonProps const>(props);
-
-  _strokeColor = RCTUIColorFromSharedColor(newViewProps.strokeColor) ?: [UIColor blackColor];
-  _fillColor = RCTUIColorFromSharedColor(newViewProps.fillColor) ?: [UIColor colorWithWhite:0 alpha:0.25];
-  _strokeWidth = newViewProps.strokeWidth;
-
-  BOOL geometryChanged =
-    !RNMapsCoordinatesEqual(oldViewProps.coordinates, newViewProps.coordinates) ||
-    oldViewProps.holes != newViewProps.holes;
-
-  MAPolygon *previous = _polygon;
-  if (_polygon == nil || geometryChanged) {
-    _polygon = [self buildPolygon:newViewProps.coordinates
-                            holes:RNMapsPolygonNSString(newViewProps.holes)];
-  }
-
-  if (_map != nil) {
-    if (previous != nil) {
-      [_map removeOverlay:previous];
-    }
-    if (_polygon != nil) {
-      [_map addOverlay:_polygon];
-    }
-  }
-
   [super updateProps:props oldProps:oldProps];
-}
-
-- (MAPolygon *)buildPolygon:(const std::vector<RNMapsPolygonCoordinatesStruct> &)coordinates
-                      holes:(NSString *)holesJson
-{
-  NSUInteger count = coordinates.size();
-  if (count == 0) {
-    return nil;
-  }
-
-  std::vector<CLLocationCoordinate2D> points;
-  points.reserve(count);
-  for (const auto &c : coordinates) {
-    points.push_back(CLLocationCoordinate2DMake(c.latitude, c.longitude));
-  }
-
-  MAPolygon *polygon = [MAPolygon polygonWithCoordinates:points.data() count:count];
-
-  // AMap renders holes via the `hollowShapes` property (members must be
-  // MAPolygon/MACircle), not via a MapKit-style `interiorPolygons:` factory.
-  NSArray<MAPolygon *> *holes = RNMapsParseHoles(holesJson);
-  if (holes != nil) {
-    polygon.hollowShapes = holes;
-  }
-  return polygon;
+  [self.mapHost childDidUpdateModel:self];
 }
 
 @end

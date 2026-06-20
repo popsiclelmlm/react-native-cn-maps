@@ -2,14 +2,18 @@ package com.cnmaps
 
 import android.graphics.Color
 import android.widget.FrameLayout
-import com.amap.api.maps.AMap
-import com.amap.api.maps.model.Circle
-import com.amap.api.maps.model.CircleOptions
-import com.amap.api.maps.model.LatLng
+import com.cnmaps.adapter.CnCircleModel
+import com.cnmaps.adapter.CnLatLng
+import com.cnmaps.adapter.CnOverlayModel
+import com.cnmaps.adapter.OverlayHandle
 import com.facebook.react.uimanager.ThemedReactContext
 
-/** `<Circle>` child host component; holds the AMap [Circle]. */
-class CircleView(context: ThemedReactContext) : FrameLayout(context) {
+/** Provider-agnostic `<Circle>` child host component; produces a [CnCircleModel]. */
+class CircleView(context: ThemedReactContext) : FrameLayout(context), CnOverlayFeature {
+  override var cnChildId: String? = null
+  override var cnHandle: OverlayHandle? = null
+  override var mapHost: CnMapHost? = null
+
   private var centerLatitude: Double = 0.0
   private var centerLongitude: Double = 0.0
   private var radiusMeters: Double = 0.0
@@ -17,66 +21,23 @@ class CircleView(context: ThemedReactContext) : FrameLayout(context) {
   private var fillColor: Int = Color.argb(64, 0, 0, 0)
   private var strokeWidth: Float = 1f
   private var zIndexValue: Float = 0f
-  private var aMap: AMap? = null
-  private var circle: Circle? = null
 
-  fun setCenterLatitude(value: Double) {
-    centerLatitude = value
-    circle?.center = LatLng(centerLatitude, centerLongitude)
-  }
+  override fun overlayModel(): CnOverlayModel = CnCircleModel(
+    center = CnLatLng(centerLatitude, centerLongitude),
+    radius = radiusMeters,
+    strokeColor = strokeColor,
+    fillColor = fillColor,
+    strokeWidth = strokeWidth,
+    zIndex = zIndexValue
+  )
 
-  fun setCenterLongitude(value: Double) {
-    centerLongitude = value
-    circle?.center = LatLng(centerLatitude, centerLongitude)
-  }
+  private fun notifyHost() = mapHost?.onChildModelChanged(this)
 
-  fun setRadiusMeters(value: Double) {
-    radiusMeters = value
-    circle?.radius = value
-  }
-
-  fun setStrokeColorValue(color: Int) {
-    strokeColor = color
-    circle?.strokeColor = color
-  }
-
-  fun setFillColorValue(color: Int) {
-    fillColor = color
-    circle?.fillColor = color
-  }
-
-  fun setStrokeWidthValue(width: Float) {
-    strokeWidth = width
-    circle?.strokeWidth = width
-  }
-
-  fun setZIndexValue(value: Float) {
-    zIndexValue = value
-    circle?.zIndex = value
-  }
-
-  fun attachTo(map: AMap) {
-    aMap = map
-    rebuild()
-  }
-
-  fun detach() {
-    circle?.remove()
-    circle = null
-    aMap = null
-  }
-
-  private fun rebuild() {
-    val map = aMap ?: return
-    circle?.remove()
-    circle = map.addCircle(
-      CircleOptions()
-        .center(LatLng(centerLatitude, centerLongitude))
-        .radius(radiusMeters)
-        .strokeColor(strokeColor)
-        .fillColor(fillColor)
-        .strokeWidth(strokeWidth)
-        .zIndex(zIndexValue)
-    )
-  }
+  fun setCenterLatitude(value: Double) { centerLatitude = value; notifyHost() }
+  fun setCenterLongitude(value: Double) { centerLongitude = value; notifyHost() }
+  fun setRadiusMeters(value: Double) { radiusMeters = value; notifyHost() }
+  fun setStrokeColorValue(color: Int) { strokeColor = color; notifyHost() }
+  fun setFillColorValue(color: Int) { fillColor = color; notifyHost() }
+  fun setStrokeWidthValue(width: Float) { strokeWidth = width; notifyHost() }
+  fun setZIndexValue(value: Float) { zIndexValue = value; notifyHost() }
 }

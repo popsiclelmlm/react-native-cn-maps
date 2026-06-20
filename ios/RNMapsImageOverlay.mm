@@ -34,13 +34,12 @@ static void RNMapsLoadOverlayImage(NSString *uri, void (^completion)(UIImage *_N
 @end
 
 @implementation RNMapsOverlay {
-  __weak MAMapView *_map;
-  MAGroundOverlay *_overlay;
   NSString *_imageUri;
   UIImage *_image;
-  MACoordinateBounds _bounds;
-  CGFloat _opacity;
 }
+@synthesize cnChildId = _cnChildId;
+@synthesize cnHandle = _cnHandle;
+@synthesize mapHost = _mapHost;
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
 {
@@ -52,51 +51,31 @@ static void RNMapsLoadOverlayImage(NSString *uri, void (^completion)(UIImage *_N
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const RNMapsOverlayProps>();
     _props = defaultProps;
-    _opacity = 1;
   }
   return self;
 }
 
-- (id<MAOverlay>)overlay
+- (CNOverlayModel *)overlayModel
 {
-  return _overlay;
-}
-
-- (void)addToMap:(MAMapView *)map
-{
-  _map = map;
-  if (_overlay != nil) {
-    [map addOverlay:_overlay];
-  }
-}
-
-- (void)removeFromMap
-{
-  if (_map != nil && _overlay != nil) {
-    [_map removeOverlay:_overlay];
-  }
-  _map = nil;
-}
-
-- (MAOverlayRenderer *)overlayRenderer
-{
-  MAGroundOverlayRenderer *renderer =
-    [[MAGroundOverlayRenderer alloc] initWithGroundOverlay:_overlay];
-  renderer.alpha = _opacity;
-  return renderer;
+  const auto &p = *std::static_pointer_cast<RNMapsOverlayProps const>(_props);
+  CNGroundOverlayModel *model = [CNGroundOverlayModel new];
+  model.type = CNOverlayTypeGroundOverlay;
+  model.southWest = CLLocationCoordinate2DMake(p.swLatitude, p.swLongitude);
+  model.northEast = CLLocationCoordinate2DMake(p.neLatitude, p.neLongitude);
+  model.opacity = p.opacity;
+  model.image = _image;
+  return model;
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &newViewProps = *std::static_pointer_cast<RNMapsOverlayProps const>(props);
 
-  _opacity = newViewProps.opacity;
-  _bounds.southWest = CLLocationCoordinate2DMake(newViewProps.swLatitude, newViewProps.swLongitude);
-  _bounds.northEast = CLLocationCoordinate2DMake(newViewProps.neLatitude, newViewProps.neLongitude);
-
   NSString *imageUri = newViewProps.image.empty()
     ? nil
     : [NSString stringWithUTF8String:newViewProps.image.c_str()];
+
+  [super updateProps:props oldProps:oldProps];
 
   if (![imageUri isEqualToString:_imageUri]) {
     _imageUri = imageUri;
@@ -107,31 +86,10 @@ static void RNMapsLoadOverlayImage(NSString *uri, void (^completion)(UIImage *_N
         return;
       }
       strongSelf->_image = image;
-      [strongSelf rebuildOverlay];
+      [strongSelf.mapHost childDidUpdateModel:strongSelf];
     });
   } else {
-    [self rebuildOverlay];
-  }
-
-  [super updateProps:props oldProps:oldProps];
-}
-
-- (void)rebuildOverlay
-{
-  MAGroundOverlay *previous = _overlay;
-  if (_image != nil) {
-    _overlay = [MAGroundOverlay groundOverlayWithBounds:_bounds icon:_image];
-  } else {
-    _overlay = nil;
-  }
-
-  if (_map != nil) {
-    if (previous != nil) {
-      [_map removeOverlay:previous];
-    }
-    if (_overlay != nil) {
-      [_map addOverlay:_overlay];
-    }
+    [self.mapHost childDidUpdateModel:self];
   }
 }
 

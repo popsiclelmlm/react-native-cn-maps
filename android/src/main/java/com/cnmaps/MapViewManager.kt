@@ -2,6 +2,8 @@ package com.cnmaps
 
 import android.util.Log
 import android.view.View
+import com.cnmaps.adapter.CnCamera
+import com.cnmaps.adapter.CnRegion
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.uimanager.ThemedReactContext
@@ -76,22 +78,22 @@ class MapViewManager : ViewGroupManager<MapView>(),
 
   @ReactProp(name = "initialRegion")
   override fun setInitialRegion(view: MapView, value: ReadableMap?) {
-    view.setInitialRegion(value?.toMapRegion())
+    view.setInitialRegion(value?.toCnRegion())
   }
 
   @ReactProp(name = "region")
   override fun setRegion(view: MapView, value: ReadableMap?) {
-    view.setRegion(value?.toMapRegion())
+    view.setRegion(value?.toCnRegion())
   }
 
   @ReactProp(name = "initialCamera")
   override fun setInitialCamera(view: MapView, value: ReadableMap?) {
-    view.setInitialCamera(value?.toMapCamera())
+    view.setInitialCamera(value?.toCnCamera())
   }
 
   @ReactProp(name = "camera")
   override fun setCamera(view: MapView, value: ReadableMap?) {
-    view.setCamera(value?.toMapCamera())
+    view.setCamera(value?.toCnCamera())
   }
 
   // Appearance ----------------------------------------------------------------
@@ -269,7 +271,7 @@ class MapViewManager : ViewGroupManager<MapView>(),
     duration: Int
   ) {
     view.animateToRegion(
-      MapRegion(
+      CnRegion(
         latitude = latitude,
         longitude = longitude,
         latitudeDelta = latitudeDelta,
@@ -289,7 +291,7 @@ class MapViewManager : ViewGroupManager<MapView>(),
     duration: Int
   ) {
     view.applyCamera(
-      MapCamera(latitude, longitude, heading, pitch, zoom, 0.0),
+      CnCamera(latitude, longitude, heading, pitch, zoom, 0.0),
       animated = true,
       duration = duration
     )
@@ -304,7 +306,7 @@ class MapViewManager : ViewGroupManager<MapView>(),
     zoom: Double
   ) {
     view.applyCamera(
-      MapCamera(latitude, longitude, heading, pitch, zoom, 0.0),
+      CnCamera(latitude, longitude, heading, pitch, zoom, 0.0),
       animated = false,
       duration = 0
     )
@@ -386,8 +388,8 @@ class MapViewManager : ViewGroupManager<MapView>(),
     view.getMarkersFramesResult(requestId, onlyVisible)
   }
 
-  private fun ReadableMap.toMapRegion(): MapRegion {
-    return MapRegion(
+  private fun ReadableMap.toCnRegion(): CnRegion {
+    return CnRegion(
       latitude = getDouble("latitude"),
       longitude = getDouble("longitude"),
       latitudeDelta = getDouble("latitudeDelta"),
@@ -395,8 +397,8 @@ class MapViewManager : ViewGroupManager<MapView>(),
     )
   }
 
-  private fun ReadableMap.toMapCamera(): MapCamera {
-    return MapCamera(
+  private fun ReadableMap.toCnCamera(): CnCamera {
+    return CnCamera(
       latitude = optDouble("latitude"),
       longitude = optDouble("longitude"),
       heading = optDouble("heading"),

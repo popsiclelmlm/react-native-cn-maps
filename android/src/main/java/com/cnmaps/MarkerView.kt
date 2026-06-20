@@ -1,19 +1,14 @@
 package com.cnmaps
 
-import android.animation.ValueAnimator
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
-import com.amap.api.maps.AMap
-import com.amap.api.maps.model.BitmapDescriptor
-import com.amap.api.maps.model.BitmapDescriptorFactory
-import com.amap.api.maps.model.LatLng
-import com.amap.api.maps.model.Marker
-import com.amap.api.maps.model.MarkerOptions
+import com.cnmaps.adapter.CnMarkerEvent
+import com.cnmaps.adapter.CnMarkerModel
+import com.cnmaps.adapter.OverlayHandle
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.ThemedReactContext
@@ -21,37 +16,29 @@ import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
 
 /**
- * Fabric child host component (`RNMapsMarker`) mounted under `MapView`. The view
- * never participates in the FrameLayout's normal layout — the parent `MapView`
- * intercepts its add/remove (via the manager's ViewGroup overrides) and turns it
- * into an AMap `Marker`. The created marker stores this view in `marker.object`
- * so the map's click listener can route callbacks back here.
+ * Provider-agnostic Fabric child host component (`RNMapsMarker`). It produces a
+ * [CnMarkerModel] and does the Android-side work (image decode, offscreen
+ * rasterization of custom React children) but never touches the SDK map — the
+ * adapter owns the marker. Prop/content changes are pushed to the host, which
+ * re-applies the model through the adapter.
  */
 class MarkerView(private val reactContext: ThemedReactContext) :
-  FrameLayout(reactContext) {
+  FrameLayout(reactContext), CnMapFeature {
+  override var cnChildId: String? = null
+  override var cnHandle: OverlayHandle? = null
+  override var mapHost: CnMapHost? = null
+
   var identifier: String? = null
 
-  // latitude/longitude arrive as two independent flattened props; each setter
-  // pushes the combined position to the live marker once it exists.
   var markerLatitude: Double = 0.0
-    set(value) {
-      field = value
-      marker?.position = LatLng(value, markerLongitude)
-    }
+    set(value) { field = value; notifyHost() }
   var markerLongitude: Double = 0.0
-    set(value) {
-      field = value
-      marker?.position = LatLng(markerLatitude, value)
-    }
+    set(value) { field = value; notifyHost() }
 
   private var title: String? = null
   private var snippet: String? = null
   private var pinColor: String? = null
   private var draggable: Boolean = false
-
-  // Appearance (PR-2). centerOffset/calloutAnchor are iOS positioning hooks with
-  // no AMap-Android equivalent, so they are accepted (in the manager) but ignored
-  // here; `anchor` is the Android positioning hook.
   private var anchorU: Float = 0.5f
   private var anchorV: Float = 1.0f
   private var opacity: Float = 1.0f
@@ -61,94 +48,72 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   private var imageUri: String? = null
   private var iconBitmap: Bitmap? = null
 
-  // Custom React content (PR-3): children render into this FrameLayout offscreen
-  // and are rasterized into the marker icon.
   private var tracksViewChanges: Boolean = true
-  private var tracksInfoWindowChanges: Boolean = false
   private var customBitmap: Bitmap? = null
   private var didRender: Boolean = false
   private var renderScheduled: Boolean = false
 
-  private var marker: Marker? = null
-  private var positionAnimator: ValueAnimator? = null
-
   // This view is intercepted by the map and never attached to a window, so
-  // `View.post {}` would never run. Schedule on the main looper directly instead.
+  // View.post {} would never run — schedule on the main looper directly.
   private val mainHandler = Handler(Looper.getMainLooper())
 
-  // Fabric child reconciliation list (PR-4 callout). Regular content children also
-  // live in the FrameLayout (for icon rasterization); the <Callout> child is held
-  // here but kept OUT of the FrameLayout so it can be handed, parent-less, to
-  // AMap's InfoWindowAdapter.
   private val reactChildren = ArrayList<View>()
   private var calloutView: CalloutView? = null
 
-  fun setMarkerTitle(value: String?) {
-    title = value
-    marker?.title = value ?: ""
+  // Model ----------------------------------------------------------------------
+
+  fun markerModel(): CnMarkerModel = CnMarkerModel(
+    identifier = identifier,
+    latitude = markerLatitude,
+    longitude = markerLongitude,
+    title = title,
+    snippet = snippet,
+    pinColor = pinColor,
+    draggable = draggable,
+    anchorU = anchorU,
+    anchorV = anchorV,
+    opacity = opacity,
+    rotation = rotation,
+    flat = flat,
+    zIndex = zIndexValue,
+    customBitmap = if (hasCustomContent()) customBitmap else null,
+    iconBitmap = iconBitmap,
+    hasInfoWindowContent = calloutView != null || !title.isNullOrEmpty()
+  )
+
+  private fun notifyHost() {
+    mapHost?.onChildModelChanged(this)
   }
 
-  fun setMarkerSnippet(value: String?) {
-    snippet = value
-    marker?.snippet = value ?: ""
-  }
+  // Props ----------------------------------------------------------------------
 
-  fun setPinColor(value: String?) {
-    pinColor = value
-    marker?.let { applyIcon(it) }
-  }
-
-  fun setMarkerDraggable(value: Boolean) {
-    draggable = value
-    marker?.isDraggable = value
-  }
-
-  fun setAnchorPoint(u: Float, v: Float) {
-    anchorU = u
-    anchorV = v
-    marker?.setAnchor(u, v)
-  }
-
-  fun setOpacity(value: Float) {
-    opacity = value
-    marker?.alpha = value
-  }
-
-  fun setRotationDegrees(value: Float) {
-    rotation = value
-    marker?.rotateAngle = rnRotationToAMap(value)
-  }
-
-  fun setFlatMarker(value: Boolean) {
-    flat = value
-    marker?.isFlat = value
-  }
-
-  fun setZIndexValue(value: Float) {
-    zIndexValue = value
-    marker?.zIndex = value
-  }
+  fun setMarkerTitle(value: String?) { title = value; notifyHost() }
+  fun setMarkerSnippet(value: String?) { snippet = value; notifyHost() }
+  fun setPinColor(value: String?) { pinColor = value; notifyHost() }
+  fun setMarkerDraggable(value: Boolean) { draggable = value; notifyHost() }
+  fun setAnchorPoint(u: Float, v: Float) { anchorU = u; anchorV = v; notifyHost() }
+  fun setOpacity(value: Float) { opacity = value; notifyHost() }
+  fun setRotationDegrees(value: Float) { rotation = value; notifyHost() }
+  fun setFlatMarker(value: Boolean) { flat = value; notifyHost() }
+  fun setZIndexValue(value: Float) { zIndexValue = value; notifyHost() }
 
   fun setImage(uri: String?) {
     val normalized = if (uri.isNullOrEmpty()) null else uri
     if (normalized == imageUri) {
       return
     }
-
     imageUri = normalized
     if (normalized == null) {
       recycle(iconBitmap)
       iconBitmap = null
-      marker?.let { applyIcon(it) }
+      notifyHost()
       return
     }
-
     loadImage(normalized)
   }
 
   fun setTracksViewChanges(value: Boolean) {
     if (value && !tracksViewChanges) {
-      // Re-enabling: allow at least one fresh render again.
       didRender = false
     }
     tracksViewChanges = value
@@ -156,68 +121,17 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   }
 
   fun setTracksInfoWindowChanges(value: Boolean) {
-    // Accepted for RNM parity; the system info window has no React content to
-    // re-rasterize. Custom <Callout> children render via the InfoWindowAdapter.
-    tracksInfoWindowChanges = value
+    // Accepted for RNM parity; the custom <Callout> renders via the adapter's
+    // InfoWindowAdapter and has no separate re-rasterization here.
   }
 
-  // Parent-driven attachment ---------------------------------------------------
-
-  fun attachTo(aMap: AMap) {
-    if (marker != null) {
-      return
-    }
-
-    val options = MarkerOptions()
-      .position(LatLng(markerLatitude, markerLongitude))
-      .draggable(draggable)
-      .anchor(anchorU, anchorV)
-      .alpha(opacity)
-      .setFlat(flat)
-      .rotateAngle(rnRotationToAMap(rotation))
-      .zIndex(zIndexValue)
-      .icon(currentDescriptor())
-    title?.let { options.title(it) }
-    snippet?.let { options.snippet(it) }
-
-    val created = aMap.addMarker(options)
-    created.`object` = this
-    marker = created
-  }
-
-  fun detach() {
-    positionAnimator?.cancel()
-    positionAnimator = null
-    marker?.remove()
-    marker = null
-    // The view is gone (parent removed it from the feature list and never reuses
-    // the instance), so free both rasterized/loaded bitmaps. (F1)
-    recycle(customBitmap)
-    customBitmap = null
-    recycle(iconBitmap)
-    iconBitmap = null
-  }
-
-  // BitmapDescriptorFactory copies pixel data into the descriptor, so a bitmap is
-  // safe to recycle once the marker no longer references it (after a fresh
-  // setIcon or after the marker is removed).
-  private fun recycle(bitmap: Bitmap?) {
-    if (bitmap != null && !bitmap.isRecycled) {
-      bitmap.recycle()
-    }
-  }
-
-  // Current position (provider system), for map fit commands.
-  fun position(): LatLng = marker?.position ?: LatLng(markerLatitude, markerLongitude)
-
-  // Fabric child reconciliation (driven by MarkerManager's ViewGroup overrides) --
+  // Fabric child reconciliation (driven by MarkerManager's ViewGroup overrides) -
 
   fun addReactChild(child: View, index: Int) {
     reactChildren.add(index.coerceIn(0, reactChildren.size), child)
     if (child is CalloutView) {
-      // Kept out of the FrameLayout so it can be handed parent-less to the
-      // InfoWindowAdapter (and excluded from the marker-icon rasterization).
       calloutView = child
+      notifyHost()
     } else {
       addView(child)
     }
@@ -227,11 +141,11 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     if (index < 0 || index >= reactChildren.size) {
       return
     }
-
     val child = reactChildren.removeAt(index)
     if (child is CalloutView) {
       if (child === calloutView) {
         calloutView = null
+        notifyHost()
       }
     } else {
       removeView(child)
@@ -239,36 +153,16 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   }
 
   fun getReactChildCount(): Int = reactChildren.size
-
   fun getReactChildAt(index: Int): View = reactChildren[index]
 
-  // Handed to AMap's InfoWindowAdapter; null → AMap shows the default title/snippet
-  // window.
+  // Pulled by the adapter's InfoWindowAdapter (via the host) at show time.
   fun getCalloutView(): View? = calloutView
-
-  // Whether tapping this marker should open an info window (custom <Callout> or a
-  // non-empty title). Used to avoid showing empty bubbles on plain markers.
-  fun hasInfoWindowContent(): Boolean =
-    calloutView != null || !title.isNullOrEmpty()
-
-  fun onInfoWindowClicked() {
-    emitCalloutPress()
-    calloutView?.emitPress()
-  }
 
   // Commands -------------------------------------------------------------------
 
-  fun showCallout() {
-    marker?.showInfoWindow()
-  }
-
-  fun hideCallout() {
-    marker?.hideInfoWindow()
-  }
-
-  fun redrawCallout() {
-    marker?.let { if (it.isInfoWindowShown) it.showInfoWindow() }
-  }
+  fun showCallout() { cnHandle?.let { mapHost?.mapAdapter?.showCallout(it) } }
+  fun hideCallout() { cnHandle?.let { mapHost?.mapAdapter?.hideCallout(it) } }
+  fun redrawCallout() { cnHandle?.let { mapHost?.mapAdapter?.redrawCallout(it) } }
 
   fun redraw() {
     if (hasCustomContent()) {
@@ -278,79 +172,36 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   }
 
   fun animateToCoordinate(latitude: Double, longitude: Double, duration: Int) {
-    val target = marker ?: return
-    positionAnimator?.cancel()
-
-    val start = target.position
-    val end = LatLng(latitude, longitude)
-    if (duration <= 0) {
-      target.position = end
-      return
-    }
-
-    positionAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-      this.duration = duration.toLong()
-      addUpdateListener { animation ->
-        val t = animation.animatedValue as Float
-        marker?.position = LatLng(
-          start.latitude + (end.latitude - start.latitude) * t,
-          start.longitude + (end.longitude - start.longitude) * t
-        )
-      }
-      start()
-    }
+    cnHandle?.let { mapHost?.mapAdapter?.animateMarker(it, latitude, longitude, duration) }
   }
 
   // Events ---------------------------------------------------------------------
 
-  fun emitPress() = emitCoordinateEvent("topPress")
+  fun emitMarkerEvent(event: CnMarkerEvent, latitude: Double, longitude: Double) {
+    when (event) {
+      CnMarkerEvent.PRESS -> emitCoordinateEvent("topPress", latitude, longitude)
+      CnMarkerEvent.SELECT -> emitCoordinateEvent("topSelect", latitude, longitude)
+      CnMarkerEvent.DESELECT -> emitCoordinateEvent("topDeselect", latitude, longitude)
+      CnMarkerEvent.CALLOUT_PRESS -> {
+        emitCoordinateEvent("topCalloutPress", latitude, longitude)
+        calloutView?.emitPress()
+      }
+      CnMarkerEvent.DRAG_START -> emitCoordinateEvent("topDragStart", latitude, longitude)
+      CnMarkerEvent.DRAG -> emitCoordinateEvent("topDrag", latitude, longitude)
+      CnMarkerEvent.DRAG_END -> emitCoordinateEvent("topDragEnd", latitude, longitude)
+    }
+  }
 
-  fun emitSelect() = emitCoordinateEvent("topSelect")
-
-  fun emitDeselect() = emitCoordinateEvent("topDeselect")
-
-  fun emitCalloutPress() = emitCoordinateEvent("topCalloutPress")
-
-  fun emitDragStart() = emitCoordinateEvent("topDragStart")
-
-  fun emitDrag() = emitCoordinateEvent("topDrag")
-
-  fun emitDragEnd() = emitCoordinateEvent("topDragEnd")
-
-  private fun emitCoordinateEvent(eventName: String) {
+  private fun emitCoordinateEvent(eventName: String, latitude: Double, longitude: Double) {
     if (id == NO_ID) {
       return
     }
-
-    val position = marker?.position ?: LatLng(markerLatitude, markerLongitude)
     UIManagerHelper.getEventDispatcher(reactContext)?.dispatchEvent(
-      MarkerCoordinateEvent(
-        UIManagerHelper.getSurfaceId(this),
-        id,
-        eventName,
-        position.latitude,
-        position.longitude
-      )
+      MarkerCoordinateEvent(UIManagerHelper.getSurfaceId(this), id, eventName, latitude, longitude)
     )
   }
 
-  private fun applyIcon(target: Marker) {
-    target.setIcon(currentDescriptor())
-  }
-
-  // Priority: rasterized custom React content > loaded `image` bitmap >
-  // hue-tinted default pin > plain default marker.
-  private fun currentDescriptor(): BitmapDescriptor {
-    customBitmap?.let { return BitmapDescriptorFactory.fromBitmap(it) }
-    iconBitmap?.let { return BitmapDescriptorFactory.fromBitmap(it) }
-
-    val hue = markerHue(pinColor)
-    return if (hue != null) {
-      BitmapDescriptorFactory.defaultMarker(hue)
-    } else {
-      BitmapDescriptorFactory.defaultMarker()
-    }
-  }
+  // Custom React content rasterization ----------------------------------------
 
   private fun hasCustomContent(): Boolean = childCount > 0
 
@@ -363,19 +214,16 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   override fun onViewRemoved(child: View) {
     super.onViewRemoved(child)
     if (!hasCustomContent()) {
-      // Reverted to a plain marker: drop the rasterized icon.
       recycle(customBitmap)
       customBitmap = null
       didRender = false
-      marker?.let { applyIcon(it) }
+      notifyHost()
     } else {
       didRender = false
       scheduleRender()
     }
   }
 
-  // Fabric calls layout() on this (off-window) view to apply the Yoga-computed
-  // frame, so onLayout is where a valid width/height first becomes available.
   override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
     super.onLayout(changed, l, t, r, b)
     scheduleRender()
@@ -383,20 +231,14 @@ class MarkerView(private val reactContext: ThemedReactContext) :
 
   override fun requestLayout() {
     super.requestLayout()
-    // A child's content/size change requests layout; re-rasterize afterwards.
     scheduleRender()
   }
 
-  // Debounce: collapse the layout/requestLayout bursts into a single render that
-  // runs once the subtree has settled for this frame.
   private fun scheduleRender() {
     if (renderScheduled || !hasCustomContent()) {
       return
     }
-
     renderScheduled = true
-    // Main-looper handler (not View.post) because this offscreen view is never
-    // attached to a window — its own post queue would never drain.
     mainHandler.post {
       renderScheduled = false
       renderCustomIfNeeded()
@@ -404,31 +246,25 @@ class MarkerView(private val reactContext: ThemedReactContext) :
   }
 
   private fun renderCustomIfNeeded() {
-    // Fabric sizes the view via layout() (see onLayout); until then width/height
-    // are 0 and we wait for the next pass. Never call Android measure() here — RN
-    // catalyst views must be laid out by the shadow tree, not measured directly.
     if (!hasCustomContent() || width <= 0 || height <= 0) {
       return
     }
     if (!tracksViewChanges && didRender) {
       return
     }
-
     val previous = customBitmap
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     draw(Canvas(bitmap))
     customBitmap = bitmap
     didRender = true
-    marker?.let { applyIcon(it) }
-    // Free the previous frame now that the marker renders the new one — without
-    // this, frequent tracksViewChanges re-renders leak a bitmap each pass. (F1)
+    notifyHost()
+    // The adapter copies the bitmap into a descriptor synchronously above, so the
+    // previous frame is safe to free now (parity with the old F1 handling).
     if (previous !== bitmap) {
       recycle(previous)
     }
   }
 
-  // Decode off the UI thread on the shared pool (timeouts + no per-image Thread,
-  // see MapsImageLoader), then apply the result back on the main thread.
   private fun loadImage(uri: String) {
     MapsImageLoader.executor.execute {
       val bitmap = MapsImageLoader.decode(uri, resources, context.packageName)
@@ -436,38 +272,23 @@ class MarkerView(private val reactContext: ThemedReactContext) :
         if (uri == imageUri) {
           val previous = iconBitmap
           iconBitmap = bitmap
-          marker?.let { applyIcon(it) }
+          notifyHost()
           if (previous !== bitmap) {
             recycle(previous)
           }
         } else {
-          // A newer load superseded this one before it resolved — free it. (F1)
           recycle(bitmap)
         }
       }
     }
   }
 
-  private fun markerHue(color: String?): Float? {
-    if (color == null) {
-      return null
+  private fun recycle(bitmap: Bitmap?) {
+    if (bitmap != null && !bitmap.isRecycled) {
+      bitmap.recycle()
     }
-
-    return runCatching {
-      val hsv = FloatArray(3)
-      Color.colorToHSV(Color.parseColor(color), hsv)
-      hsv[0]
-    }.getOrNull()
   }
 
-  // RNM rotation is clockwise degrees; AMap's rotateAngle is counterclockwise, so
-  // invert and normalize into [0, 360).
-  private fun rnRotationToAMap(degrees: Float): Float {
-    val normalized = (360f - (degrees % 360f)) % 360f
-    return if (normalized < 0f) normalized + 360f else normalized
-  }
-
-  // Shared by all marker events; the RNM facade re-attaches the identifier.
   private class MarkerCoordinateEvent(
     surfaceId: Int,
     viewId: Int,
@@ -476,19 +297,13 @@ class MarkerView(private val reactContext: ThemedReactContext) :
     private val longitude: Double
   ) : Event<MarkerCoordinateEvent>(surfaceId, viewId) {
     override fun getEventName(): String = rnEventName
-
-    // onDrag fires continuously; allow coalescing to avoid flooding the bridge.
     override fun canCoalesce(): Boolean = rnEventName == "topDrag"
-
     override fun getEventData(): WritableMap =
       Arguments.createMap().apply {
-        putMap(
-          "coordinate",
-          Arguments.createMap().apply {
-            putDouble("latitude", latitude)
-            putDouble("longitude", longitude)
-          }
-        )
+        putMap("coordinate", Arguments.createMap().apply {
+          putDouble("latitude", latitude)
+          putDouble("longitude", longitude)
+        })
       }
   }
 }
