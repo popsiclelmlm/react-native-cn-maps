@@ -38,13 +38,44 @@ Most code ports over by changing a single import.
 
 ## 📦 Installation
 
+Install the core package plus the map provider(s) you want:
+
 ```sh
-npm install react-native-cn-maps
-# or
-yarn add react-native-cn-maps
+# core (required) + AMap / 高德 provider
+yarn add react-native-cn-maps react-native-cn-maps-amap
+
+# optionally add Baidu / 百度 and/or Tencent / 腾讯
+yarn add react-native-cn-maps-baidu
+yarn add react-native-cn-maps-tencent
 ```
 
 Requires React Native with the New Architecture enabled.
+
+## 🌐 Providers (多地图厂商)
+
+The core package is provider-agnostic; each map vendor ships as a separate adapter
+package. **Install only the providers you use** (so an AMap-only app isn't bundled
+with the Baidu/Tencent SDKs), then pick one via the `provider` prop:
+
+```tsx
+<MapView provider="amap" />   {/* or "baidu" / "tencent" */}
+```
+
+| `provider` | package | native coordinate system |
+|---|---|---|
+| `amap` (default) | `react-native-cn-maps-amap` | GCJ-02 |
+| `baidu` | `react-native-cn-maps-baidu` | BD-09 |
+| `tencent` | `react-native-cn-maps-tencent` | GCJ-02 |
+
+- Coordinate conversion is automatic: declare the system of **your** input via
+  `coordinateSystem` (`wgs84` / `gcj02` / `bd09`); the library converts it to the
+  selected provider's native system.
+- `provider` is **fixed at mount** — changing it should remount the `<MapView>`
+  (e.g. give it a `key={provider}`).
+- Each provider needs its SDK key configured natively — see that package's README
+  (`react-native-cn-maps-<provider>`) and [Native setup](#-native-setup).
+- See [`docs/specs/p2-multi-provider.md`](docs/specs/p2-multi-provider.md) for the
+  architecture and per-provider capability notes.
 
 ## 🚀 Quick start
 
@@ -92,8 +123,6 @@ export default function Map() {
 | `Geojson` | pure-JS GeoJSON renderer (point / line / polygon, incl. holes) |
 
 **MapView ref commands:** `animateToRegion`, `animateCamera` / `setCamera`, `getCamera`, `getMapBoundaries`, `pointForCoordinate` / `coordinateForPoint`, `fitToCoordinates` / `fitToElements` / `fitToSuppliedMarkers`, `takeSnapshot`, `setMapBoundaries`, `getMarkersFrames`.
-
-📖 Full comparison: [feature parity with `react-native-maps`](docs/RNM_PARITY_PLAN.md) · [migration guide](docs/MIGRATION_FROM_RN_MAPS.md)
 
 ## ⚙️ Native setup
 

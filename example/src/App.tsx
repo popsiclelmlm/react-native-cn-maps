@@ -27,8 +27,15 @@ import type {
   MapMarkerHandle,
   MapType,
   MapViewHandle,
+  Provider,
   Region,
 } from 'react-native-cn-maps';
+
+// Providers selectable in the demo. "amap" works out of the box (this example
+// links react-native-cn-maps-amap). "baidu"/"tencent" render only if you also
+// install react-native-cn-maps-baidu / -tencent and their SDK keys; otherwise the
+// native host logs "no adapter registered" and shows a blank map.
+const PROVIDERS: Provider[] = ['amap', 'baidu', 'tencent'];
 
 // Demo only: pretend the user has already accepted the privacy policy so the
 // map SDK can initialize. Called at module load — before any <MapView> mounts.
@@ -176,6 +183,7 @@ export default function App() {
   const draggableMarkerRef = useRef<MapMarkerHandle>(null);
 
   const [mapType, setMapType] = useState<MapType>('standard');
+  const [provider, setProvider] = useState<Provider>('amap');
   const [dark, setDark] = useState(false);
   const [camera, setCamera] = useState<Camera | undefined>(undefined);
   const [showTiles, setShowTiles] = useState(false);
@@ -246,9 +254,12 @@ export default function App() {
   return (
     <View style={styles.container}>
       <MapView
+        // Remount when the provider changes — a map view is bound to one SDK
+        // instance for its lifetime (provider is "mount-fixed").
+        key={`map-${provider}`}
         ref={mapRef}
         style={styles.map}
-        provider="amap"
+        provider={provider}
         coordinateSystem="gcj02"
         initialRegion={SHANGHAI}
         camera={camera}
@@ -530,6 +541,30 @@ export default function App() {
           </Pressable>
         </View>
 
+        <Text style={styles.sectionTitle}>provider</Text>
+        <View style={styles.buttonRow}>
+          {PROVIDERS.map((name) => (
+            <Pressable
+              key={name}
+              style={[styles.chip, provider === name && styles.chipActive]}
+              onPress={() => setProvider(name)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  provider === name && styles.chipTextActive,
+                ]}
+              >
+                {name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.hint}>
+          baidu / tencent need their provider packages + SDK keys installed;
+          otherwise the map stays blank.
+        </Text>
+
         <Text style={styles.sectionTitle}>mapType</Text>
         <View style={styles.buttonRow}>
           {MAP_TYPES.map((type) => (
@@ -640,6 +675,11 @@ const styles = StyleSheet.create({
     color: '#333',
     marginTop: 12,
     marginBottom: 6,
+  },
+  hint: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 4,
   },
   buttonRow: {
     flexDirection: 'row',
