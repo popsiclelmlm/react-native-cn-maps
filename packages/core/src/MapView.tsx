@@ -19,6 +19,7 @@ import type {
   NativeUserLocationChangeEvent,
 } from './MapViewNativeComponent';
 import type {
+  Address,
   BoundingBox,
   Camera,
   CoordinateSystem,
@@ -354,6 +355,36 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
                 id,
                 point.x,
                 point.y
+              )
+          );
+        },
+
+        addressForCoordinate(coordinate) {
+          const providerCoordinate = toProviderCoordinate(
+            coordinate,
+            coordinateSystem,
+            provider
+          );
+          const str = (v: unknown) => (v == null ? '' : String(v));
+          return query<Address>(
+            (data) => ({
+              name: str(data.name),
+              thoroughfare: str(data.thoroughfare),
+              subThoroughfare: str(data.subThoroughfare),
+              locality: str(data.locality),
+              subLocality: str(data.subLocality),
+              administrativeArea: str(data.administrativeArea),
+              subAdministrativeArea: str(data.subAdministrativeArea),
+              postalCode: str(data.postalCode),
+              countryCode: str(data.countryCode),
+              country: str(data.country),
+            }),
+            (id) =>
+              Commands.addressForCoordinate(
+                nativeRef.current!,
+                id,
+                providerCoordinate.latitude,
+                providerCoordinate.longitude
               )
           );
         },

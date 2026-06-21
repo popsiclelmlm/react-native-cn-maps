@@ -229,6 +229,12 @@ interface NativeCommands {
     x: CodegenTypes.Double,
     y: CodegenTypes.Double
   ) => void;
+  addressForCoordinate: (
+    viewRef: React.ElementRef<ComponentType>,
+    requestId: CodegenTypes.Int32,
+    latitude: CodegenTypes.Double,
+    longitude: CodegenTypes.Double
+  ) => void;
   takeSnapshot: (
     viewRef: React.ElementRef<ComponentType>,
     requestId: CodegenTypes.Int32,
@@ -264,6 +270,7 @@ export const Commands: NativeCommands = codegenNativeCommands<NativeCommands>({
     'getMapBoundaries',
     'pointForCoordinate',
     'coordinateForPoint',
+    'addressForCoordinate',
     'takeSnapshot',
     'setMapBoundaries',
     'getMarkersFrames',

@@ -39,6 +39,12 @@ import com.amap.api.maps.model.TileOverlayOptions
 import com.amap.api.maps.model.TileProvider
 import com.amap.api.maps.model.UrlTileProvider
 import com.amap.api.maps.model.WeightedLatLng
+import com.amap.api.services.core.LatLonPoint
+import com.amap.api.services.geocoder.GeocodeResult
+import com.amap.api.services.geocoder.GeocodeSearch
+import com.amap.api.services.geocoder.RegeocodeQuery
+import com.amap.api.services.geocoder.RegeocodeResult
+import com.cnmaps.adapter.CnAddress
 import com.cnmaps.adapter.CnCamera
 import com.cnmaps.adapter.CnEdgeInsets
 import com.cnmaps.adapter.CnGroundOverlayModel
@@ -284,6 +290,51 @@ class AMapAdapter(context: Context) : CnMapAdapter {
       "file://${file.absolutePath}"
     }
   }.getOrDefault("")
+
+  // Reverse geocoding via the bundled AMap search SDK. AMap delivers the result
+  // on the main thread, so the host's dispatch is safe. Coordinates are GCJ-02.
+  private var geocodeSearch: GeocodeSearch? = null
+
+  override fun addressForCoordinate(
+    latitude: Double,
+    longitude: Double,
+    completion: (CnAddress?) -> Unit
+  ) {
+    try {
+      val search = geocodeSearch ?: GeocodeSearch(mapView.context).also { geocodeSearch = it }
+      search.setOnGeocodeSearchListener(object : GeocodeSearch.OnGeocodeSearchListener {
+        override fun onRegeocodeSearched(result: RegeocodeResult?, code: Int) {
+          val addr = result?.regeocodeAddress
+          if (code != 1000 || addr == null) {
+            completion(null)
+            return
+          }
+          val city = addr.city?.takeIf { it.isNotEmpty() } ?: addr.province ?: ""
+          completion(
+            CnAddress(
+              name = addr.formatAddress ?: "",
+              thoroughfare = addr.streetNumber?.street ?: addr.township ?: "",
+              subThoroughfare = addr.streetNumber?.number ?: "",
+              locality = city,
+              subLocality = addr.district ?: "",
+              administrativeArea = addr.province ?: "",
+              subAdministrativeArea = addr.district ?: "",
+              postalCode = "",
+              countryCode = "CN",
+              country = "中国"
+            )
+          )
+        }
+
+        override fun onGeocodeSearched(result: GeocodeResult?, code: Int) { /* forward geocoding unused */ }
+      })
+      search.getFromLocationAsyn(
+        RegeocodeQuery(LatLonPoint(latitude, longitude), 200f, GeocodeSearch.AMAP)
+      )
+    } catch (t: Throwable) {
+      completion(null)
+    }
+  }
 
   // Markers -------------------------------------------------------------------
 

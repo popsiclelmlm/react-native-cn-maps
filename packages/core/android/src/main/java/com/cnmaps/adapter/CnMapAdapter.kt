@@ -69,6 +69,16 @@ interface CnMapAdapter {
     completion: (uri: String) -> Unit
   )
 
+  // Reverse geocoding (async). Default returns null for providers without a
+  // bundled geocoder; AMap overrides this with a real lookup.
+  fun addressForCoordinate(
+    latitude: Double,
+    longitude: Double,
+    completion: (CnAddress?) -> Unit
+  ) {
+    completion(null)
+  }
+
   // Markers -------------------------------------------------------------------
   fun addMarker(model: CnMarkerModel, childId: String): OverlayHandle
   fun updateMarker(handle: OverlayHandle, model: CnMarkerModel)

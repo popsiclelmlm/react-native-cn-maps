@@ -3,6 +3,7 @@ package com.cnmaps
 import android.util.Log
 import android.view.View
 import android.widget.FrameLayout
+import com.cnmaps.adapter.CnAddress
 import com.cnmaps.adapter.CnEdgeInsets
 import com.cnmaps.adapter.CnLatLng
 import com.cnmaps.adapter.CnMapAdapter
@@ -193,6 +194,30 @@ class MapView(private val reactContext: ThemedReactContext) :
   fun takeSnapshotResult(requestId: Int, width: Int, height: Int, format: String, quality: Double, result: String) {
     adapter?.takeSnapshot(width, height, format, quality, result) { uri ->
       dispatchCommandResult(requestId, JSONObject().put("uri", uri))
+    }
+  }
+
+  fun addressForCoordinateResult(requestId: Int, latitude: Double, longitude: Double) {
+    val a = adapter
+    if (a == null) {
+      dispatchCommandResult(requestId, JSONObject())
+      return
+    }
+    a.addressForCoordinate(latitude, longitude) { address ->
+      dispatchCommandResult(
+        requestId,
+        JSONObject()
+          .put("name", address?.name ?: "")
+          .put("thoroughfare", address?.thoroughfare ?: "")
+          .put("subThoroughfare", address?.subThoroughfare ?: "")
+          .put("locality", address?.locality ?: "")
+          .put("subLocality", address?.subLocality ?: "")
+          .put("administrativeArea", address?.administrativeArea ?: "")
+          .put("subAdministrativeArea", address?.subAdministrativeArea ?: "")
+          .put("postalCode", address?.postalCode ?: "")
+          .put("countryCode", address?.countryCode ?: "")
+          .put("country", address?.country ?: "")
+      )
     }
   }
 

@@ -141,6 +141,20 @@ data class CnUserLocation(
   val isFromMockProvider: Boolean
 )
 
+// Reverse-geocoded address surfaced to the host (mirrors the JS `Address` type).
+data class CnAddress(
+  val name: String = "",
+  val thoroughfare: String = "",
+  val subThoroughfare: String = "",
+  val locality: String = "",
+  val subLocality: String = "",
+  val administrativeArea: String = "",
+  val subAdministrativeArea: String = "",
+  val postalCode: String = "",
+  val countryCode: String = "",
+  val country: String = ""
+)
+
 // Map-level press kinds that share the { coordinate, position } payload.
 enum class CnPressKind { PRESS, LONG_PRESS, DOUBLE_PRESS, PAN_DRAG }
 

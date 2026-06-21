@@ -251,6 +251,15 @@ export default function App() {
     }
   }, [pushLog]);
 
+  const logAddress = useCallback(async () => {
+    try {
+      const addr = await mapRef.current?.addressForCoordinate?.(THE_BUND);
+      pushLog(`address → ${addr?.name || '(empty)'}`);
+    } catch (e) {
+      pushLog(`addressForCoordinate error: ${String(e)}`);
+    }
+  }, [pushLog]);
+
   return (
     <View style={styles.container}>
       <MapView
@@ -501,6 +510,9 @@ export default function App() {
           </Pressable>
           <Pressable style={styles.button} onPress={logMarkerFrames}>
             <Text style={styles.buttonText}>getMarkersFrames</Text>
+          </Pressable>
+          <Pressable style={styles.button} onPress={logAddress}>
+            <Text style={styles.buttonText}>addressForCoordinate</Text>
           </Pressable>
         </View>
 

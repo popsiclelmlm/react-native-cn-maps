@@ -356,6 +356,10 @@ class MapViewManager : ViewGroupManager<MapView>(),
     view.coordinateForPointResult(requestId, x, y)
   }
 
+  override fun addressForCoordinate(view: MapView, requestId: Int, latitude: Double, longitude: Double) {
+    view.addressForCoordinateResult(requestId, latitude, longitude)
+  }
+
   override fun takeSnapshot(
     view: MapView,
     requestId: Int,
