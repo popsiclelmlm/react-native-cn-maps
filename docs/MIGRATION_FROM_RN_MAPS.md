@@ -138,7 +138,7 @@ JS 层会自动把你声明坐标系的输入/输出在 provider 原生坐标系
 | Prop / 能力 | 说明 |
 |---|---|
 | `customMapStyle` | RNM 用 Google 的 JSON 样式；高德用**二进制样式文件**，两者不兼容，故 JSON 不生效。需自定义样式请用高德样式文件方案。 |
-| `addressForCoordinate`（iOS） | 高德 Android 已用 GeocodeSearch 实现；iOS 默认返回空地址（adapter 未接地理编码时），不崩溃。 |
+| `addressForCoordinate` | 高德 Android（GeocodeSearch）+ iOS（AMapSearch）均已实现；百度/腾讯返回空地址，不崩溃。 |
 | `tintColor` / `mapPadding` | 高德 Android 无对应 API。 |
 | `mapType: 'satelliteFlyover' / 'hybridFlyover'` | iOS-only 飞行视图；Android 降级为最接近底图。 |
 | `loadingEnabled` / `loadingIndicatorColor` / `loadingBackgroundColor` | 高德自带加载 UI。 |
