@@ -1,103 +1,187 @@
-# 从 react-native-maps 迁移
+# 从 react-native-maps 迁移到 react-native-cn-maps（Android）
 
-> 目标:把 `import ... from 'react-native-maps'` 改成 `'react-native-cn-maps'` 即可迁移到国内地图 SDK(当前 provider:高德 / AMap)。本表记录每个 API 的支持状态。
->
-> 图例:✅ 已支持 · ⚠️ 有差异 / best-effort · ❌ 未实现(占位,运行时 `__DEV__` 警告)
+`react-native-cn-maps` 在 **API 形状上对标 [react-native-maps](https://github.com/react-native-maps/react-native-maps)**：组件名、props、imperative 方法、事件、类型导出尽量一致，目标是**绝大多数项目只改 import 即可迁移**。
 
-## 重要差异:坐标系
+本指南聚焦 **Android**（高德 / 百度 / 腾讯三家国内地图）。所有结论均在 Android 模拟器实测，详见 [ANDROID_MULTI_PROVIDER_VERIFICATION.md](./ANDROID_MULTI_PROVIDER_VERIFICATION.md)。
 
-react-native-maps 默认 WGS-84;国内 SDK 用 GCJ-02。用 `<MapView coordinateSystem>` 声明你传入坐标的坐标系,库会在 **JS 层**统一转换:
+---
 
-```tsx
-<MapView coordinateSystem="wgs84" /> // 你的坐标是 GPS/WGS-84,自动转 gcj02
-<MapView coordinateSystem="gcj02" /> // 默认;不转换
+## 1. 三步迁移
+
+### ① 改 import
+
+```diff
+- import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
++ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-cn-maps';
 ```
 
-`bd09`(百度)在坐标转换层已预留,但百度 provider 本体未接入。
+默认导出（`MapView`）、所有命名导出（`Marker`/`MapMarker`/`Callout`/`Polygon`/`Polyline`/`Circle`/`Overlay`/`Heatmap`/`Geojson`/`UrlTile`/`WMSTile`/`LocalTile`/`CalloutSubview`/`AnimatedRegion`/`Animated`/`MarkerAnimated`/`OverlayAnimated`/`PROVIDER_GOOGLE`/`PROVIDER_DEFAULT`/`MAP_TYPES`）以及全部 TS 类型（`Region`/`LatLng`/`Camera`/`MapType`/`Address`/…）名称一致。
 
-## 组件
+### ② 装 provider 包 + 配 Key
 
-| 组件 | 状态 | 说明 |
-|------|------|------|
-| `MapView` | ✅ | provider 当前仅 `amap` |
-| `Marker` | ✅ | 真 Fabric 子组件,支持自定义 React 内容 |
-| `Callout` | ✅ | iOS 栅格化气泡 / Android InfoWindow |
-| `CalloutSubview` | ⚠️ | 渲染内容;子项独立点击未路由(用 `Callout`/`Marker` 整体点击) |
-| `Polyline` | ✅ | `strokeColors` 渐变未实现 |
-| `Polygon` | ✅ | `holes` 仅 iOS;Android 暂不支持 |
+核心包 `react-native-cn-maps` 不含任何厂商 SDK；按需安装 provider 包：
+
+```bash
+yarn add react-native-cn-maps react-native-cn-maps-amap   # 高德
+# 可选：react-native-cn-maps-baidu / react-native-cn-maps-tencent
+```
+
+Key 写进 `AndroidManifest.xml`（`<application>` 内）：
+
+```xml
+<meta-data android:name="com.amap.api.v2.apikey"  android:value="${AMAP_ANDROID_API_KEY}" />
+<meta-data android:name="com.baidu.lbsapi.API_KEY" android:value="${BAIDU_ANDROID_API_KEY}" />
+<meta-data android:name="TencentMapSDK"            android:value="${TENCENT_ANDROID_API_KEY}" />
+```
+
+> 腾讯额外需要 `ACCESS_NETWORK_STATE`、`ACCESS_WIFI_STATE` 权限，且其 SDK 仅在腾讯 maven 镜像 `https://mirrors.tencent.com/repository/maven/tencent_public/`。
+
+### ③ 隐私合规 + provider
+
+国内地图 SDK 有法律强制的隐私合规开关，必须在挂载 `<MapView>` **之前**调用一次：
+
+```ts
+import { setPrivacyConsent } from 'react-native-cn-maps';
+setPrivacyConsent({ agreed: true, contains: true, shown: true });
+```
+
+把 `provider` 从 `'google'`/`undefined` 改为国内 provider：
+
+```diff
+- <MapView provider={PROVIDER_GOOGLE} ... />
++ <MapView provider="amap" ... />   // 'amap' | 'baidu' | 'tencent'
+```
+
+> 兼容：`PROVIDER_GOOGLE` 与 `PROVIDER_DEFAULT` 都映射到默认 provider（`amap`），所以即便忘了改 `provider={PROVIDER_GOOGLE}` 也不会崩，只是用高德渲染。
+
+---
+
+## 2. ⚠️ 迁移必读：坐标系
+
+这是与 react-native-maps **唯一会导致坐标偏移**的实质差异。
+
+| 库 | 坐标系 |
+|---|---|
+| react-native-maps（Google/Apple） | **WGS-84**（GPS 原始） |
+| 高德 / 腾讯 | **GCJ-02**（国测局加密） |
+| 百度 | **BD-09** |
+
+`react-native-cn-maps` 默认 `coordinateSystem="gcj02"`。**如果你的数据是 WGS-84（来自 GPS、后端、react-native-maps 老代码），必须显式声明**，否则会有几十~上百米偏移：
+
+```tsx
+<MapView coordinateSystem="wgs84" provider="amap" ... />
+```
+
+JS 层会自动把你声明坐标系的输入/输出在 provider 原生坐标系之间换算（marker、region、camera、事件回调全部覆盖）。你的代码始终用自己声明的坐标系，无需手动转换。
+
+---
+
+## 3. 对标矩阵（Android）
+
+图例：✅ 支持 · 🟡 接受但受 provider 限制（不报错、优雅降级）· ⛔ iOS-only（Android 接受 prop 但无效）
+
+### 组件
+
+| 组件 | 状态 | 备注 |
+|---|:--:|---|
+| `MapView` | ✅ | 三家均渲染 + 鉴权通过（实测） |
+| `Marker` | ✅ | pinColor / image / icon / 自定义 React view / draggable / 标签 |
+| `Callout` / `CalloutSubview` | ✅ | 自定义气泡（光栅化为 InfoWindow）；单个 subview 独立点击未路由，用 `Callout.onPress` |
+| `Polyline` | ✅ | 含 strokeColors 渐变、dash、geodesic |
+| `Polygon` | ✅ | 含 holes 挖洞 |
 | `Circle` | ✅ | |
-| `Overlay` | ❌ | 占位 |
-| `Geojson` | ❌ | 占位 |
-| `Heatmap` | ❌ | 占位 |
-| `UrlTile` / `WMSTile` / `LocalTile` | ❌ | 占位 |
-| `AnimatedRegion` | ✅ | 4×`Animated.Value`;驱动地图时退化为 `animateToRegion` |
-| `PROVIDER_GOOGLE` / `PROVIDER_DEFAULT` | ⚠️ | 存在,均映射到当前 provider |
+| `Heatmap` | ✅ | 加权点 + gradient |
+| `Geojson` | ✅ | point + line + polygon（纯 JS 渲染） |
+| `Overlay`（GroundOverlay） | ✅ | image + bounds + bearing + opacity；`tappable` 无原生点击 |
+| `UrlTile` | ✅ | `{x}{y}{z}` 栅格；OSM 公共服务器会拒默认 UA，需自备瓦片源 |
+| `WMSTile` | ✅ | EPSG:3857 bbox |
+| `LocalTile` | ✅ | 文件/assets 瓦片 |
 
-## MapView props
-
-| prop | 状态 | 说明 |
-|------|------|------|
-| `initialRegion` / `region` | ✅ | `region` 也接受 `AnimatedRegion` |
-| `initialCamera` / `camera` | ✅ | `camera` 优先于 `region` |
-| `mapType` | ⚠️ | `satellite`/`hybrid`→卫星,其余→标准 |
-| `customMapStyle` | ⚠️ | Google 风格 JSON 与 AMap 不兼容,忽略 + 警告 |
-| `userInterfaceStyle` | ⚠️ | `dark`→夜间地图 |
-| `minZoomLevel` / `maxZoomLevel` | ✅ | |
-| 手势开关(`zoomEnabled`/`scrollEnabled`/`rotateEnabled`/`pitchEnabled`…) | ✅ | 部分细分开关 best-effort |
-| 显示开关(`showsTraffic`/`showsBuildings`/`showsCompass`/`showsScale`/`showsIndoors`/`showsUserLocation`/`showsPointsOfInterest`…) | ✅ | |
-| `mapPadding` / `tintColor` / `kmlSrc` / `loading*` | ❌/⚠️ | 无对应 AMap 能力,忽略 |
-| `toolbarEnabled` / `liteMode` / `cacheEnabled`(Android) | ⚠️ | Google 概念,忽略 |
-
-## MapView 事件
-
-| 事件 | 状态 |
-|------|------|
-| `onMapReady` / `onMapLoaded` | ✅ |
-| `onRegionChange` / `onRegionChangeComplete` | ✅(带 `isGesture`) |
-| `onPress` / `onLongPress` / `onDoublePress` / `onPanDrag` | ✅ |
-| `onPoiClick` | ✅ |
-| `onUserLocationChange` | ✅ |
-| `onIndoorBuildingFocused` / `onIndoorLevelActivated` / `onKmlReady` | ❌ |
-
-## MapView ref 方法
+### MapView imperative 方法（`ref`）
 
 | 方法 | 状态 |
-|------|------|
-| `animateToRegion` | ✅ |
-| `animateCamera` / `setCamera` | ✅ |
-| `getCamera` | ✅(Promise) |
+|---|:--:|
+| `animateToRegion` / `animateCamera` / `setCamera` / `getCamera` | ✅ |
 | `fitToCoordinates` / `fitToElements` / `fitToSuppliedMarkers` | ✅ |
-| `getMapBoundaries` | ✅(Promise) |
-| `pointForCoordinate` / `coordinateForPoint` | ✅(Promise) |
-| `setMapBoundaries` / `getMarkersFrames` / `setIndoorActiveLevelIndex` / `addressForCoordinate` | ❌ |
+| `getMapBoundaries` / `setMapBoundaries` | ✅ |
+| `pointForCoordinate` / `coordinateForPoint` | ✅ |
+| `getMarkersFrames` | ✅ |
+| `takeSnapshot`（file / base64） | ✅ |
+| `addressForCoordinate`（逆地理编码） | ✅ 高德实测可用；百度/腾讯返回空 |
+| `setIndoorActiveLevelIndex` | 🟡 |
 
-## Marker
+### Marker 方法
 
-| 能力 | 状态 | 说明 |
-|------|------|------|
-| `coordinate` / `title` / `description` / `pinColor` | ✅ | |
-| `image` / `icon` | ✅ | `resolveAssetSource` → uri,native 异步加载 |
-| `anchor` | ⚠️ | Android 生效;iOS 用 `centerOffset` |
-| `centerOffset` / `calloutAnchor` | ⚠️ | iOS 生效;Android 无对应 |
-| `opacity` / `rotation` / `flat` / `zIndex` | ✅ | `flat` iOS 无对应 |
-| `draggable` | ✅ | |
-| `tracksViewChanges` / `tracksInfoWindowChanges` | ✅/⚠️ | |
-| 自定义子内容 `<Marker>{…}</Marker>` | ✅ | 离屏栅格化为图标 |
-| 事件 `onPress` / `onSelect` / `onDeselect` / `onDragStart` / `onDrag` / `onDragEnd` / `onCalloutPress` | ✅ | `onDeselect` Android 不触发 |
-| ref:`showCallout` / `hideCallout` / `redrawCallout` / `redraw` / `animateMarkerToCoordinate` | ✅ | |
+`showCallout` / `hideCallout` / `redraw` / `redrawCallout` / `animateMarkerToCoordinate` — 均 ✅。
 
-## Provider 路线
+### 事件
 
-| provider | 状态 |
-|----------|------|
-| 高德 AMap | ✅ |
-| 百度 Baidu (`coordinateSystem="bd09"`) | ⏸ 规划中 |
-| 腾讯 Tencent | ⏸ 规划中 |
+| 事件 | 状态 |
+|---|:--:|
+| `onMapReady` / `onMapLoaded` | ✅ |
+| `onRegionChange` / `onRegionChangeComplete`（含 `isGesture`） | ✅（腾讯 isGesture 恒 false） |
+| `onPress` / `onLongPress` / `onDoublePress` | ✅ |
+| `onPanDrag`（逐帧） | 🟡 仅高德；百度/腾讯改用 `onRegionChange` |
+| `onPoiClick` | ✅ |
+| `onUserLocationChange` | ✅ |
+| `onMarkerPress` / `onMarkerSelect` / `onMarkerDeselect` | ✅ |
+| `onMarkerDragStart` / `onMarkerDrag` / `onMarkerDragEnd` | ✅ |
+| `onCalloutPress` | ✅ |
+| `onKmlReady` | ⛔ 见下 |
 
-## 平台
+---
 
-| 平台 | 状态 |
-|------|------|
-| iOS (MAMapKit) | ✅ |
-| Android (AMap) | ✅ |
-| Web (react-native-web) | ❌ 不支持(本库定位 RN 原生) |
+## 4. Android 已知差异 / provider 限制（诚实清单）
+
+这些 prop **都能传、不会崩**，只是底层国内 SDK 无对应能力 → 优雅忽略：
+
+| Prop / 能力 | 说明 |
+|---|---|
+| `customMapStyle` | RNM 用 Google 的 JSON 样式；高德用**二进制样式文件**，两者不兼容，故 JSON 不生效。需自定义样式请用高德样式文件方案。 |
+| `kmlSrc` / `onKmlReady` | 高德无原生 KML 加载器；如需可在 JS 侧解析 KML 后用 `Geojson`/`Marker` 渲染。 |
+| `tintColor` / `mapPadding` | 高德 Android 无对应 API。 |
+| `mapType: 'satelliteFlyover' / 'hybridFlyover'` | iOS-only 飞行视图；Android 降级为最接近底图。 |
+| `loadingEnabled` / `loadingIndicatorColor` / `loadingBackgroundColor` | 高德自带加载 UI。 |
+| `toolbarEnabled` / `liteMode` / `cacheEnabled` | Google Maps 专有概念，无高德等价。 |
+| `zoomTapEnabled` / `scrollDuringRotateOrZoomEnabled` | 高德无独立开关，并入手势。 |
+| Marker 的 `centerOffset` / `calloutOffset` / `displayPriority` / `titleVisibility` / `subtitleVisibility` / `useLegacyPinView` / `tracksInfoWindowChanges` | Apple Maps 专有，Android 接受但无效。 |
+
+> 设计原则：**对标 react-native-maps 的 API 形状以保证「只改 import」**；底层 provider 不具备的能力**降级为 no-op 而非报错**，并在此如实记录。
+
+---
+
+## 5. 一个最小可运行例子
+
+```tsx
+import React from 'react';
+import MapView, { Marker, Polyline, setPrivacyConsent } from 'react-native-cn-maps';
+
+setPrivacyConsent({ agreed: true, contains: true, shown: true });
+
+export default function App() {
+  return (
+    <MapView
+      style={{ flex: 1 }}
+      provider="amap"
+      coordinateSystem="wgs84"          // 若数据是 GPS/WGS-84
+      initialRegion={{
+        latitude: 31.2304, longitude: 121.4737,
+        latitudeDelta: 0.1, longitudeDelta: 0.1,
+      }}
+      onMapReady={() => console.log('ready')}
+    >
+      <Marker coordinate={{ latitude: 31.2397, longitude: 121.4998 }} title="外滩" />
+      <Polyline
+        coordinates={[
+          { latitude: 31.2397, longitude: 121.4998 },
+          { latitude: 31.2304, longitude: 121.4737 },
+        ]}
+        strokeColor="#ff0000"
+        strokeWidth={4}
+      />
+    </MapView>
+  );
+}
+```
+
+与 react-native-maps 的写法**完全一致**，除了 import、`provider`、`coordinateSystem` 与隐私合规调用。

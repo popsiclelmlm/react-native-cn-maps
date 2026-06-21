@@ -34,7 +34,9 @@ Most code ports over by changing a single import.
 - 🧭 **Coordinate systems** — `gcj02` / `wgs84` / `bd09`, converted in JS so the native layer always speaks GCJ-02.
 - ⚡ **New Architecture only** — Fabric components + TurboModule, no bridge.
 - 🔒 **Privacy-first** — never auto-agrees; the host app declares PIPL consent explicitly.
-- 🇨🇳 **China providers** — AMap today; Baidu / Tencent planned (API shape already reserved).
+- 🇨🇳 **China providers** — AMap / 高德, Baidu / 百度, Tencent / 腾讯; all three verified rendering + authenticating on Android.
+
+> **Migrating from react-native-maps?** See [docs/MIGRATION_FROM_RN_MAPS.md](docs/MIGRATION_FROM_RN_MAPS.md) — most projects migrate by changing the import; the guide has the full parity matrix and the one real gotcha (coordinate systems). Android verification evidence: [docs/ANDROID_MULTI_PROVIDER_VERIFICATION.md](docs/ANDROID_MULTI_PROVIDER_VERIFICATION.md).
 
 ## 📦 Installation
 
