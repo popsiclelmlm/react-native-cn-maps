@@ -108,6 +108,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)updateOverlay:(CNOverlayHandle *)handle model:(CNOverlayModel *)model;
 - (void)removeOverlay:(CNOverlayHandle *)handle;
 
+#pragma mark Geocoding (optional)
+@optional
+// Reverse geocoding (async). Adapters without a bundled geocoder can omit this;
+// the host then replies with an empty address. The dictionary keys mirror the JS
+// `Address` type (name / thoroughfare / locality / administrativeArea / ...).
+- (void)addressForCoordinate:(CLLocationCoordinate2D)coordinate
+                  completion:(void (^)(NSDictionary *_Nullable address))completion;
+
 @end
 
 // Adapter classes that can forward a privacy-compliance declaration to their SDK.

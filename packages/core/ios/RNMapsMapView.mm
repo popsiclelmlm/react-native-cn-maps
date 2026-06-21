@@ -596,6 +596,19 @@ static BOOL RNMapsCameraChanged(
   }];
 }
 
+- (void)addressForCoordinate:(NSInteger)requestId latitude:(double)latitude longitude:(double)longitude
+{
+  __weak RNMapsMapView *weakSelf = self;
+  if ([_adapter respondsToSelector:@selector(addressForCoordinate:completion:)]) {
+    [_adapter addressForCoordinate:CLLocationCoordinate2DMake(latitude, longitude)
+                        completion:^(NSDictionary *_Nullable address) {
+      [weakSelf emitCommandResult:requestId data:address ?: @{}];
+    }];
+  } else {
+    [self emitCommandResult:requestId data:@{}];
+  }
+}
+
 // Screen frames (in points) of all child markers, keyed by identifier.
 - (void)getMarkersFrames:(NSInteger)requestId onlyVisible:(BOOL)onlyVisible
 {
