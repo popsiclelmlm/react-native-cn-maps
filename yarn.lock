@@ -9716,6 +9716,7 @@ __metadata:
     react-native-cn-maps: "workspace:*"
     react-native-cn-maps-amap: "workspace:*"
     react-native-cn-maps-baidu: "workspace:*"
+    react-native-cn-maps-tencent: "workspace:*"
     react-native-monorepo-config: "npm:^0.3.3"
   languageName: unknown
   linkType: soft
@@ -9752,7 +9753,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"react-native-cn-maps-tencent@workspace:packages/tencent":
+"react-native-cn-maps-tencent@workspace:*, react-native-cn-maps-tencent@workspace:packages/tencent":
   version: 0.0.0-use.local
   resolution: "react-native-cn-maps-tencent@workspace:packages/tencent"
   peerDependencies:

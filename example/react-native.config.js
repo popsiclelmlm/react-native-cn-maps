@@ -27,5 +27,9 @@ module.exports = {
       root: path.join(__dirname, '..', 'packages', 'baidu'),
       platforms: { ios: {}, android: {} },
     },
+    'react-native-cn-maps-tencent': {
+      root: path.join(__dirname, '..', 'packages', 'tencent'),
+      platforms: { ios: {}, android: {} },
+    },
   },
 };

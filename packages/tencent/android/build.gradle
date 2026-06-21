@@ -6,7 +6,7 @@ buildscript {
     targetSdkVersion: 36,
     // Tencent Map Android (vector) SDK. Pin to the version you verified; host apps
     // can override with `ext.tencentSdkVersion = "..."`.
-    tencentSdkVersion: "5.6.0"
+    tencentSdkVersion: "5.7.0"
   ]
 
   ext.getTencentExtOrDefault = { prop ->
@@ -32,6 +32,15 @@ buildscript {
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 apply plugin: "com.facebook.react"
+
+// The Tencent vector SDK is hosted on Tencent's own Maven mirror (not on the
+// default repos). Host apps using FAIL_ON_PROJECT_REPOS must instead add this URL
+// to their settings.gradle dependencyResolutionManagement.
+repositories {
+  google()
+  mavenCentral()
+  maven { url "https://mirrors.tencent.com/repository/maven/tencent_public/" }
+}
 
 android {
   namespace "com.cnmaps.tencent"

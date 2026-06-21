@@ -199,8 +199,8 @@ class TencentMapAdapter(context: Context) : CnMapAdapter {
     val options = MarkerOptions(LatLng(model.latitude, model.longitude))
       .draggable(model.draggable)
       .alpha(model.opacity)
-      .rotation(model.rotationDegrees)
-      .zIndex(model.zIndex.toInt())
+      .rotation(model.rotation)
+      .zIndex(model.zIndex)
     descriptorFor(model)?.let { options.icon(it) }
     val marker = tencentMap.addMarker(options)
     marker.tag = childId
@@ -213,7 +213,7 @@ class TencentMapAdapter(context: Context) : CnMapAdapter {
     val marker = handle.sdkObject as? Marker ?: return
     marker.position = LatLng(model.latitude, model.longitude)
     marker.alpha = model.opacity
-    marker.rotation = model.rotationDegrees
+    marker.rotation = model.rotation
     marker.isDraggable = model.draggable
     descriptorFor(model)?.let { marker.setIcon(it) }
   }
@@ -283,7 +283,7 @@ class TencentMapAdapter(context: Context) : CnMapAdapter {
         .addAll(model.coordinates.map { LatLng(it.latitude, it.longitude) })
         .width(model.strokeWidth)
         .color(if (model.strokeColors.isNotEmpty()) model.strokeColors[0] else model.strokeColor)
-        .zIndex(model.zIndex)
+        .zIndex(model.zIndex.toInt())
     )
     is CnPolygonModel -> if (model.coordinates.size < 3) null else tencentMap.addPolygon(
       PolygonOptions()
@@ -291,7 +291,7 @@ class TencentMapAdapter(context: Context) : CnMapAdapter {
         .strokeColor(model.strokeColor)
         .fillColor(model.fillColor)
         .strokeWidth(model.strokeWidth)
-        .zIndex(model.zIndex)
+        .zIndex(model.zIndex.toInt())
       // NOTE: holes via PolygonOptions.addHole(...) is available on some versions; TODO.
     )
     is CnCircleModel -> tencentMap.addCircle(
@@ -301,19 +301,10 @@ class TencentMapAdapter(context: Context) : CnMapAdapter {
         .strokeColor(model.strokeColor)
         .fillColor(model.fillColor)
         .strokeWidth(model.strokeWidth)
-        .zIndex(model.zIndex)
+        .zIndex(model.zIndex.toInt())
     )
-    is CnGroundOverlayModel -> {
-      val sw = model.southWest; val ne = model.northEast; val bmp = model.bitmap
-      if (sw == null || ne == null || bmp == null) null else tencentMap.addGroundOverlay(
-        GroundOverlayOptions()
-          .positionFromBounds(LatLngBounds(LatLng(sw.latitude, sw.longitude), LatLng(ne.latitude, ne.longitude)))
-          .image(BitmapDescriptorFactory.fromBitmap(bmp))
-          .transparency((1f - model.opacity).coerceIn(0f, 1f))
-          .zIndex(model.zIndex)
-      )
-    }
-    // Heatmap / tiles use Tencent-specific classes; TODO (see package README).
+    // GroundOverlay / Heatmap / tiles use Tencent-specific APIs that differ per SDK
+    // version (e.g. GroundOverlayOptions has no positionFromBounds); TODO (see README).
     else -> null
   }
 

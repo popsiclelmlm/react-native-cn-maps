@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application
       android:name=".MainApplication"
@@ -17,6 +19,9 @@
       <meta-data
         android:name="com.baidu.lbsapi.API_KEY"
         android:value="${BAIDU_ANDROID_API_KEY}" />
+      <meta-data
+        android:name="TencentMapSDK"
+        android:value="${TENCENT_ANDROID_API_KEY}" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

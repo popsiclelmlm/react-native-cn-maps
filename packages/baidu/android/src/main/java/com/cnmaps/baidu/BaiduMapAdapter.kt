@@ -2,6 +2,9 @@ package com.cnmaps.baidu
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Point
 import android.os.Bundle
 import android.util.Base64
@@ -215,7 +218,8 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
       .alpha(model.opacity)
       .rotate(model.rotation)
       .zIndex(model.zIndex.toInt())
-    descriptorFor(model)?.let { options.icon(it) }
+    // Baidu throws BDMapSDKException if a marker has no icon — always set one.
+    options.icon(descriptorFor(model) ?: defaultMarkerDescriptor)
     val marker = baiduMap.addOverlay(options) as Marker
     marker.extraInfo = Bundle().apply { putString(CHILD_ID, childId) }
     handle.sdkObject = marker
@@ -229,7 +233,7 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
     marker.alpha = model.opacity
     marker.rotate = model.rotation
     marker.isDraggable = model.draggable
-    descriptorFor(model)?.let { marker.icon = it }
+    marker.icon = descriptorFor(model) ?: defaultMarkerDescriptor
   }
 
   override fun removeMarker(handle: OverlayHandle) {
@@ -256,10 +260,34 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
     return CnLatLng(m.position.latitude, m.position.longitude)
   }
 
-  // null → Baidu uses its built-in default marker icon.
+  // Custom icon if the model carries a bitmap, else null (caller falls back to default).
   private fun descriptorFor(model: CnMarkerModel): BitmapDescriptor? =
     model.customBitmap?.let { BitmapDescriptorFactory.fromBitmap(it) }
       ?: model.iconBitmap?.let { BitmapDescriptorFactory.fromBitmap(it) }
+
+  // Baidu ships no built-in default marker (unlike AMap/Tencent) and rejects
+  // icon-less markers, so we synthesize a simple pin once and reuse it.
+  private val defaultMarkerDescriptor: BitmapDescriptor by lazy {
+    val size = 60
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    val cx = size / 2f
+    val headR = size * 0.32f
+    val headCy = size * 0.38f
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E53935"); style = Paint.Style.FILL }
+    // teardrop body: triangle from the head down to the tip
+    val path = android.graphics.Path().apply {
+      moveTo(cx, size * 0.96f)
+      lineTo(cx - headR, headCy + headR * 0.3f)
+      lineTo(cx + headR, headCy + headR * 0.3f)
+      close()
+    }
+    canvas.drawPath(path, fill)
+    canvas.drawCircle(cx, headCy, headR, fill)
+    val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; style = Paint.Style.FILL }
+    canvas.drawCircle(cx, headCy, headR * 0.42f, hole)
+    BitmapDescriptorFactory.fromBitmap(bmp)
+  }
 
   // Overlays ------------------------------------------------------------------
 
