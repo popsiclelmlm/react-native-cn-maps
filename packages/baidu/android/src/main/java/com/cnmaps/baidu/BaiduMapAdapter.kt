@@ -8,6 +8,7 @@ import android.util.Base64
 import android.view.View
 import com.baidu.mapapi.SDKInitializer
 import com.baidu.mapapi.map.BaiduMap
+import com.baidu.mapapi.map.BitmapDescriptor
 import com.baidu.mapapi.map.BitmapDescriptorFactory
 import com.baidu.mapapi.map.Circle
 import com.baidu.mapapi.map.CircleOptions
@@ -212,9 +213,9 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
       .position(LatLng(model.latitude, model.longitude))
       .draggable(model.draggable)
       .alpha(model.opacity)
-      .rotate(model.rotationDegrees)
+      .rotate(model.rotation)
       .zIndex(model.zIndex.toInt())
-      .icon(descriptorFor(model))
+    descriptorFor(model)?.let { options.icon(it) }
     val marker = baiduMap.addOverlay(options) as Marker
     marker.extraInfo = Bundle().apply { putString(CHILD_ID, childId) }
     handle.sdkObject = marker
@@ -226,9 +227,9 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
     val marker = handle.sdkObject as? Marker ?: return
     marker.position = LatLng(model.latitude, model.longitude)
     marker.alpha = model.opacity
-    marker.rotate = model.rotationDegrees
+    marker.rotate = model.rotation
     marker.isDraggable = model.draggable
-    marker.icon = descriptorFor(model)
+    descriptorFor(model)?.let { marker.icon = it }
   }
 
   override fun removeMarker(handle: OverlayHandle) {
@@ -255,10 +256,10 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
     return CnLatLng(m.position.latitude, m.position.longitude)
   }
 
-  private fun descriptorFor(model: CnMarkerModel) =
+  // null → Baidu uses its built-in default marker icon.
+  private fun descriptorFor(model: CnMarkerModel): BitmapDescriptor? =
     model.customBitmap?.let { BitmapDescriptorFactory.fromBitmap(it) }
       ?: model.iconBitmap?.let { BitmapDescriptorFactory.fromBitmap(it) }
-      ?: BitmapDescriptorFactory.fromResource(com.baidu.mapapi.map.R.drawable.icon_marka) // VERIFY default marker
 
   // Overlays ------------------------------------------------------------------
 

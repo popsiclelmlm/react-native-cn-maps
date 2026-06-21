@@ -85,7 +85,8 @@ android {
         versionCode 1
         versionName "1.0"
         manifestPlaceholders = [
-            AMAP_ANDROID_API_KEY: findProperty("AMAP_ANDROID_API_KEY") ?: ""
+            AMAP_ANDROID_API_KEY: findProperty("AMAP_ANDROID_API_KEY") ?: "",
+            BAIDU_ANDROID_API_KEY: findProperty("BAIDU_ANDROID_API_KEY") ?: ""
         ]
     }
     signingConfigs {

@@ -13,7 +13,8 @@
     "react": "19.2.3",
     "react-native": "0.85.0",
     "react-native-cn-maps": "workspace:*",
-    "react-native-cn-maps-amap": "workspace:*"
+    "react-native-cn-maps-amap": "workspace:*",
+    "react-native-cn-maps-baidu": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

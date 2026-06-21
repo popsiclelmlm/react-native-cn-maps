@@ -63,9 +63,9 @@ dependencies {
   implementation "com.facebook.react:react-android"
   // The provider-agnostic adapter contract lives in the core module.
   implementation project(":react-native-cn-maps")
-  // Baidu Map Android SDK. Map + Base are required; Util/Search optional.
+  // Baidu Map Android SDK (mavenCentral). Map + Util cover the base map; Location /
+  // Search are optional add-ons. There is no "Base" artifact.
   def baidu = getBaiduExtOrDefault('baiduSdkVersion')
   implementation "com.baidu.lbsyun:BaiduMapSDK_Map:${baidu}"
-  implementation "com.baidu.lbsyun:BaiduMapSDK_Base:${baidu}"
   implementation "com.baidu.lbsyun:BaiduMapSDK_Util:${baidu}"
 }

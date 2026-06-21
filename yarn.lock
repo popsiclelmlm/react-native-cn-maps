@@ -9685,7 +9685,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"react-native-cn-maps-baidu@workspace:packages/baidu":
+"react-native-cn-maps-baidu@workspace:*, react-native-cn-maps-baidu@workspace:packages/baidu":
   version: 0.0.0-use.local
   resolution: "react-native-cn-maps-baidu@workspace:packages/baidu"
   peerDependencies:
@@ -9715,6 +9715,7 @@ __metadata:
     react-native-builder-bob: "npm:^0.41.0"
     react-native-cn-maps: "workspace:*"
     react-native-cn-maps-amap: "workspace:*"
+    react-native-cn-maps-baidu: "workspace:*"
     react-native-monorepo-config: "npm:^0.3.3"
   languageName: unknown
   linkType: soft

@@ -23,5 +23,9 @@ module.exports = {
         android: {},
       },
     },
+    'react-native-cn-maps-baidu': {
+      root: path.join(__dirname, '..', 'packages', 'baidu'),
+      platforms: { ios: {}, android: {} },
+    },
   },
 };
