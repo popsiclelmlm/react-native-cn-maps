@@ -566,7 +566,7 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       <NativeMapView
         {...rest}
         ref={nativeRef}
-        provider={DEFAULT_PROVIDER}
+        provider={provider}
         coordinateSystem={coordinateSystem}
         initialRegion={toProviderRegion(
           initialRegion,
