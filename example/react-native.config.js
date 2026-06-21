@@ -25,11 +25,14 @@ module.exports = {
     },
     'react-native-cn-maps-baidu': {
       root: path.join(__dirname, '..', 'packages', 'baidu'),
-      platforms: { ios: {}, android: {} },
+      // iOS autolink disabled until BaiduMapKit's verified pod version is pinned
+      // (the iOS adapter source ships in the package; Android is fully wired).
+      platforms: { ios: null, android: {} },
     },
     'react-native-cn-maps-tencent': {
       root: path.join(__dirname, '..', 'packages', 'tencent'),
-      platforms: { ios: {}, android: {} },
+      // iOS autolink disabled until QMapKit's verified pod version is pinned.
+      platforms: { ios: null, android: {} },
     },
   },
 };

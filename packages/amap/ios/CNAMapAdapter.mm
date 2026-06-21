@@ -3,6 +3,7 @@
 
 #import <MAMapKit/MAMapKit.h>
 #import <AMapFoundationKit/AMapFoundationKit.h>
+#import <AMapSearchKit/AMapSearchKit.h>
 #import <QuartzCore/QuartzCore.h>
 
 #include <vector>
@@ -186,13 +187,19 @@ static std::vector<CLLocationCoordinate2D> CNUnboxCoordinates(NSArray<NSValue *>
 
 #pragma mark - Adapter
 
-@interface CNAMapAdapter () <MAMapViewDelegate>
+@interface CNAMapAdapter () <MAMapViewDelegate, AMapSearchDelegate>
 @end
 
 @implementation CNAMapAdapter {
   MAMapView *_mapView;
   BOOL _mapReady;
   BOOL _isGesture;
+
+  // Reverse geocoding (AMapSearch). The delegate is single, so completions are
+  // keyed by the request pointer; `_geocodeRequests` keeps the requests alive.
+  AMapSearchAPI *_geocodeSearch;
+  NSMutableDictionary<NSValue *, id> *_geocodeCompletions;
+  NSMutableArray<AMapReGeocodeSearchRequest *> *_geocodeRequests;
 
   CNMapOptions *_lastOptions;
 
@@ -557,6 +564,70 @@ static std::vector<CLLocationCoordinate2D> CNUnboxCoordinates(NSArray<NSValue *>
     }
     completion(uri);
   }];
+}
+
+#pragma mark Geocoding
+
+- (void)addressForCoordinate:(CLLocationCoordinate2D)coordinate
+                  completion:(void (^)(NSDictionary *_Nullable))completion
+{
+  if (_geocodeSearch == nil) {
+    _geocodeSearch = [[AMapSearchAPI alloc] init];
+    _geocodeSearch.delegate = self;
+    _geocodeCompletions = [NSMutableDictionary dictionary];
+    _geocodeRequests = [NSMutableArray array];
+  }
+  AMapReGeocodeSearchRequest *request = [[AMapReGeocodeSearchRequest alloc] init];
+  request.location = [AMapGeoPoint locationWithLatitude:coordinate.latitude
+                                              longitude:coordinate.longitude];
+  request.requireExtension = YES;
+  NSValue *key = [NSValue valueWithNonretainedObject:request];
+  _geocodeCompletions[key] = [completion copy];
+  [_geocodeRequests addObject:request];
+  [_geocodeSearch AMapReGoecodeSearch:request];
+}
+
+- (void)resolveGeocodeRequest:(id)request withAddress:(NSDictionary *)address
+{
+  NSValue *key = [NSValue valueWithNonretainedObject:request];
+  void (^completion)(NSDictionary *) = _geocodeCompletions[key];
+  [_geocodeCompletions removeObjectForKey:key];
+  if (request != nil) {
+    [_geocodeRequests removeObject:request];
+  }
+  if (completion != nil) {
+    completion(address);
+  }
+}
+
+- (void)onReGeocodeSearchDone:(AMapReGeocodeSearchRequest *)request
+                     response:(AMapReGeocodeSearchResponse *)response
+{
+  AMapReGeocode *regeocode = response.regeocode;
+  if (regeocode == nil) {
+    [self resolveGeocodeRequest:request withAddress:@{}];
+    return;
+  }
+  AMapAddressComponent *c = regeocode.addressComponent;
+  NSString *city = c.city.length > 0 ? c.city : (c.province ?: @"");
+  [self resolveGeocodeRequest:request
+                  withAddress:@{
+                    @"name" : regeocode.formattedAddress ?: @"",
+                    @"thoroughfare" : c.streetNumber.street ?: (c.township ?: @""),
+                    @"subThoroughfare" : c.streetNumber.number ?: @"",
+                    @"locality" : city,
+                    @"subLocality" : c.district ?: @"",
+                    @"administrativeArea" : c.province ?: @"",
+                    @"subAdministrativeArea" : c.district ?: @"",
+                    @"postalCode" : @"",
+                    @"countryCode" : @"CN",
+                    @"country" : @"中国",
+                  }];
+}
+
+- (void)AMapSearchRequest:(id)request didFailWithError:(NSError *)error
+{
+  [self resolveGeocodeRequest:request withAddress:@{}];
 }
 
 #pragma mark Markers

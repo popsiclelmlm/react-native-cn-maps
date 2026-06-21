@@ -2,6 +2,8 @@ PODS:
   - AMap3DMap (11.1.200):
     - AMapFoundation (>= 1.8.7)
   - AMapFoundation (1.8.7)
+  - AMapSearch (9.7.5):
+    - AMapFoundation (>= 1.8.0)
   - CnMaps (0.2.0):
     - hermes-engine
     - RCTRequired
@@ -26,6 +28,7 @@ PODS:
     - Yoga
   - CnMapsAMap (0.2.0):
     - AMap3DMap (~> 11.1.200)
+    - AMapSearch (~> 9.7.5)
     - CnMaps
     - hermes-engine
     - RCTRequired
@@ -1880,6 +1883,7 @@ SPEC REPOS:
   trunk:
     - AMap3DMap
     - AMapFoundation
+    - AMapSearch
 
 EXTERNAL SOURCES:
   CnMaps:
@@ -2037,8 +2041,9 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   AMap3DMap: 89c17fdbca2f25e4b46d6a45a8e50346980fc799
   AMapFoundation: e99da1cc722528c60b39340b4763a95305f6c55e
+  AMapSearch: 29224a399b56b17da1540e4312fc4d9dc37342bb
   CnMaps: f9d72a6f78939408d4d5dab97609a3ba83bc5c24
-  CnMapsAMap: 010d79dc691298c49216e8456a5b983e38139681
+  CnMapsAMap: 86411c3716b34cb34334fa92d9e3e9acfe414a93
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
   hermes-engine: 64339f34acdba56952bdf579a2e41a8d8c4d0e26
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257

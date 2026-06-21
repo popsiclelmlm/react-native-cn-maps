@@ -23,4 +23,8 @@ Pod::Spec.new do |s|
   # Pinned to the version verified in example/ios/Podfile.lock so iOS builds are
   # reproducible instead of floating to the latest published AMap3DMap. (K2)
   s.dependency "AMap3DMap", "~> 11.1.200"
+  # Reverse geocoding (addressForCoordinate). Pinned to 9.7.x because it needs
+  # only AMapFoundation >= 1.8.0 (matching AMap3DMap 11.1.200); 9.8.0 would force
+  # AMapFoundation >= 1.9.0 and conflict. Same AMapSearchKit geocoding API.
+  s.dependency "AMapSearch", "~> 9.7.5"
 end
