@@ -23,7 +23,11 @@ export const MAP_TYPES = {
   HYBRID: 'hybrid',
   TERRAIN: 'terrain',
   NONE: 'none',
+  // RNM spells this key without an underscore; expose both for parity.
+  MUTEDSTANDARD: 'mutedStandard',
   MUTED_STANDARD: 'mutedStandard',
+  SATELLITE_FLYOVER: 'satelliteFlyover',
+  HYBRID_FLYOVER: 'hybridFlyover',
 } as const satisfies Record<string, MapType>;
 
 export type MapTypes = (typeof MAP_TYPES)[keyof typeof MAP_TYPES];

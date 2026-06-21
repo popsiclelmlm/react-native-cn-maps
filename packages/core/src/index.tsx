@@ -9,22 +9,25 @@ export type { MapMarkerProps } from './MapMarker';
 /** RNM parity: `Animated`-wrapped Marker (also available as `Marker.Animated`). */
 export const MarkerAnimated = Marker.Animated;
 
-export { default as Polyline } from './MapPolyline';
+export { default as Polyline, default as MapPolyline } from './MapPolyline';
 export type { MapPolylineProps } from './MapPolyline';
 
-export { default as Polygon } from './MapPolygon';
+export { default as Polygon, default as MapPolygon } from './MapPolygon';
 export type { MapPolygonProps } from './MapPolygon';
 
-export { default as Circle } from './MapCircle';
+export { default as Circle, default as MapCircle } from './MapCircle';
 export type { MapCircleProps } from './MapCircle';
 
-export { default as Callout } from './MapCallout';
+export { default as Callout, default as MapCallout } from './MapCallout';
 export type { MapCalloutProps } from './MapCallout';
 
-export { default as CalloutSubview } from './MapCalloutSubview';
+export {
+  default as CalloutSubview,
+  default as MapCalloutSubview,
+} from './MapCalloutSubview';
 export type { MapCalloutSubviewProps } from './MapCalloutSubview';
 
-export { default as Overlay } from './MapOverlay';
+export { default as Overlay, default as MapOverlay } from './MapOverlay';
 export type { MapOverlayProps } from './MapOverlay';
 
 /** RNM parity: `Animated`-wrapped Overlay (also available as `Overlay.Animated`). */
@@ -33,16 +36,16 @@ export const OverlayAnimated = Overlay.Animated;
 export { default as Geojson } from './MapGeojson';
 export type { MapGeojsonProps } from './MapGeojson';
 
-export { default as Heatmap } from './MapHeatmap';
+export { default as Heatmap, default as MapHeatmap } from './MapHeatmap';
 export type { MapHeatmapProps } from './MapHeatmap';
 
-export { default as UrlTile } from './MapUrlTile';
+export { default as UrlTile, default as MapUrlTile } from './MapUrlTile';
 export type { MapUrlTileProps } from './MapUrlTile';
 
-export { default as WMSTile } from './MapWMSTile';
+export { default as WMSTile, default as MapWMSTile } from './MapWMSTile';
 export type { MapWMSTileProps } from './MapWMSTile';
 
-export { default as LocalTile } from './MapLocalTile';
+export { default as LocalTile, default as MapLocalTile } from './MapLocalTile';
 export type { MapLocalTileProps } from './MapLocalTile';
 
 export { AnimatedRegion } from './AnimatedRegion';

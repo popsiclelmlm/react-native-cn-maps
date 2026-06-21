@@ -41,7 +41,11 @@ export type MapType =
   | 'hybrid'
   | 'terrain'
   | 'none'
-  | 'mutedStandard';
+  | 'mutedStandard'
+  // iOS-only flyover types (RNM parity); on the China providers they degrade to
+  // the closest base style.
+  | 'satelliteFlyover'
+  | 'hybridFlyover';
 
 export type UserInterfaceStyle = 'light' | 'dark';
 
