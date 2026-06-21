@@ -2,6 +2,8 @@ import React from 'react';
 import { Animated, type NativeSyntheticEvent } from 'react-native';
 import NativeMapView, { Commands } from './MapViewNativeComponent';
 import { AnimatedRegion } from './AnimatedRegion';
+import MapGeojson from './MapGeojson';
+import { parseKml, type KmlFeatureCollection } from './kml';
 import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import {
   fromProviderCamera,
@@ -62,6 +64,8 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       onPanDrag,
       onPoiClick,
       onUserLocationChange,
+      kmlSrc,
+      onKmlReady,
       ...rest
     },
     ref
@@ -593,6 +597,35 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       [coordinateSystem, provider, onUserLocationChange]
     );
 
+    // kmlSrc: the China SDKs have no native KML loader, so fetch + parse the KML
+    // in JS and render it as a <Geojson> overlay (WGS-84). Fires onKmlReady.
+    const [kmlGeojson, setKmlGeojson] =
+      React.useState<KmlFeatureCollection | null>(null);
+    const onKmlReadyRef = React.useRef(onKmlReady);
+    onKmlReadyRef.current = onKmlReady;
+    React.useEffect(() => {
+      if (!kmlSrc) {
+        setKmlGeojson(null);
+        return;
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch(kmlSrc);
+          const text = await res.text();
+          if (cancelled) return;
+          const { geojson, markers } = parseKml(text);
+          setKmlGeojson(geojson);
+          onKmlReadyRef.current?.({ nativeEvent: { markers } });
+        } catch {
+          if (!cancelled) setKmlGeojson(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [kmlSrc]);
+
     return (
       <NativeMapView
         {...rest}
@@ -639,6 +672,13 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
           <MapCoordinateSystemContext.Provider value={coordinateSystem}>
             {children}
           </MapCoordinateSystemContext.Provider>
+          {/* KML parsed from kmlSrc is WGS-84 by spec, so force that system for
+              its <Geojson> subtree regardless of the map's coordinateSystem. */}
+          {kmlGeojson ? (
+            <MapCoordinateSystemContext.Provider value="wgs84">
+              <MapGeojson geojson={kmlGeojson} />
+            </MapCoordinateSystemContext.Provider>
+          ) : null}
         </MapProviderContext.Provider>
       </NativeMapView>
     );

@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Point
 import android.util.Base64
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import com.cnmaps.adapter.CnCamera
 import com.cnmaps.adapter.CnCircleModel
@@ -46,8 +48,36 @@ import kotlin.math.abs
 // Google-Maps-shaped. Coordinates from JS are already GCJ-02. APIs to re-check
 // against the linked SDK version are tagged VERIFY.
 class TencentMapAdapter(context: Context) : CnMapAdapter {
-  private val mapView = TMapView(context)
+  // The Tencent vector SDK has no map-touch observer API, so we subclass its
+  // MapView and watch dispatchTouchEvent — this reliably catches every touch and
+  // drives onPanDrag + the isGesture flag (parity with AMap / Baidu).
+  private val panGestureDetector = GestureDetector(
+    context,
+    object : GestureDetector.SimpleOnGestureListener() {
+      override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+        coordinateForTouch(e2)?.let {
+          delegate?.onMapPress(CnPressKind.PAN_DRAG, it, Point(e2.x.toInt(), e2.y.toInt()))
+        }
+        return false
+      }
+    }
+  )
+
+  private val mapView = object : TMapView(context) {
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+      when (ev.actionMasked) {
+        MotionEvent.ACTION_DOWN -> isGesture = false
+        MotionEvent.ACTION_MOVE -> isGesture = true
+      }
+      panGestureDetector.onTouchEvent(ev)
+      return super.dispatchTouchEvent(ev)
+    }
+  }
   private val tencentMap: TencentMap = mapView.map
+
+  private fun coordinateForTouch(event: MotionEvent): CnLatLng? =
+    runCatching { tencentMap.projection.fromScreenLocation(Point(event.x.toInt(), event.y.toInt())) }
+      .getOrNull()?.let { CnLatLng(it.latitude, it.longitude) }
 
   override val providerName: String get() = "tencent"
   override val view: View get() = mapView

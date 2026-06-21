@@ -8,6 +8,8 @@ import android.graphics.Paint
 import android.graphics.Point
 import android.os.Bundle
 import android.util.Base64
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import com.baidu.mapapi.SDKInitializer
 import com.baidu.mapapi.map.BaiduMap
@@ -354,7 +356,27 @@ class BaiduMapAdapter(context: Context) : CnMapAdapter {
 
   // Listeners -----------------------------------------------------------------
 
+  // onPanDrag: Baidu exposes a passive map-touch observer; feed it to a gesture
+  // detector whose onScroll emits PAN_DRAG (parity with AMap).
+  private val panGestureDetector = GestureDetector(
+    context,
+    object : GestureDetector.SimpleOnGestureListener() {
+      override fun onScroll(e1: MotionEvent?, e2: MotionEvent, distanceX: Float, distanceY: Float): Boolean {
+        coordinateForTouch(e2)?.let {
+          delegate?.onMapPress(com.cnmaps.adapter.CnPressKind.PAN_DRAG, it, Point(e2.x.toInt(), e2.y.toInt()))
+        }
+        return false
+      }
+    }
+  )
+
+  private fun coordinateForTouch(event: MotionEvent): CnLatLng? =
+    runCatching { baiduMap.projection.fromScreenLocation(Point(event.x.toInt(), event.y.toInt())) }
+      .getOrNull()?.let { CnLatLng(it.latitude, it.longitude) }
+
   private fun configureListeners() {
+    baiduMap.setOnMapTouchListener { event -> event?.let { panGestureDetector.onTouchEvent(it) } }
+
     baiduMap.setOnMapClickListener(object : BaiduMap.OnMapClickListener {
       override fun onMapClick(latLng: LatLng?) {
         latLng?.let { delegate?.onMapPress(com.cnmaps.adapter.CnPressKind.PRESS, CnLatLng(it.latitude, it.longitude), screenPoint(it)) }
