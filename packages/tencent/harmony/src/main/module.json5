@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "rn_cn_maps_tencent",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

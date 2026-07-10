@@ -1,16 +1,11 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View, Dimensions } from 'react-native';
 
 import MapView, { Circle, Polygon, Polyline } from 'react-native-cn-maps';
 import { DemoButton, DemoButtonRow, DemoControls } from './_ui';
 
-// react-native-cn-maps 的 Circle/Polygon/Polyline 为新架构函数组件，暂未暴露
-// ref / setNativeProps（旧架构 API）。为保留官方示例结构，此处以 any 断言渲染；
-// 运行时 ref 不会挂载，setNativeProps 调用会被安全跳过。
-const AnyCircle: any = Circle;
-const AnyPolygon: any = Polygon;
-const AnyPolyline: any = Polyline;
-
+// 新架构下 Circle/Polygon/Polyline 是函数组件，用 props 驱动即可，无需旧架构的
+// ref.setNativeProps —— 这里用 state 保存描边色，点击按钮改 state 触发重渲染。
 const { width, height } = Dimensions.get('window');
 
 const ASPECT_RATIO = width / height;
@@ -21,11 +16,6 @@ const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const SPACE = 0.01;
 
 function SetNativePropsOverlays(props: any) {
-  // 组件实例可变引用（非渲染状态）
-  const circleRef = useRef<any>(null);
-  const polygonRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
-
   const [region] = useState({
     latitude: LATITUDE,
     longitude: LONGITUDE,
@@ -71,13 +61,7 @@ function SetNativePropsOverlays(props: any) {
       longitude: LONGITUDE - SPACE,
     },
   ]);
-
-  const handleColorChange = (color: any) => {
-    const nativeProps = { strokeColor: color };
-    circleRef.current?.setNativeProps(nativeProps);
-    polygonRef.current?.setNativeProps(nativeProps);
-    polylineRef.current?.setNativeProps(nativeProps);
-  };
+  const [strokeColor, setStrokeColor] = useState('green');
 
   return (
     <View style={styles.container}>
@@ -86,32 +70,23 @@ function SetNativePropsOverlays(props: any) {
         style={styles.map}
         initialRegion={region}
       >
-        <AnyCircle
-          ref={(ref: any) => {
-            circleRef.current = ref;
-          }}
+        <Circle
           center={circle.center}
           radius={circle.radius}
           fillColor="rgba(255, 255, 255, 0.6)"
-          strokeColor="green"
+          strokeColor={strokeColor}
           zIndex={3}
           strokeWidth={3}
         />
-        <AnyPolygon
-          ref={(ref: any) => {
-            polygonRef.current = ref;
-          }}
+        <Polygon
           coordinates={polygon}
           fillColor="rgba(255, 255, 255, 0.6)"
-          strokeColor="green"
+          strokeColor={strokeColor}
           strokeWidth={2}
         />
-        <AnyPolyline
-          ref={(ref: any) => {
-            polylineRef.current = ref;
-          }}
+        <Polyline
           coordinates={polyline}
-          strokeColor="green"
+          strokeColor={strokeColor}
           strokeWidth={3}
         />
       </MapView>
@@ -120,17 +95,17 @@ function SetNativePropsOverlays(props: any) {
           <DemoButton
             label="绿色"
             variant="secondary"
-            onPress={() => handleColorChange('green')}
+            onPress={() => setStrokeColor('green')}
           />
           <DemoButton
             label="黑色"
             variant="secondary"
-            onPress={() => handleColorChange('black')}
+            onPress={() => setStrokeColor('black')}
           />
           <DemoButton
             label="红色"
             variant="secondary"
-            onPress={() => handleColorChange('red')}
+            onPress={() => setStrokeColor('red')}
           />
         </DemoButtonRow>
       </DemoControls>

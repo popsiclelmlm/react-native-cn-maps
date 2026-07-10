@@ -9,7 +9,9 @@ import type { AnimatedRegion } from './AnimatedRegion';
 
 // ---------- Coordinate primitives ----------
 
-export type MapProvider = 'amap' | 'baidu' | 'tencent';
+// 'mapkit' 是华为 Map Kit（鸿蒙自带地图），仅 HarmonyOS 端可用；iOS/Android 上选它会
+// 回退到默认 provider（无对应原生 adapter）。
+export type MapProvider = 'amap' | 'baidu' | 'tencent' | 'mapkit';
 
 export type CoordinateSystem = 'gcj02' | 'wgs84' | 'bd09';
 
@@ -281,6 +283,7 @@ export type MapViewProps = ViewProps & {
   paddingAdjustmentBehavior?: 'always' | 'automatic' | 'never';
 
   // KML
+  /** KML source: an http(s) URL, or an inline KML string starting with "<". */
   kmlSrc?: string;
 
   // Compass placement

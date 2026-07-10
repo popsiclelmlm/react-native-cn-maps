@@ -17,12 +17,13 @@ const SAMPLE_REGION = {
   longitudeDelta: LONGITUDE_DELTA,
 };
 
-function LiteMapView() {
+function LiteMapView(props: any) {
   const maps = [];
   for (let i = 0; i < 10; i++) {
     maps.push(
       <MapView
         liteMode
+        provider={props.provider}
         key={`map_${i}`}
         style={styles.map}
         initialRegion={SAMPLE_REGION}

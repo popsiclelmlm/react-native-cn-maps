@@ -16,7 +16,7 @@ const LONGITUDE = 121.4737;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-function CustomTiles(props: any) {
+function CacheURLTiles(props: any) {
   const [region] = useState({
     latitude: LATITUDE,
     longitude: LONGITUDE,
@@ -48,13 +48,9 @@ function CustomTiles(props: any) {
           // 6) 再加上 offlineMode=true —— 放大以测试低缩放层级瓦片拉伸到高缩放层级
           //
           maximumNativeZ={15}
-          // 测试时可切换不同的瓦片缓存路径，下面的示例适用于模拟器 / 仿真器
-          // iOS 模拟器路径，fileURL 与目录两种写法需分别测试
-          tileCachePath="file:///Users/suomimar/Library/Developer/CoreSimulator/tiles/"
-          //tileCachePath="/Users/suomimar/Library/Developer/CoreSimulator/tiles"
-          // Android 模拟器路径，fileURL 与目录两种写法需分别测试
-          //tileCachePath="file:///data/user/0/com.airbnb.android.react.maps.example/files/tiles"
-          //tileCachePath="/data/user/0/com.airbnb.android.react.maps.example/files/tiles"
+          // tileCachePath 需要一个可写目录（各平台沙盒路径不同），示例默认不设置。
+          // 实测磁盘缓存时，用 react-native-fs / expo-file-system 取得
+          // documentDirectory 后再传入，例如 tileCachePath={`${docDir}/tiles`}。
           tileCacheMaxAge={20}
           doubleTileSize={true}
           opacity={1.0}
@@ -78,4 +74,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomTiles;
+export default CacheURLTiles;

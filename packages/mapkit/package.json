@@ -1,0 +1,39 @@
+{
+  "name": "react-native-cn-maps-mapkit",
+  "version": "0.3.0",
+  "description": "Huawei Map Kit (鸿蒙自带地图) map provider for react-native-cn-maps (HarmonyOS only)",
+  "files": [
+    "harmony",
+    "react-native.config.js",
+    "!harmony/**/build",
+    "!harmony/**/.cxx",
+    "!harmony/**/oh_modules",
+    "!**/.*"
+  ],
+  "keywords": [
+    "react-native",
+    "harmony",
+    "harmonyos",
+    "mapkit",
+    "华为地图",
+    "鸿蒙地图"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/popsiclelmlm/react-native-cn-maps.git"
+  },
+  "author": "popsiclelmlm <no_7seven@163.com> (https://github.com/popsiclelmlm)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/popsiclelmlm/react-native-cn-maps/issues"
+  },
+  "homepage": "https://github.com/popsiclelmlm/react-native-cn-maps#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-cn-maps": ">=0.3.0"
+  }
+}

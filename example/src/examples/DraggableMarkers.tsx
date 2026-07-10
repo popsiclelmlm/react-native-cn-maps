@@ -18,7 +18,7 @@ function log(eventName: any, e: any) {
   console.log(eventName, e.nativeEvent);
 }
 
-function MarkerTypes(props: any) {
+function DraggableMarkers(props: any) {
   const [a] = useState({
     latitude: LATITUDE + SPACE,
     longitude: LONGITUDE + SPACE,
@@ -76,4 +76,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MarkerTypes;
+export default DraggableMarkers;

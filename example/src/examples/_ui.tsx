@@ -1,9 +1,3 @@
-// 示例统一 UI 套件
-// ------------------------------------------------------------------
-// 所有示例的「Demo 外壳控件」（按钮、提示气泡、信息面板、底部控件条）都从这里取，
-// 保证 40+ 个示例视觉统一；日后调整样式只改这一处。
-// 注意：地图相关组件（MapView / Marker / Overlay ...）仍在各示例内直接使用，
-// 这里只封装与地图无关的界面控件。
 import type { ReactNode } from 'react';
 import {
   Platform,
@@ -100,17 +94,6 @@ export function DemoControls({
   return <View style={[styles.controls, style]}>{children}</View>;
 }
 
-// 顶部控件容器：绝对定位在顶部（避开返回按钮/标题所在区域）
-export function DemoTopControls({
-  children,
-  style,
-}: {
-  children: ReactNode;
-  style?: StyleProp<ViewStyle>;
-}) {
-  return <View style={[styles.topControls, style]}>{children}</View>;
-}
-
 // 提示气泡：浮层小卡片，承载说明文字或状态信息（可传字符串或自定义节点）
 export function DemoHint({
   children,
@@ -147,14 +130,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: DEMO.bottomClearance,
-    alignItems: 'center',
-    gap: 12,
-  },
-  topControls: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 110,
     alignItems: 'center',
     gap: 12,
   },

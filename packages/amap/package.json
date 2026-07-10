@@ -1,10 +1,11 @@
 {
   "name": "react-native-cn-maps-amap",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AMap (高德) map provider for react-native-cn-maps",
   "files": [
     "ios",
     "android",
+    "harmony",
     "*.podspec",
     "react-native.config.js",
     "!ios/build",
@@ -13,12 +14,16 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!harmony/**/build",
+    "!harmony/**/.cxx",
+    "!harmony/**/oh_modules",
     "!**/.*"
   ],
   "keywords": [
     "react-native",
     "ios",
     "android",
+    "harmony",
     "amap",
     "高德"
   ],
@@ -38,6 +43,6 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-cn-maps": "*"
+    "react-native-cn-maps": ">=0.3.0"
   }
 }

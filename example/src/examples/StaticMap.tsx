@@ -24,14 +24,11 @@ function StaticMap(props: any) {
         style={StyleSheet.absoluteFill}
         contentContainerStyle={styles.scrollview}
       >
-        <Text>点击</Text>
-        <Text>并</Text>
-        <Text>拖动</Text>
-        <Text>这个</Text>
-        <Text>地图，</Text>
-        <Text>将</Text>
-        <Text>使</Text>
-        <Text>其</Text>
+        <Text style={styles.paragraph}>
+          这是一个「静态地图」示例：地图禁用了滚动、缩放、俯仰和旋转，
+          因此它不会拦截手势。用手指按住地图上下拖动，滚动的会是外层的
+          ScrollView，而不是地图本身。
+        </Text>
         <MapView
           provider={props.provider}
           style={styles.map}
@@ -43,35 +40,25 @@ function StaticMap(props: any) {
         >
           <Marker title="这是标题" description="这是描述" coordinate={region} />
         </MapView>
-        <Text>父级</Text>
-        <Text>ScrollView</Text>
-        <Text>发生</Text>
-        <Text>滚动。</Text>
-        <Text>使用</Text>
-        <Text>Google</Text>
-        <Text>地图</Text>
-        <Text>时，</Text>
-        <Text>只有</Text>
-        <Text>禁用</Text>
-        <Text>滚动、</Text>
-        <Text>缩放、</Text>
-        <Text>俯仰、</Text>
-        <Text>旋转</Text>
-        <Text>才会</Text>
-        <Text>生效。</Text>
-        <Text>……</Text>
-        <Text>要是</Text>
-        <Text>能</Text>
-        <Text>有</Text>
-        <Text>一个</Text>
-        <Text>仍</Text>
-        <Text>允许</Text>
-        <Text>缩放</Text>
-        <Text>的</Text>
-        <Text>选项</Text>
-        <Text>就</Text>
-        <Text>好</Text>
-        <Text>了。</Text>
+        <Text style={styles.paragraph}>
+          把地图当作页面里的一张普通图片来嵌入，就是这个示例要演示的效果。
+          上下的这两段文字只是用来撑高内容、方便看到滚动，没有其他作用。
+        </Text>
+        <MapView
+          provider={props.provider}
+          style={styles.map}
+          scrollEnabled={false}
+          zoomEnabled={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+          initialRegion={region}
+        >
+          <Marker title="这是标题" description="这是描述" coordinate={region} />
+        </MapView>
+        <Text style={styles.paragraph}>
+          把地图当作页面里的一张普通图片来嵌入，就是这个示例要演示的效果。
+          上下的这两段文字只是用来撑高内容、方便看到滚动，没有其他作用。
+        </Text>
       </ScrollView>
     </View>
   );
@@ -85,7 +72,14 @@ const styles = StyleSheet.create({
   },
   scrollview: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 120,
+  },
+  paragraph: {
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#333',
   },
   map: {
     width: 250,

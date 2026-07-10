@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.0
+
+Multi-provider release — the library is now a **provider-agnostic core + per-vendor
+adapter packages**, with a runtime `provider` switch and experimental HarmonyOS support.
+
+### Added
+
+- **Monorepo split** — `react-native-cn-maps` (core, no map SDK) plus opt-in
+  adapter packages `react-native-cn-maps-amap` / `-baidu` / `-tencent`. Install
+  only the providers you use.
+- **Runtime provider selection** — `<MapView provider="amap" | "baidu" | "tencent" />`,
+  fixed at mount. Coordinate conversion is now provider-aware (AMap/Tencent →
+  GCJ-02, Baidu → BD-09), still routed through GCJ-02 in JS.
+- **Baidu (百度地图) & Tencent (腾讯地图) providers** — verified rendering +
+  authenticating on **Android**. iOS adapter source ships in each package with a
+  pinned pod (`BaiduMapKit ~> 6.6.0` / `QMapKit ~> 5.6.0`) but is **not yet
+  device-verified**, so iOS autolinking is disabled by default for these two.
+- **HarmonyOS Next (鸿蒙, via RNOH)** — *experimental / in progress*. ArkTS source
+  for all three providers under each package's `harmony/`; example runs on the
+  emulator with an AMap placeholder. Not device-verified. See
+  [migration/harmony/06-integration-and-status.md](migration/harmony/06-integration-and-status.md).
+- **`addressForCoordinate`** reverse geocoding (AMap, iOS + Android).
+- **`kmlSrc`** — parse KML to GeoJSON and render via `<Geojson>`, fires `onKmlReady`.
+- **react-native-maps migration guide** + parity matrix
+  ([docs/MIGRATION_FROM_RN_MAPS.md](docs/MIGRATION_FROM_RN_MAPS.md)) — most projects
+  migrate by changing the import.
+
+### Notes
+
+- **Provider support matrix:** AMap = iOS + Android (full); Baidu / Tencent =
+  Android verified, iOS experimental (autolink off by default); HarmonyOS =
+  experimental on all three, not device-verified.
+- `provider` is fixed at mount — change it by remounting `<MapView>` (e.g.
+  `key={provider}`).
+
 ## 0.2.0
 
 First feature-complete, dual-platform release — **iOS and Android at parity**,
@@ -27,8 +62,7 @@ verified on device + simulator.
 - A range of correctness and robustness fixes surfaced during the full code
   review and first iOS bring-up (coordinate precision, command Promise
   lifecycle, marker/overlay rendering, event bubbling, null-prop dereferences,
-  initial-region timing, component registration). See
-  [`docs/CODE_REVIEW_FINDINGS.md`](docs/CODE_REVIEW_FINDINGS.md).
+  initial-region timing, component registration).
 
 ### Notes
 

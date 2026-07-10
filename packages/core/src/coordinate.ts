@@ -130,12 +130,14 @@ export function gcj02ToBd09(coordinate: LatLng): LatLng {
   };
 }
 
-// Each provider's native coordinate system. AMap / Tencent are GCJ-02; Baidu is
-// BD-09. GCJ-02 is the conversion hub (coordinate.ts implements wgs84/bd09 ↔ gcj02).
+// Each provider's native coordinate system. AMap / Tencent / Map Kit are GCJ-02;
+// Baidu is BD-09. GCJ-02 is the conversion hub (coordinate.ts implements
+// wgs84/bd09 ↔ gcj02). 查证: Map Kit 国内展示为 GCJ-02（与高德/腾讯一致）。
 const PROVIDER_SYSTEM: Record<MapProvider, CoordinateSystem> = {
   amap: 'gcj02',
   tencent: 'gcj02',
   baidu: 'bd09',
+  mapkit: 'gcj02',
 };
 
 /** The native coordinate system a provider's SDK expects. */

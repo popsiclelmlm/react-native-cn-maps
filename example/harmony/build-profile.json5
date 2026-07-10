@@ -1,0 +1,76 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BA2295A687FECE6D9033668B221BDA8D5EDF397B67C4B8AEC6D79027BF93071BF0BE37077BF9533",
+          "profile": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.p12",
+          "storePassword": "0000001B9E9AA833A13671A1D9A15EF871DBB095BA4B56E34C4727E15AA9401AE5D25B105CFB70B3F9F82F"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "6.0.1(21)",
+        // 百度地图 SDK(@bdmap/base 等)是字节码 HAR，要求开启规范化 OHM URL。
+        "buildOption": {
+          "strictMode": {
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rn_cn_maps",
+      "srcPath": "../../packages/core/harmony"
+    },
+    {
+      "name": "rn_cn_maps_amap",
+      "srcPath": "../../packages/amap/harmony"
+    },
+    {
+      "name": "rn_cn_maps_baidu",
+      "srcPath": "../../packages/baidu/harmony"
+    },
+    {
+      "name": "rn_cn_maps_tencent",
+      "srcPath": "../../packages/tencent/harmony"
+    },
+    {
+      "name": "rn_cn_maps_mapkit",
+      "srcPath": "../../packages/mapkit/harmony"
+    }
+  ]
+}

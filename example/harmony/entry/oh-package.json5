@@ -1,0 +1,19 @@
+{
+  "name": "entry",
+  "version": "0.2.0",
+  "description": "Example entry HAP",
+  "main": "",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    // Local provider + core HARs (relative to example/harmony/entry).
+    "rn-cn-maps": "file:../../../packages/core/harmony",
+    "rn-cn-maps-amap": "file:../../../packages/amap/harmony",
+    "rn-cn-maps-baidu": "file:../../../packages/baidu/harmony",
+    "rn-cn-maps-tencent": "file:../../../packages/tencent/harmony",
+    // 华为 Map Kit（鸿蒙自带地图）provider。系统 SDK @kit.MapKit，无外部地图依赖。
+    "rn-cn-maps-mapkit": "file:../../../packages/mapkit/harmony",
+    // RNOH SDK. 查证: pinned 0.72.x version / source (har or ohpm).
+    "@rnoh/react-native-openharmony": "0.72.38"
+  }
+}

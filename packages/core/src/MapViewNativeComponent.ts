@@ -1,44 +1,55 @@
+// codegenNativeCommands / codegenNativeComponent 在 RNOH 的 react-native 重定向入口(0.72)未导出，
+// 从深路径默认导入：该文件 0.72/0.85 都有，其内部相对依赖会被 RNOH 重定向到 harmony 实现，
+// 且 codegen 仅按本地名识别——三端通用。
+// eslint-disable-next-line @react-native/no-deep-imports
+import codegenNativeCommands from 'react-native/Libraries/Utilities/codegenNativeCommands';
+// eslint-disable-next-line @react-native/no-deep-imports
+import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
 import {
-  codegenNativeCommands,
-  codegenNativeComponent,
   type ColorValue,
-  type CodegenTypes,
   type HostComponent,
   type ViewProps,
 } from 'react-native';
+import type {
+  BubblingEventHandler,
+  DirectEventHandler,
+  Double,
+  Int32,
+  WithDefault,
+} from './codegen-types';
 
 export type NativeRegion = Readonly<{
-  latitude: CodegenTypes.Double;
-  longitude: CodegenTypes.Double;
-  latitudeDelta: CodegenTypes.Double;
-  longitudeDelta: CodegenTypes.Double;
+  latitude: Double;
+  longitude: Double;
+  latitudeDelta: Double;
+  longitudeDelta: Double;
 }>;
 
 // `center` is flattened to latitude/longitude so the struct stays codegen
 // friendly (no nested object props). JS rebuilds the RNM `{ center: LatLng }`
 // shape on the way in/out.
 export type NativeCamera = Readonly<{
-  latitude: CodegenTypes.Double;
-  longitude: CodegenTypes.Double;
-  heading: CodegenTypes.Double;
-  pitch: CodegenTypes.Double;
-  zoom: CodegenTypes.Double;
-  altitude: CodegenTypes.Double;
+  latitude: Double;
+  longitude: Double;
+  heading: Double;
+  pitch: Double;
+  zoom: Double;
+  altitude: Double;
 }>;
 
 export type NativeEdgePadding = Readonly<{
-  top: CodegenTypes.Double;
-  right: CodegenTypes.Double;
-  bottom: CodegenTypes.Double;
-  left: CodegenTypes.Double;
+  top: Double;
+  right: Double;
+  bottom: Double;
+  left: Double;
 }>;
 
 export type NativeRegionChangeEvent = Readonly<{
   region: Readonly<{
-    latitude: CodegenTypes.Double;
-    longitude: CodegenTypes.Double;
-    latitudeDelta: CodegenTypes.Double;
-    longitudeDelta: CodegenTypes.Double;
+    latitude: Double;
+    longitude: Double;
+    latitudeDelta: Double;
+    longitudeDelta: Double;
   }>;
   isGesture?: boolean;
 }>;
@@ -46,12 +57,12 @@ export type NativeRegionChangeEvent = Readonly<{
 // Shared by onPress / onLongPress / onDoublePress / onPanDrag.
 export type NativeMapPressEvent = Readonly<{
   coordinate: Readonly<{
-    latitude: CodegenTypes.Double;
-    longitude: CodegenTypes.Double;
+    latitude: Double;
+    longitude: Double;
   }>;
   position: Readonly<{
-    x: CodegenTypes.Double;
-    y: CodegenTypes.Double;
+    x: Double;
+    y: Double;
   }>;
 }>;
 
@@ -59,30 +70,30 @@ export type NativePoiClickEvent = Readonly<{
   placeId?: string;
   name?: string;
   coordinate: Readonly<{
-    latitude: CodegenTypes.Double;
-    longitude: CodegenTypes.Double;
+    latitude: Double;
+    longitude: Double;
   }>;
   position?: Readonly<{
-    x: CodegenTypes.Double;
-    y: CodegenTypes.Double;
+    x: Double;
+    y: Double;
   }>;
 }>;
 
 export type NativeUserLocationChangeEvent = Readonly<{
   coordinate?: Readonly<{
-    latitude: CodegenTypes.Double;
-    longitude: CodegenTypes.Double;
-    altitude: CodegenTypes.Double;
-    accuracy: CodegenTypes.Double;
-    speed: CodegenTypes.Double;
-    heading: CodegenTypes.Double;
+    latitude: Double;
+    longitude: Double;
+    altitude: Double;
+    accuracy: Double;
+    speed: Double;
+    heading: Double;
     isFromMockProvider?: boolean;
   }>;
 }>;
 
 export interface NativeProps extends ViewProps {
-  provider?: CodegenTypes.WithDefault<string, 'amap'>;
-  coordinateSystem?: CodegenTypes.WithDefault<string, 'gcj02'>;
+  provider?: WithDefault<string, 'amap'>;
+  coordinateSystem?: WithDefault<string, 'gcj02'>;
 
   // Region / camera
   initialRegion?: NativeRegion;
@@ -91,74 +102,74 @@ export interface NativeProps extends ViewProps {
   camera?: NativeCamera;
 
   // Appearance
-  mapType?: CodegenTypes.WithDefault<string, 'standard'>;
+  mapType?: WithDefault<string, 'standard'>;
   customMapStyle?: string; // JSON-stringified MapStyleElement[] (see JS facade)
-  userInterfaceStyle?: CodegenTypes.WithDefault<string, 'system'>;
+  userInterfaceStyle?: WithDefault<string, 'system'>;
   tintColor?: ColorValue;
   mapPadding?: NativeEdgePadding;
   kmlSrc?: string;
 
   // Zoom
-  minZoomLevel?: CodegenTypes.WithDefault<CodegenTypes.Double, 3>;
-  maxZoomLevel?: CodegenTypes.WithDefault<CodegenTypes.Double, 20>;
+  minZoomLevel?: WithDefault<Double, 3>;
+  maxZoomLevel?: WithDefault<Double, 20>;
 
   // Gesture toggles
-  zoomEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  zoomTapEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  zoomControlEnabled?: CodegenTypes.WithDefault<boolean, false>;
-  scrollEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  scrollDuringRotateOrZoomEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  rotateEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  pitchEnabled?: CodegenTypes.WithDefault<boolean, true>;
+  zoomEnabled?: WithDefault<boolean, true>;
+  zoomTapEnabled?: WithDefault<boolean, true>;
+  zoomControlEnabled?: WithDefault<boolean, false>;
+  scrollEnabled?: WithDefault<boolean, true>;
+  scrollDuringRotateOrZoomEnabled?: WithDefault<boolean, true>;
+  rotateEnabled?: WithDefault<boolean, true>;
+  pitchEnabled?: WithDefault<boolean, true>;
 
   // Display toggles
-  showsUserLocation?: CodegenTypes.WithDefault<boolean, false>;
-  showsMyLocationButton?: CodegenTypes.WithDefault<boolean, true>;
-  showsCompass?: CodegenTypes.WithDefault<boolean, true>;
-  showsScale?: CodegenTypes.WithDefault<boolean, false>;
-  showsTraffic?: CodegenTypes.WithDefault<boolean, false>;
-  showsBuildings?: CodegenTypes.WithDefault<boolean, true>;
-  showsIndoors?: CodegenTypes.WithDefault<boolean, true>;
-  showsIndoorLevelPicker?: CodegenTypes.WithDefault<boolean, false>;
-  showsPointsOfInterest?: CodegenTypes.WithDefault<boolean, true>;
+  showsUserLocation?: WithDefault<boolean, false>;
+  showsMyLocationButton?: WithDefault<boolean, true>;
+  showsCompass?: WithDefault<boolean, true>;
+  showsScale?: WithDefault<boolean, false>;
+  showsTraffic?: WithDefault<boolean, false>;
+  showsBuildings?: WithDefault<boolean, true>;
+  showsIndoors?: WithDefault<boolean, true>;
+  showsIndoorLevelPicker?: WithDefault<boolean, false>;
+  showsPointsOfInterest?: WithDefault<boolean, true>;
 
   // Loading state
-  loadingEnabled?: CodegenTypes.WithDefault<boolean, false>;
+  loadingEnabled?: WithDefault<boolean, false>;
   loadingIndicatorColor?: ColorValue;
   loadingBackgroundColor?: ColorValue;
 
   // Android-only
-  toolbarEnabled?: CodegenTypes.WithDefault<boolean, true>;
-  liteMode?: CodegenTypes.WithDefault<boolean, false>;
-  cacheEnabled?: CodegenTypes.WithDefault<boolean, false>;
+  toolbarEnabled?: WithDefault<boolean, true>;
+  liteMode?: WithDefault<boolean, false>;
+  cacheEnabled?: WithDefault<boolean, false>;
 
   // Region / camera events
-  onRegionChange?: CodegenTypes.DirectEventHandler<NativeRegionChangeEvent>;
-  onRegionChangeComplete?: CodegenTypes.DirectEventHandler<NativeRegionChangeEvent>;
+  onRegionChange?: DirectEventHandler<NativeRegionChangeEvent>;
+  onRegionChangeComplete?: DirectEventHandler<NativeRegionChangeEvent>;
 
   // Lifecycle
-  onMapReady?: CodegenTypes.DirectEventHandler<Readonly<{}>>;
-  onMapLoaded?: CodegenTypes.DirectEventHandler<Readonly<{}>>;
+  onMapReady?: DirectEventHandler<Readonly<{}>>;
+  onMapLoaded?: DirectEventHandler<Readonly<{}>>;
 
   // Gestures
   // onPress is Bubbling (not Direct): iOS core registers `topPress` as bubbling,
   // so a direct registration throws "Event cannot be both direct and bubbling".
-  onPress?: CodegenTypes.BubblingEventHandler<NativeMapPressEvent>;
-  onLongPress?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
-  onDoublePress?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
-  onPanDrag?: CodegenTypes.DirectEventHandler<NativeMapPressEvent>;
-  onPoiClick?: CodegenTypes.DirectEventHandler<NativePoiClickEvent>;
+  onPress?: BubblingEventHandler<NativeMapPressEvent>;
+  onLongPress?: DirectEventHandler<NativeMapPressEvent>;
+  onDoublePress?: DirectEventHandler<NativeMapPressEvent>;
+  onPanDrag?: DirectEventHandler<NativeMapPressEvent>;
+  onPoiClick?: DirectEventHandler<NativePoiClickEvent>;
 
   // User location
-  onUserLocationChange?: CodegenTypes.DirectEventHandler<NativeUserLocationChangeEvent>;
+  onUserLocationChange?: DirectEventHandler<NativeUserLocationChangeEvent>;
 
   // Result channel for Promise-returning ref methods. Native serializes the
   // result to JSON keyed by the JS-generated request id (RNM's Fabric pattern).
-  onCommandResult?: CodegenTypes.DirectEventHandler<NativeCommandResultEvent>;
+  onCommandResult?: DirectEventHandler<NativeCommandResultEvent>;
 }
 
 export type NativeCommandResultEvent = Readonly<{
-  id: CodegenTypes.Int32;
+  id: Int32;
   data: string;
 }>;
 
@@ -169,28 +180,28 @@ type ComponentType = HostComponent<NativeProps>;
 interface NativeCommands {
   animateToRegion: (
     viewRef: React.ElementRef<ComponentType>,
-    latitude: CodegenTypes.Double,
-    longitude: CodegenTypes.Double,
-    latitudeDelta: CodegenTypes.Double,
-    longitudeDelta: CodegenTypes.Double,
-    duration: CodegenTypes.Int32
+    latitude: Double,
+    longitude: Double,
+    latitudeDelta: Double,
+    longitudeDelta: Double,
+    duration: Int32
   ) => void;
   animateCamera: (
     viewRef: React.ElementRef<ComponentType>,
-    latitude: CodegenTypes.Double,
-    longitude: CodegenTypes.Double,
-    heading: CodegenTypes.Double,
-    pitch: CodegenTypes.Double,
-    zoom: CodegenTypes.Double,
-    duration: CodegenTypes.Int32
+    latitude: Double,
+    longitude: Double,
+    heading: Double,
+    pitch: Double,
+    zoom: Double,
+    duration: Int32
   ) => void;
   setCamera: (
     viewRef: React.ElementRef<ComponentType>,
-    latitude: CodegenTypes.Double,
-    longitude: CodegenTypes.Double,
-    heading: CodegenTypes.Double,
-    pitch: CodegenTypes.Double,
-    zoom: CodegenTypes.Double
+    latitude: Double,
+    longitude: Double,
+    heading: Double,
+    pitch: Double,
+    zoom: Double
   ) => void;
   fitToCoordinates: (
     viewRef: React.ElementRef<ComponentType>,
@@ -211,49 +222,49 @@ interface NativeCommands {
   // Queries — result delivered via onCommandResult keyed by requestId.
   getCamera: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32
+    requestId: Int32
   ) => void;
   getMapBoundaries: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32
+    requestId: Int32
   ) => void;
   pointForCoordinate: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32,
-    latitude: CodegenTypes.Double,
-    longitude: CodegenTypes.Double
+    requestId: Int32,
+    latitude: Double,
+    longitude: Double
   ) => void;
   coordinateForPoint: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32,
-    x: CodegenTypes.Double,
-    y: CodegenTypes.Double
+    requestId: Int32,
+    x: Double,
+    y: Double
   ) => void;
   addressForCoordinate: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32,
-    latitude: CodegenTypes.Double,
-    longitude: CodegenTypes.Double
+    requestId: Int32,
+    latitude: Double,
+    longitude: Double
   ) => void;
   takeSnapshot: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32,
-    width: CodegenTypes.Int32,
-    height: CodegenTypes.Int32,
+    requestId: Int32,
+    width: Int32,
+    height: Int32,
     format: string,
-    quality: CodegenTypes.Double,
+    quality: Double,
     result: string
   ) => void;
   setMapBoundaries: (
     viewRef: React.ElementRef<ComponentType>,
-    neLatitude: CodegenTypes.Double,
-    neLongitude: CodegenTypes.Double,
-    swLatitude: CodegenTypes.Double,
-    swLongitude: CodegenTypes.Double
+    neLatitude: Double,
+    neLongitude: Double,
+    swLatitude: Double,
+    swLongitude: Double
   ) => void;
   getMarkersFrames: (
     viewRef: React.ElementRef<ComponentType>,
-    requestId: CodegenTypes.Int32,
+    requestId: Int32,
     onlyVisible: boolean
   ) => void;
 }

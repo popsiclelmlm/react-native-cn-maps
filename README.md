@@ -31,6 +31,7 @@ Most code ports over by changing a single import.
 
 - 🔁 **Drop-in `react-native-maps` API** — `MapView`, `Marker`, `Callout`, `Polyline`, `Polygon`, `Circle`, `Overlay`, `UrlTile`, `LocalTile`, `WMSTile`, `Heatmap`, `Geojson`.
 - 📱 **iOS & Android**, verified on device + simulator.
+- 🟢 **HarmonyOS Next** (鸿蒙, via [RNOH](https://gitee.com/openharmony-sig/ohos_react_native)) — **experimental / in progress**, all three providers (AMap / Baidu / Tencent). Source under each package's `harmony/`; status + integration guide in [migration/harmony/06-integration-and-status.md](migration/harmony/06-integration-and-status.md). Min RN line 0.72.
 - 🧭 **Coordinate systems** — `gcj02` / `wgs84` / `bd09`, converted in JS so the native layer always speaks GCJ-02.
 - ⚡ **New Architecture only** — Fabric components + TurboModule, no bridge.
 - 🔒 **Privacy-first** — never auto-agrees; the host app declares PIPL consent explicitly.
@@ -222,11 +223,23 @@ setPrivacyConsent({ agreed: true, contains: true, shown: true });
 
 Implemented on **both platforms** (iOS maps to AMap's `+[MAMapView updatePrivacyShow:privacyInfo:]` / `+[MAMapView updatePrivacyAgree:]`).
 
-## 🚧 Not supported
+## 🚧 Platform support & limitations
 
-- `provider="google"` — this library targets China providers
-- Baidu / Tencent providers — planned (`coordinateSystem="bd09"` already wired in the JS layer)
-- Web
+| provider | iOS | Android | HarmonyOS |
+|---|---|---|---|
+| `amap` (高德) | ✅ verified | ✅ verified | 🧪 experimental |
+| `baidu` (百度) | 🧪 autolink off by default¹ | ✅ verified | 🧪 experimental |
+| `tencent` (腾讯) | 🧪 autolink off by default¹ | ✅ verified | 🧪 experimental |
+
+¹ The Baidu / Tencent iOS adapter source ships in each package with a pinned pod
+(`BaiduMapKit ~> 6.6.0` / `QMapKit ~> 5.6.0`), but it is **not yet device-verified**,
+so iOS autolinking is disabled by default. To try it, enable `ios: {}` for that
+package in your **app's** `react-native.config.js` and verify on a device.
+
+- **HarmonyOS Next** is experimental across all providers (RNOH-based, not yet
+  device-verified) — see the
+  [integration & status doc](migration/harmony/06-integration-and-status.md).
+- `provider="google"` and **Web** are out of scope — this library targets China providers.
 
 ## 🤝 Contributing
 

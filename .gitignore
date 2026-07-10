@@ -84,3 +84,14 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# HarmonyOS (RNOH / DevEco / ohpm) — generated, never commit
+**/oh_modules/
+**/.hvigor/
+**/.cxx/
+**/harmony/**/build/
+**/harmony/**/.preview/
+**/harmony/entry/src/main/resources/rawfile/bundle.harmony.*
+example/harmony/node_modules/
+.ohpm/
+docs/

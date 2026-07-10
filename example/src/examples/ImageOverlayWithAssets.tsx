@@ -11,12 +11,12 @@ const LATITUDE = 31.2304;
 const LONGITUDE = 121.4737;
 const LATITUDE_DELTA = 0.01;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-// 高德瓦片 109763, 53556, 17（上海人民广场）
+// 覆盖范围：上海人民广场附近一小块区域（西南 / 东北两角坐标）
 const OVERLAY_SOUTH_WEST_COORDINATE = [31.2292431, 121.473083496];
 const OVERLAY_NORTH_EAST_COORDINATE = [31.231591672, 121.475830078];
 const IMAGE = flagPinkImg;
 
-function ImageOverlayWithURL(props: any) {
+function ImageOverlayWithAssets(props: any) {
   const [region] = useState({
     latitude: LATITUDE,
     longitude: LONGITUDE,
@@ -41,7 +41,7 @@ function ImageOverlayWithURL(props: any) {
   );
 }
 
-export default ImageOverlayWithURL;
+export default ImageOverlayWithAssets;
 
 const styles = StyleSheet.create({
   container: {

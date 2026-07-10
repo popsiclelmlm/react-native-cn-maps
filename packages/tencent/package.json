@@ -1,10 +1,11 @@
 {
   "name": "react-native-cn-maps-tencent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tencent (腾讯地图) map provider for react-native-cn-maps",
   "files": [
     "ios",
     "android",
+    "harmony",
     "*.podspec",
     "react-native.config.js",
     "!ios/build",
@@ -13,12 +14,16 @@
     "!android/gradlew",
     "!android/gradlew.bat",
     "!android/local.properties",
+    "!harmony/**/build",
+    "!harmony/**/.cxx",
+    "!harmony/**/oh_modules",
     "!**/.*"
   ],
   "keywords": [
     "react-native",
     "ios",
     "android",
+    "harmony",
     "tencent",
     "腾讯地图"
   ],
@@ -38,6 +43,6 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-cn-maps": "*"
+    "react-native-cn-maps": ">=0.3.0"
   }
 }

@@ -21,7 +21,7 @@ const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const SPACE = 0.01;
 
-function MarkerTypes(props: any) {
+function TakeSnapshot(props: any) {
   const map = useRef<any>(null);
   const [mapSnapshot, setMapSnapshot] = useState<any>(null);
 
@@ -113,4 +113,4 @@ const styles = StyleSheet.create({
   mapSnapshot: { width: 300, height: 300 },
 });
 
-export default MarkerTypes;
+export default TakeSnapshot;

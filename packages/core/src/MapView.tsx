@@ -611,8 +611,11 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       let cancelled = false;
       (async () => {
         try {
-          const res = await fetch(kmlSrc);
-          const text = await res.text();
+          // kmlSrc 以 "<" 开头视为内联 KML 字符串（离线 / 示例数据），
+          // 否则按 URL fetch。
+          const text = kmlSrc.trimStart().startsWith('<')
+            ? kmlSrc
+            : await (await fetch(kmlSrc)).text();
           if (cancelled) return;
           const { geojson, markers } = parseKml(text);
           setKmlGeojson(geojson);

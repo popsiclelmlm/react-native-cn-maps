@@ -1,0 +1,19 @@
+{
+  "name": "rn-cn-maps-tencent",
+  "version": "0.2.0",
+  "description": "Tencent (腾讯) provider for react-native-cn-maps on HarmonyOS (RNOH)",
+  "main": "Index.ets",
+  "author": "popsiclelmlm",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "rn-cn-maps": "file:../../core/harmony",
+    "@rnoh/react-native-openharmony": "0.72.38",
+    // 腾讯鸿蒙地图 SDK：base=基础库(LatLng/AuthService.setKey/Privacy)，map=地图(MapComponent/
+    //   MapController/Marker...)。registry 版本 base ^2.3.3 / map ^2.6.0（ohpm.openharmony.cn 有），
+    //   但大包 map(28M) 的 .har 挂华为 CDN 常超时，此处先 file: 指手动下好的本地 .har 跑通。
+    // 【提交前 TODO】vendor 进仓库或改回 registry（勿留机器相关绝对路径）。
+    "@tencentmap/base": "file:/Users/liumin/Downloads/tencentmap-base-2.3.3.har",
+    "@tencentmap/map": "file:/Users/liumin/Downloads/tencentmap-map-2.6.0.har"
+  }
+}

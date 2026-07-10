@@ -8,7 +8,6 @@ import {
 } from 'react-native-cn-maps';
 import PanController from './PanController';
 import PriceMarker from './AnimatedPriceMarker';
-import { DemoHint } from './_ui';
 
 const screen = Dimensions.get('window');
 
@@ -195,8 +194,6 @@ function AnimatedViews(props: any) {
   const { panX, panY, scrollY, scrollX, animations, markers, region } =
     initRef.current;
 
-  const [supported] = useState(false);
-
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   indexRef.current = index;
@@ -309,14 +306,6 @@ function AnimatedViews(props: any) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!supported) {
-    return (
-      <View style={styles.errorWrap}>
-        <DemoHint>Fabric 地图暂不支持该动画</DemoHint>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <PanController
@@ -379,11 +368,6 @@ function AnimatedViews(props: any) {
 }
 
 const styles = StyleSheet.create({
-  errorWrap: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   container: {
     ...StyleSheet.absoluteFill,
   },

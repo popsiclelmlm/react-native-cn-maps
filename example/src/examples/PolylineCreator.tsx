@@ -29,7 +29,6 @@ function PolylineCreator(props: any) {
   };
 
   const onPanDrag = (e: any) => {
-    console.log('拖动绘制 onPanDrag', e.nativeEvent);
     if (!editing) {
       setEditing({
         id: id++,

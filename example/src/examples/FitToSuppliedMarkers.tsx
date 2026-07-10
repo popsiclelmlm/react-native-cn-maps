@@ -15,7 +15,7 @@ const markerIDs = ['Marker1', 'Marker2', 'Marker3', 'Marker4', 'Marker5'];
 const timeout = 4000;
 let animationTimeout: any;
 
-function FocusOnMarkers(props: any) {
+function FitToSuppliedMarkers(props: any) {
   const map = useRef<any>(null);
   const [a] = useState<any>({
     latitude: LATITUDE + SPACE,
@@ -124,4 +124,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FocusOnMarkers;
+export default FitToSuppliedMarkers;

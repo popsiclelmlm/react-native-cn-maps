@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "rn_cn_maps_baidu",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

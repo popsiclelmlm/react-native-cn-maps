@@ -1,6 +1,6 @@
 {
   "name": "react-native-cn-maps-monorepo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Monorepo for react-native-cn-maps (provider-agnostic core + AMap provider)",
   "private": true,
   "workspaces": [
@@ -14,7 +14,9 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
-    "release": "release-it --only-version"
+    "release": "release-it --only-version",
+    "patch-rnoh": "node scripts/patch-rnoh.js",
+    "postinstall": "node scripts/patch-rnoh.js"
   },
   "keywords": [
     "react-native",

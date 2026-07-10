@@ -17,7 +17,7 @@ function log(eventName: any, e: any) {
   console.log('标注事件', eventName, e.nativeEvent);
 }
 
-function MarkerTypes(props: any) {
+function TestIdMarkers(props: any) {
   // a 初始化后不再变化，只解构值、不需要 setter
   const [a] = useState({
     latitude: LATITUDE + SPACE,
@@ -62,4 +62,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MarkerTypes;
+export default TestIdMarkers;

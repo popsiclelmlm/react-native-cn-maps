@@ -1,4 +1,11 @@
 {
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "**/lib",
+    "**/harmony",
+    "docs/tmp"
+  ],
   "compilerOptions": {
     "rootDir": ".",
     "paths": {

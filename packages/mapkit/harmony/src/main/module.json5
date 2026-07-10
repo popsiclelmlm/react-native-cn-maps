@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "rn_cn_maps_mapkit",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

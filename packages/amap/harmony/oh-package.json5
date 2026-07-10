@@ -1,0 +1,26 @@
+{
+  "name": "rn-cn-maps-amap",
+  "version": "0.2.0",
+  "description": "AMap (高德) provider for react-native-cn-maps on HarmonyOS (RNOH)",
+  "main": "Index.ets",
+  "author": "popsiclelmlm",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    // Core HAR (host component + adapter contract + registry).
+    "rn-cn-maps": "file:../../core/harmony",
+    // RNOH SDK (provided by the host app's oh_modules). 查证 pinned 0.72.x version.
+    "@rnoh/react-native-openharmony": "0.72.38",
+    // 高德鸿蒙地图 SDK：common=基础库（隐私枚举 AMapPrivacy*/LatLng）；map3d=地图
+    //   （MapsInitializer/MapViewComponent/MapViewManager/AMap 控制器）；search=逆地理。
+    // registry 版本为 "^11.1.102"（ohpm.openharmony.cn 有），但其 .har 挂在华为 CDN、
+    // 大包 map3d(16M) 下载常 60s 超时；此处先 file: 指向手动下好的本地 .har 跑通。
+    // 【提交前 TODO】vendor 进仓库或改回 registry "^11.1.102"（勿留机器相关绝对路径）。
+    "@amap/amap_lbs_common": "file:/Users/liumin/Downloads/amap_lbs_common-11.1.102.har",
+    "@amap/amap_lbs_map3d": "file:/Users/liumin/Downloads/amap_lbs_map3d-11.1.102.har",
+    "@amap/amap_lbs_search": "file:/Users/liumin/Downloads/amap_lbs_search-11.1.102.har"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.18"
+  }
+}

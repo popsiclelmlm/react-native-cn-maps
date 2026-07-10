@@ -1,0 +1,28 @@
+{
+  "name": "cnmaps-example-harmony",
+  "version": "0.2.0",
+  "private": true,
+  "description": "RN JS side of the HarmonyOS example, pinned to the RNOH-supported RN line (decoupled from the iOS/Android example which uses 0.85).",
+  "scripts": {
+    "start": "react-native start",
+    "codegen": "node ../../scripts/harmony/patch-harmony-cli.js && react-native codegen-harmony --project-root-path . --cpp-output-path ./entry/src/main/cpp/generated --ets-output-path ./entry/src/main/ets/generated && node ../../scripts/harmony/fix-generated-package.js",
+    "bundle": "react-native bundle-harmony --dev false --entry-file index.js --bundle-output ./entry/src/main/resources/rawfile/bundle.harmony.js --assets-dest ./entry/src/main/resources/rawfile"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.72.5",
+    "react-native-cn-maps": "file:../../packages/core",
+    "react-native-cn-maps-amap": "file:../../packages/amap",
+    "react-native-cn-maps-baidu": "file:../../packages/baidu",
+    "react-native-cn-maps-tencent": "file:../../packages/tencent"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@babel/preset-env": "^7.20.0",
+    "@babel/runtime": "^7.20.0",
+    "@react-native/metro-config": "^0.72.1",
+    "metro-react-native-babel-preset": "0.76.8",
+    "@react-native-oh/react-native-harmony": "0.72.140",
+    "@react-native-oh/react-native-harmony-cli": "0.72.140"
+  }
+}

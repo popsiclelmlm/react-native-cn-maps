@@ -19,8 +19,8 @@ function BugMarkerWontUpdate(props: any) {
     latitudeDelta: LATITUDE_DELTA,
     longitudeDelta: LONGITUDE_DELTA,
   });
-  // amount 仅由按钮更新、渲染中未读取（对应下方注释掉的 heading），故只保留 setter
-  const [, setAmount] = useState(0);
+  // amount 作为标记朝向（heading）：+/- 按钮改变它，箭头随之旋转
+  const [amount, setAmount] = useState(0);
   const [enableHack, setEnableHack] = useState(false);
 
   function increment() {
@@ -43,9 +43,12 @@ function BugMarkerWontUpdate(props: any) {
         initialRegion={region}
       >
         <MyLocationMapMarker
-        // coordinate={coordinate}
-        // heading={amount}
-        // enableHack={enableHack}
+          coordinate={{
+            latitude: region.latitude,
+            longitude: region.longitude,
+          }}
+          heading={amount}
+          enableHack={enableHack}
         />
       </MapView>
       <DemoControls>

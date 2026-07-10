@@ -73,16 +73,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: -0.5,
   },
-  selectedBubble: {
-    backgroundColor: '#4da2ab',
-    borderColor: '#007a87',
-  },
-  selectedArrow: {
-    borderTopColor: '#4da2ab',
-  },
-  selectedArrowBorder: {
-    borderTopColor: '#007a87',
-  },
 });
 
 export default AnimatedPriceMarker;

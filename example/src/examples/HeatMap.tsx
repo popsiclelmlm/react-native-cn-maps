@@ -10,7 +10,7 @@ const LONGITUDE = 121.4737;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-function CustomMarkers(props: any) {
+function HeatMap(props: any) {
   const [region] = useState({
     latitude: LATITUDE,
     longitude: LONGITUDE,
@@ -57,4 +57,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomMarkers;
+export default HeatMap;

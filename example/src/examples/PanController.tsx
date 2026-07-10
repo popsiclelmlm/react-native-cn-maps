@@ -63,7 +63,7 @@ function PanController(props: any) {
 
     if (anim._value < min) {
       if (propsRef.current.onOvershoot) {
-        propsRef.current.onOvershoot(); // TODO: 这里应该传入什么参数
+        propsRef.current.onOvershoot();
       }
       switch (overshoot) {
         case 'spring':
@@ -79,7 +79,7 @@ function PanController(props: any) {
       }
     } else if (anim._value > max) {
       if (propsRef.current.onOvershoot) {
-        propsRef.current.onOvershoot(); // TODO: 这里应该传入什么参数
+        propsRef.current.onOvershoot();
       }
       switch (overshoot) {
         case 'spring':
@@ -145,7 +145,7 @@ function PanController(props: any) {
       if (value < min) {
         anim.removeListener(listenerRef.current);
         if (propsRef.current.onOvershoot) {
-          propsRef.current.onOvershoot(); // TODO: 这里应该传入什么参数
+          propsRef.current.onOvershoot();
         }
         switch (overshoot) {
           case 'spring':
@@ -162,7 +162,7 @@ function PanController(props: any) {
       } else if (value > max) {
         anim.removeListener(listenerRef.current);
         if (propsRef.current.onOvershoot) {
-          propsRef.current.onOvershoot(); // TODO: 这里应该传入什么参数
+          propsRef.current.onOvershoot();
         }
         switch (overshoot) {
           case 'spring':

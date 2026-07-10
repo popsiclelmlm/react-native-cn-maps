@@ -24,6 +24,8 @@ export default defineConfig([
     },
   },
   {
-    ignores: ['node_modules/', 'lib/'],
+    // harmony/ 目录是独立的 RNOH/ArkTS 构建（含 codegen 生成物），
+    // 与 tsconfig 的 `**/harmony` exclude 保持一致，不纳入 JS/TS lint。
+    ignores: ['node_modules/', 'lib/', '**/harmony/**'],
   },
 ]);

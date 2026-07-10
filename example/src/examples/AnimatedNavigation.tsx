@@ -9,7 +9,6 @@ import carImage from './assets/car.png';
 
 export default function NavigationMap() {
   const map = useRef<any>(null);
-  const [prevPos, setPrevPos] = useState<any>(null);
   const [curPos, setCurPos] = useState<any>({
     latitude: 31.2304,
     longitude: 121.4737,
@@ -27,21 +26,19 @@ export default function NavigationMap() {
     return (Math.atan2(yDiff, xDiff) * 180.0) / Math.PI;
   }
 
-  function updateMap() {
-    const curRot = getRotation(prevPos, curPos);
-    map.current.animateCamera({
-      heading: curRot,
-      center: curPos,
+  function changePosition(latOffset: number, lonOffset: number) {
+    const newPos = {
+      latitude: curPos.latitude + latOffset,
+      longitude: curPos.longitude + lonOffset,
+    };
+    // 用移动前后的坐标直接算朝向并驱动相机，避免读到尚未生效的 state
+    const heading = getRotation(curPos, newPos);
+    setCurPos(newPos);
+    map.current?.animateCamera({
+      heading,
+      center: newPos,
       pitch: curAng,
     });
-  }
-
-  function changePosition(latOffset: number, lonOffset: number) {
-    const latitude = curPos.latitude + latOffset;
-    const longitude = curPos.longitude + lonOffset;
-    setPrevPos(curPos);
-    setCurPos({ latitude, longitude });
-    updateMap();
   }
 
   return (

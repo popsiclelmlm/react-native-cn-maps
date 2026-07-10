@@ -1,0 +1,21 @@
+{
+  // ohpm package name the provider HARs and the host app depend on.
+  "name": "rn-cn-maps",
+  "version": "0.2.0",
+  "description": "Provider-agnostic core (host component + adapter contract) for react-native-cn-maps on HarmonyOS (RNOH)",
+  "main": "Index.ets",
+  "author": "popsiclelmlm",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    // Provided by the RNOH SDK in the host app's oh_modules. 查证: exact version of
+    // the pinned RNOH 0.72.x line; in a workspace this is usually a file: link to
+    // the RNOH har the app already depends on.
+    "@rnoh/react-native-openharmony": "0.72.38"
+  },
+  "devDependencies": {
+    // Local unit-test framework (src/test/*.test.ets, run via `hvigorw test`,
+    // no device needed). 查证 pinned version against the DevEco SDK.
+    "@ohos/hypium": "1.0.18"
+  }
+}

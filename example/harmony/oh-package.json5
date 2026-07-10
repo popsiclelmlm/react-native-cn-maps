@@ -1,0 +1,16 @@
+{
+  "modelVersion": "6.0.1",
+  "name": "cnmaps_example_harmony",
+  "version": "0.2.0",
+  "description": "react-native-cn-maps HarmonyOS example app (RNOH)",
+  "main": "",
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@rnoh/react-native-openharmony": "0.72.38"
+  },
+  "overrides": {
+    // Pin a single RNOH SDK across all modules. 查证 the pinned 0.72.x version.
+    // "@rnoh/react-native-openharmony": "file:./oh_modules/@rnoh/react-native-openharmony"
+  }
+}

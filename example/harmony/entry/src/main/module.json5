@@ -1,0 +1,86 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "react-native-cn-maps HarmonyOS example",
+    "mainElement": "EntryAbility",
+    "deviceTypes": ["phone", "tablet"],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "RN entry ability",
+        "icon": "$media:app_icon",
+        "label": "$string:app_name",
+        "startWindowIcon": "$media:app_icon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "skills": [
+          {
+            "entities": ["entity.system.home"],
+            "actions": ["action.system.home"]
+          }
+        ]
+      }
+    ],
+    "requestPermissions": [
+      { "name": "ohos.permission.INTERNET" },
+      { "name": "ohos.permission.GET_NETWORK_INFO" },
+      // 百度地图 SDK 鉴权需读取应用身份(包名/签名)并探测网络，缺失会导致 initialize 失败
+      // （native 日志: BMS GET_BUNDLE_INFO denied / Verify invalid configName）。
+      { "name": "ohos.permission.GET_WIFI_INFO" },
+      { "name": "ohos.permission.GET_BUNDLE_INFO" },
+      {
+        "name": "ohos.permission.APPROXIMATELY_LOCATION",
+        "reason": "$string:location_reason",
+        "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.LOCATION",
+        "reason": "$string:location_reason",
+        "usedScene": { "abilities": ["EntryAbility"], "when": "inuse" }
+      }
+    ],
+    "metadata": [
+      {
+        // 高德鸿蒙地图 Key（申请于高德开放平台，绑定本应用 debug 证书的 appId：
+        // com.cnmaps.example_BNB3WPpHfGml8OR2cpasI9OkZtdnThDTUl07FADGc4Rs...）。
+        // 注意：高德鸿蒙 SDK 不会自动读取此 metadata（那是 Android 的做法）；这里只是
+        // 集中存放，由 AMapPackage 在初始化时读出来并调用 MapsInitializer.setApiKey()。
+        // 换成 release 证书后 appId 会变，需回高德控制台更新 Key 绑定。
+        "name": "com.amap.api.v2.apikey",
+        "value": "097e0a49319d55947aa86cd177f6c2b8"
+      },
+      {
+        // 百度鸿蒙地图 SDK 读取的 AK（与 Android 端 meta-data 同名）。申请于百度地图
+        // 开放平台，应用类型选「鸿蒙 SDK」，AppID 用华为 AGC 平台的 APP ID。
+        // 需同时在运行时同意隐私合规（SDKInitializer.setAgreePrivacy + initialize），
+        // 否则地图白屏。
+        "name": "com.baidu.lbsapi.API_KEY",
+        "value": "NufXzNvhhEDWBsLBFkBqSvcZLK4cunt6"
+      },
+      {
+        // 腾讯地图 Key（AK）。腾讯 Key 是账号级通用标识，三端(Android/iOS/鸿蒙)可共用同一个；
+        // name 与 Android meta-data 同名(TencentMapSDK)。注意：腾讯鸿蒙地图 SDK(@tencentmap/map)
+        // 目前尚未接入（TencentMapAdapter 仍为占位），此处仅预埋存放；接入时确认 SDK 实际读取
+        // 方式（metadata 自动读 or 代码 setKey），参照高德/百度由 provider 代码读出后设置。
+        "name": "TencentMapSDK",
+        "value": "MIGBZ-4R76G-SBYQK-QAZI5-6OD3Q-Y2BVR"
+      },
+      {
+        // 华为 Map Kit（鸿蒙自带地图）的 Client ID。与三家不同：这是系统 SDK 的鉴权方式，
+        // 由 Map Kit 服务自动读取本 metadata（provider 代码无需 setKey）。
+        // 获取：AGC 控制台 → 我的项目 → 选中本应用 → API 管理开启「地图服务 Map Kit」→
+        //   项目设置/General/应用 里拿「应用(非项目)的 Client ID」填到这里。
+        // 注意：① Client ID 与应用签名证书绑定（换 release 证书需回 AGC 更新）；
+        //   ② 从 HarmonyOS 5.0.2(14) 起可免配 Client ID 与公钥指纹。
+        // 尚未开通 AGC Map Kit 时为占位，底图会白屏（鉴权失败）。
+        "name": "client_id",
+        "value": "YOUR_HUAWEI_AGC_CLIENT_ID"
+      }
+    ]
+  }
+}

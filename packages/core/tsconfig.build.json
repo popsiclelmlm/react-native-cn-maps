@@ -1,4 +1,14 @@
 {
   "extends": "../../tsconfig",
-  "exclude": ["example", "lib"]
+  "compilerOptions": {
+    // Pin the declaration-output root to the package dir so emit always preserves
+    // `src/` (→ lib/typescript/src/index.d.ts, matching package.json `types`).
+    // Without this, tsc infers the common root from the input set, so excluding
+    // harmony collapsed it to `src/` and dropped the prefix.
+    "rootDir": "."
+  },
+  // NOTE: a child `exclude` REPLACES the parent's, so re-list everything. `harmony`
+  // is a separate ArkTS/ohpm toolchain — its `oh_modules` (vendored RNOH SDK, incl.
+  // hermes' intentionally-malformed TS parser fixtures) must NOT be scanned by tsc.
+  "exclude": ["example", "lib", "harmony", "**/harmony", "**/oh_modules", "**/build", "**/.cxx"]
 }

@@ -1,0 +1,15 @@
+{
+  "name": "rn-cn-maps-mapkit",
+  "version": "0.3.0",
+  "description": "Huawei Map Kit (鸿蒙自带地图) provider for react-native-cn-maps on HarmonyOS (RNOH)",
+  "main": "Index.ets",
+  "author": "popsiclelmlm",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "rn-cn-maps": "file:../../core/harmony",
+    "@rnoh/react-native-openharmony": "0.72.38"
+    // 注意：华为 Map Kit 是系统 SDK（`@kit.MapKit`），由 HarmonyOS SDK 内置解析，
+    // 无需在此声明地图依赖（区别于 amap/baidu/tencent 需要下 .har）。
+  }
+}

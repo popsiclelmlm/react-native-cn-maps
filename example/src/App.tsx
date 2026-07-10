@@ -1,770 +1,726 @@
-import { useCallback, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import {
-  Image,
+  FlatList,
+  Platform,
   Pressable,
-  ScrollView,
+  SafeAreaView,
+  StatusBar,
   StyleSheet,
-  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import MapView, {
-  Callout,
-  Circle,
-  Geojson,
-  Heatmap,
-  Marker,
-  Overlay,
-  Polygon,
-  Polyline,
-  UrlTile,
-  WMSTile,
-  setPrivacyConsent,
-} from 'react-native-cn-maps';
-import type {
-  Camera,
-  LatLng,
-  MapMarkerHandle,
-  MapType,
-  MapViewHandle,
-  Provider,
-  Region,
-} from 'react-native-cn-maps';
+import { setPrivacyConsent } from 'react-native-cn-maps';
+import type { Provider } from 'react-native-cn-maps';
 
-// Providers selectable in the demo. "amap" works out of the box (this example
-// links react-native-cn-maps-amap). "baidu"/"tencent" render only if you also
-// install react-native-cn-maps-baidu / -tencent and their SDK keys; otherwise the
-// native host logs "no adapter registered" and shows a blank map.
-const PROVIDERS: Provider[] = ['amap', 'baidu', 'tencent'];
+import AnimatedMarkers from './examples/AnimatedMarkers';
+import AnimatedNavigation from './examples/AnimatedNavigation';
+import AnimatedViews from './examples/AnimatedViews';
+import BugMarkerWontUpdate from './examples/BugMarkerWontUpdate';
+import CachedMap from './examples/CachedMap';
+import CacheURLTiles from './examples/CacheURLTiles';
+import CacheWMSTiles from './examples/CacheWMSTiles';
+import Callouts from './examples/Callouts';
+import CameraControl from './examples/CameraControl';
+import CustomMarkers from './examples/CustomMarkers';
+import CustomOverlay from './examples/CustomOverlay';
+import CustomTiles from './examples/CustomTiles';
+import CustomTilesLocal from './examples/CustomTilesLocal';
+import DefaultMarkers from './examples/DefaultMarkers';
+import DisplayLatLng from './examples/DisplayLatLng';
+import DraggableMarkers from './examples/DraggableMarkers';
+import EventListener from './examples/EventListener';
+import FitToCoordinates from './examples/FitToCoordinates';
+import FitToSuppliedMarkers from './examples/FitToSuppliedMarkers';
+import FullPropMatrix from './examples/FullPropMatrix';
+import GeojsonMap from './examples/Geojson';
+import GradientPolylines from './examples/GradientPolylines';
+import GradientPolylinesFunctional from './examples/GradientPolylinesFunctional';
+import HeatMap from './examples/HeatMap';
+import ImageOverlayWithAssets from './examples/ImageOverlayWithAssets';
+import ImageOverlayWithBearing from './examples/ImageOverlayWithBearing';
+import ImageOverlayWithURL from './examples/ImageOverlayWithURL';
+import IndoorMap from './examples/IndoorMap';
+import LegalLabel from './examples/LegalLabel';
+import LiteMapView from './examples/LiteMapView';
+import LoadingMap from './examples/LoadingMap';
+import MapBoundaries from './examples/MapBoundaries';
+import MapKml from './examples/MapKml';
+import MarkerTypes from './examples/MarkerTypes';
+import MassiveCustomMarkers from './examples/MassiveCustomMarkers';
+import OnPoiClick from './examples/OnPoiClick';
+import Overlays from './examples/Overlays';
+import PolygonCreator from './examples/PolygonCreator';
+import PolylineCreator from './examples/PolylineCreator';
+import SetNativePropsOverlays from './examples/SetNativePropsOverlays';
+import StaticMap from './examples/StaticMap';
+import TakeSnapshot from './examples/TakeSnapshot';
+import TestIdMarkers from './examples/TestIdMarkers';
+import ThemeMap from './examples/ThemeMap';
+import ViewsAsMarkers from './examples/ViewsAsMarkers';
+import WMSTiles from './examples/WMSTiles';
+import ZIndexMarkers from './examples/ZIndexMarkers';
 
-// Demo only: pretend the user has already accepted the privacy policy so the
-// map SDK can initialize. Called at module load — before any <MapView> mounts.
-// A real app MUST show its privacy policy and call this only after the user
-// actually agrees.
+// 隐私合规：国内地图 SDK（高德 / 百度 / 腾讯）要求在任何 MapView 挂载之前
+// 确认用户已同意隐私政策，否则 SDK 拒绝初始化、地图一片空白。
+// 这里在模块加载时直接同意仅用于 Demo —— 真实应用必须先向用户展示
+// 隐私政策，用户实际同意后才能调用。
 setPrivacyConsent({ agreed: true, contains: true, shown: true });
 
-// "Full prop matrix" demo: every MapView prop & event is wired up to a live
-// control so each can be toggled and observed on a real device.
+type DemoComponent = ComponentType<{ provider: Provider }>;
 
-const SHANGHAI: Region = {
-  latitude: 31.2304,
-  longitude: 121.4737,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
-};
-
-const BEIJING_CAMERA: Camera = {
-  center: { latitude: 39.9042, longitude: 116.4074 },
-  heading: 30,
-  pitch: 45,
-  zoom: 12,
-};
-
-const THE_BUND: LatLng = { latitude: 31.2397, longitude: 121.499 };
-const PEOPLES_SQUARE: LatLng = { latitude: 31.2286, longitude: 121.4753 };
-
-// Marker gallery: one of each marker flavor (default / colored / image /
-// custom React view / draggable) plus ref-command targets.
-const DEFAULT_PIN: LatLng = { latitude: 31.2204, longitude: 121.46 };
-const IMAGE_MARKER: LatLng = { latitude: 31.235, longitude: 121.468 };
-const CUSTOM_MARKER: LatLng = { latitude: 31.2246, longitude: 121.49 };
-const DRAGGABLE_MARKER: LatLng = { latitude: 31.218, longitude: 121.478 };
-const ANIMATE_TARGET: LatLng = { latitude: 31.232, longitude: 121.452 };
-
-const TINY_LOGO = 'https://reactnative.dev/img/tiny_logo.png';
-
-// Vector overlays: a line, a filled polygon fence, and a radius circle.
-const LINE: LatLng[] = [
-  { latitude: 31.2397, longitude: 121.499 },
-  { latitude: 31.2286, longitude: 121.4753 },
-  { latitude: 31.2204, longitude: 121.46 },
-];
-const FENCE: LatLng[] = [
-  { latitude: 31.245, longitude: 121.47 },
-  { latitude: 31.245, longitude: 121.49 },
-  { latitude: 31.232, longitude: 121.49 },
-  { latitude: 31.232, longitude: 121.47 },
-];
-const CIRCLE_CENTER: LatLng = { latitude: 31.2286, longitude: 121.4753 };
-
-// Sample GeoJSON (coordinates are [lng, lat], WGS-84 per spec) — a point, a line
-// and a polygon around Shanghai for the Geojson demo.
-const SAMPLE_GEOJSON = {
-  type: 'FeatureCollection',
-  features: [
-    {
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [121.5, 31.25] },
-    },
-    {
-      type: 'Feature',
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [121.46, 31.21],
-          [121.5, 31.24],
-          [121.52, 31.2],
-        ],
-      },
-    },
-    {
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [121.44, 31.25],
-            [121.47, 31.26],
-            [121.47, 31.23],
-            [121.44, 31.23],
-            [121.44, 31.25],
-          ],
-        ],
-      },
-    },
-  ],
-};
-
-// Heatmap demo: a cluster of weighted points around Shanghai.
-const HEATMAP_POINTS = [
-  { latitude: 31.23, longitude: 121.47, weight: 1 },
-  { latitude: 31.232, longitude: 121.472, weight: 0.8 },
-  { latitude: 31.228, longitude: 121.468, weight: 0.6 },
-  { latitude: 31.235, longitude: 121.475, weight: 1 },
-  { latitude: 31.225, longitude: 121.465, weight: 0.4 },
-  { latitude: 31.233, longitude: 121.463, weight: 0.7 },
+const PROVIDERS: { key: Provider; label: string; color: string }[] = [
+  { key: 'amap', label: '高德', color: '#1677FF' },
+  { key: 'baidu', label: '百度', color: '#3385FF' },
+  { key: 'tencent', label: '腾讯', color: '#07C160' },
+  { key: 'mapkit', label: 'MapKit', color: '#FF6B35' },
 ];
 
-const MAP_TYPES: MapType[] = ['standard', 'satellite', 'hybrid'];
+interface Category {
+  title: string;
+  icon: string;
+  items: [DemoComponent, string][];
+}
 
-// Boolean props rendered as a switch grid, in display order.
-const TOGGLE_KEYS = [
-  'showsTraffic',
-  'showsBuildings',
-  'showsCompass',
-  'showsScale',
-  'showsIndoors',
-  'showsPointsOfInterest',
-  'showsUserLocation',
-  'showsMyLocationButton',
-  'zoomControlEnabled',
-  'zoomEnabled',
-  'scrollEnabled',
-  'rotateEnabled',
-  'pitchEnabled',
-] as const;
+const CATEGORIES: Category[] = [
+  {
+    title: '基础地图',
+    icon: '🗺',
+    items: [
+      [StaticMap, '静态地图'],
+      [ThemeMap, '主题切换'],
+      [LoadingMap, '加载状态'],
+      [CachedMap, '地图缓存'],
+      [LiteMapView, '轻量地图'],
+      [IndoorMap, '室内地图'],
+    ],
+  },
+  {
+    title: '标注',
+    icon: '📍',
+    items: [
+      [DefaultMarkers, '默认标注'],
+      [CustomMarkers, '自定义标注'],
+      [MarkerTypes, '图片标注'],
+      [DraggableMarkers, '可拖拽标注'],
+      [AnimatedMarkers, '动画标注'],
+      [ViewsAsMarkers, '视图作为标注'],
+      [ZIndexMarkers, '层级排序（Z-Index）'],
+      [TestIdMarkers, '测试 ID 标注'],
+      [MassiveCustomMarkers, '海量标注'],
+      [BugMarkerWontUpdate, 'Bug：标注不更新'],
+    ],
+  },
+  {
+    title: '覆盖物',
+    icon: '🔷',
+    items: [
+      [Overlays, '圆 · 多边形 · 折线'],
+      [PolygonCreator, '绘制多边形'],
+      [PolylineCreator, '绘制折线'],
+      [GradientPolylines, '渐变折线'],
+      [GradientPolylinesFunctional, '渐变折线（函数式）'],
+      [CustomOverlay, '自定义覆盖物'],
+      [SetNativePropsOverlays, '原生属性覆盖物'],
+      [ImageOverlayWithAssets, '图片覆盖物（本地）'],
+      [ImageOverlayWithURL, '图片覆盖物（网络）'],
+      [ImageOverlayWithBearing, '图片覆盖物（旋转）'],
+    ],
+  },
+  {
+    title: '气泡',
+    icon: '💬',
+    items: [[Callouts, '自定义气泡']],
+  },
+  {
+    title: '相机与导航',
+    icon: '🎯',
+    items: [
+      [DisplayLatLng, '位置追踪'],
+      [CameraControl, '相机控制'],
+      [AnimatedNavigation, '导航动画'],
+      [AnimatedViews, '地图联动动画'],
+      [FitToSuppliedMarkers, '聚焦标注'],
+      [FitToCoordinates, '适配坐标范围'],
+      [MapBoundaries, '地图边界限制'],
+    ],
+  },
+  {
+    title: '图层与瓦片',
+    icon: '🧩',
+    items: [
+      [CustomTiles, '自定义瓦片'],
+      [CustomTilesLocal, '本地瓦片'],
+      [WMSTiles, 'WMS 瓦片'],
+      [CacheURLTiles, '瓦片缓存（URL）'],
+      [CacheWMSTiles, '瓦片缓存（WMS）'],
+      [HeatMap, '热力图'],
+    ],
+  },
+  {
+    title: '交互与事件',
+    icon: '⚡',
+    items: [
+      [EventListener, '事件监听'],
+      [OnPoiClick, 'POI 点击'],
+      [LegalLabel, '合规标识'],
+      [TakeSnapshot, '地图截图'],
+    ],
+  },
+  {
+    title: '数据',
+    icon: '📊',
+    items: [
+      [MapKml, 'KML 数据'],
+      [GeojsonMap, 'GeoJSON 数据'],
+    ],
+  },
+  {
+    title: '全量测试',
+    icon: '🧪',
+    items: [[FullPropMatrix, '全属性矩阵']],
+  },
+];
 
-type ToggleKey = (typeof TOGGLE_KEYS)[number];
+const TOTAL_COUNT = CATEGORIES.reduce((n, c) => n + c.items.length, 0);
 
-const INITIAL_FLAGS: Record<ToggleKey, boolean> = {
-  showsTraffic: false,
-  showsBuildings: true,
-  showsCompass: true,
-  showsScale: true,
-  showsIndoors: true,
-  showsPointsOfInterest: true,
-  showsUserLocation: false,
-  showsMyLocationButton: true,
-  zoomControlEnabled: false,
-  zoomEnabled: true,
-  scrollEnabled: true,
-  rotateEnabled: true,
-  pitchEnabled: true,
-};
+// harmony 上 Pressable 在 touch start 时即抢占 JS responder，与 ArkUI Scroll 的
+// 原生滚动手势竞争；竞争失败时表现为「手指拖动、列表不滚」，且 Scroll 会闪现
+// 顶部一帧。这里在 harmony 上改用被动 touch 事件识别点击（完全不参与 responder
+// 协商），滚动手势无条件归 Scroll；iOS/Android 仍用 Pressable 保留按压反馈。
+function Tap({
+  style,
+  pressedStyle,
+  onPress,
+  children,
+}: {
+  style: StyleProp<ViewStyle>;
+  pressedStyle?: StyleProp<ViewStyle>;
+  onPress: () => void;
+  children: ReactNode;
+}) {
+  const start = useRef<{ x: number; y: number; t: number } | null>(null);
 
-const fmt = (n: number) => n.toFixed(4);
-
-const coordText = (c: LatLng) => `${fmt(c.latitude)}, ${fmt(c.longitude)}`;
-
-export default function App() {
-  const mapRef = useRef<MapViewHandle>(null);
-  const panCount = useRef(0);
-  const customMarkerRef = useRef<MapMarkerHandle>(null);
-  const draggableMarkerRef = useRef<MapMarkerHandle>(null);
-
-  const [mapType, setMapType] = useState<MapType>('standard');
-  const [provider, setProvider] = useState<Provider>('amap');
-  const [dark, setDark] = useState(false);
-  const [camera, setCamera] = useState<Camera | undefined>(undefined);
-  const [showTiles, setShowTiles] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [showGeojson, setShowGeojson] = useState(false);
-  const [gradientLine, setGradientLine] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(false);
-  const [showWms, setShowWms] = useState(false);
-  const [snapshotUri, setSnapshotUri] = useState<string | null>(null);
-  const [flags, setFlags] = useState(INITIAL_FLAGS);
-  const [log, setLog] = useState<string[]>([]);
-  const [pan, setPan] = useState('onPanDrag —');
-  const [regionText, setRegionText] = useState('region —');
-  // Bumping this re-renders the custom marker's content; with tracksViewChanges
-  // on, the marker re-rasterizes to reflect it.
-  const [customLabel, setCustomLabel] = useState(0);
-
-  const pushLog = useCallback((line: string) => {
-    setLog((prev) => [line, ...prev].slice(0, 7));
-  }, []);
-
-  const setFlag = useCallback(
-    (key: ToggleKey) => (value: boolean) =>
-      setFlags((prev) => ({ ...prev, [key]: value })),
-    []
-  );
-
-  const flyToBeijing = useCallback(() => {
-    setCamera(BEIJING_CAMERA);
-    pushLog('camera → Beijing');
-  }, [pushLog]);
-
-  const backToShanghai = useCallback(() => {
-    // Drop the controlled camera, then drive the map imperatively
-    // (animateToRegion command) back to the initial region.
-    setCamera(undefined);
-    mapRef.current?.animateToRegion(SHANGHAI, 800);
-    pushLog('animateToRegion → Shanghai');
-  }, [pushLog]);
-
-  const captureSnapshot = useCallback(async () => {
-    try {
-      const uri = await mapRef.current?.takeSnapshot?.({ result: 'file' });
-      setSnapshotUri(uri ?? null);
-      pushLog(`takeSnapshot → ${uri ? 'ok' : 'empty'}`);
-    } catch (e) {
-      pushLog(`takeSnapshot error: ${String(e)}`);
-    }
-  }, [pushLog]);
-
-  const limitToShanghai = useCallback(() => {
-    mapRef.current?.setMapBoundaries?.(
-      { latitude: 31.27, longitude: 121.52 },
-      { latitude: 31.19, longitude: 121.43 }
+  if (!IS_HARMONY) {
+    return (
+      <Pressable
+        style={({ pressed }) => [style, pressed && pressedStyle]}
+        onPress={onPress}
+      >
+        {children}
+      </Pressable>
     );
-    pushLog('setMapBoundaries → Shanghai box');
-  }, [pushLog]);
-
-  const logMarkerFrames = useCallback(async () => {
-    try {
-      const frames = await mapRef.current?.getMarkersFrames?.();
-      pushLog(`getMarkersFrames → ${Object.keys(frames ?? {}).join(', ')}`);
-    } catch (e) {
-      pushLog(`getMarkersFrames error: ${String(e)}`);
-    }
-  }, [pushLog]);
-
-  const logAddress = useCallback(async () => {
-    try {
-      const addr = await mapRef.current?.addressForCoordinate?.(THE_BUND);
-      pushLog(`address → ${addr?.name || '(empty)'}`);
-    } catch (e) {
-      pushLog(`addressForCoordinate error: ${String(e)}`);
-    }
-  }, [pushLog]);
+  }
 
   return (
-    <View style={styles.container}>
-      <MapView
-        // Remount when the provider changes — a map view is bound to one SDK
-        // instance for its lifetime (provider is "mount-fixed").
-        key={`map-${provider}`}
-        ref={mapRef}
-        style={styles.map}
-        provider={provider}
-        coordinateSystem="gcj02"
-        initialRegion={SHANGHAI}
-        camera={camera}
-        mapType={mapType}
-        userInterfaceStyle={dark ? 'dark' : 'light'}
-        minZoomLevel={3}
-        maxZoomLevel={19}
-        showsTraffic={flags.showsTraffic}
-        showsBuildings={flags.showsBuildings}
-        showsCompass={flags.showsCompass}
-        showsScale={flags.showsScale}
-        showsIndoors={flags.showsIndoors}
-        showsPointsOfInterest={flags.showsPointsOfInterest}
-        showsUserLocation={flags.showsUserLocation}
-        showsMyLocationButton={flags.showsMyLocationButton}
-        zoomControlEnabled={flags.zoomControlEnabled}
-        zoomEnabled={flags.zoomEnabled}
-        scrollEnabled={flags.scrollEnabled}
-        rotateEnabled={flags.rotateEnabled}
-        pitchEnabled={flags.pitchEnabled}
-        onMapReady={() => pushLog('onMapReady')}
-        onMapLoaded={() => pushLog('onMapLoaded')}
-        onPress={(e) =>
-          pushLog(`onPress ${coordText(e.nativeEvent.coordinate)}`)
-        }
-        onLongPress={(e) =>
-          pushLog(`onLongPress ${coordText(e.nativeEvent.coordinate)}`)
-        }
-        onDoublePress={(e) =>
-          pushLog(`onDoublePress ${coordText(e.nativeEvent.coordinate)}`)
-        }
-        onPanDrag={(e) => {
-          panCount.current += 1;
-          setPan(
-            `onPanDrag ${coordText(e.nativeEvent.coordinate)} ×${panCount.current}`
-          );
-        }}
-        onPoiClick={(e) =>
-          pushLog(
-            `onPoiClick ${e.nativeEvent.name ?? '(unnamed)'} ${coordText(
-              e.nativeEvent.coordinate
-            )}`
-          )
-        }
-        onUserLocationChange={(e) => {
-          const c = e.nativeEvent.coordinate;
-          if (c) {
-            pushLog(`onUserLocationChange ${coordText(c)}`);
-          }
-        }}
-        onRegionChangeComplete={(e) =>
-          setRegionText(
-            `region ${coordText(e.nativeEvent.region)} (gesture: ${
-              e.nativeEvent.isGesture ? 'yes' : 'no'
-            })`
-          )
-        }
-      >
-        <Marker
-          coordinate={THE_BUND}
-          identifier="bund"
-          title="The Bund"
-          description="外滩"
-          pinColor="green"
-          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
-        >
-          {/* Custom <Callout>: green pin + tappable custom bubble. */}
-          <Callout onPress={() => pushLog('callout onPress bund')}>
-            <View style={styles.callout}>
-              <Text style={styles.calloutTitle}>The Bund 外滩</Text>
-              <Text style={styles.calloutBody}>Custom callout — tap me</Text>
-            </View>
-          </Callout>
-        </Marker>
-        <Marker
-          coordinate={PEOPLES_SQUARE}
-          identifier="square"
-          title="People's Square"
-          description="人民广场"
-          pinColor="purple"
-          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
-        />
-
-        {/* Default pin (no pinColor / image). */}
-        <Marker
-          coordinate={DEFAULT_PIN}
-          identifier="default"
-          title="Default pin"
-          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
-        />
-
-        {/* Image marker resolved from a remote uri. */}
-        <Marker
-          coordinate={IMAGE_MARKER}
-          identifier="image"
-          title="Image marker"
-          image={{ uri: TINY_LOGO }}
-          onPress={(e) => pushLog(`marker onPress ${e.nativeEvent.identifier}`)}
-        />
-
-        {/* Custom React content rasterized into the icon; ref drives commands. */}
-        <Marker
-          ref={customMarkerRef}
-          coordinate={CUSTOM_MARKER}
-          identifier="custom"
-          title="Custom view"
-          tracksViewChanges
-          onSelect={(e) =>
-            pushLog(`marker onSelect ${e.nativeEvent.identifier}`)
-          }
-          onCalloutPress={() => pushLog('marker onCalloutPress custom')}
-        >
-          <View style={styles.customMarker}>
-            <Text style={styles.customMarkerText}>🚇 {customLabel}</Text>
-          </View>
-        </Marker>
-
-        {/* Draggable marker; drag + animate-command target. */}
-        <Marker
-          ref={draggableMarkerRef}
-          coordinate={DRAGGABLE_MARKER}
-          identifier="draggable"
-          title="Drag me"
-          pinColor="#1f6feb"
-          draggable
-          onDragStart={(e) =>
-            pushLog(`marker onDragStart ${coordText(e.nativeEvent.coordinate)}`)
-          }
-          onDragEnd={(e) =>
-            pushLog(`marker onDragEnd ${coordText(e.nativeEvent.coordinate)}`)
-          }
-        />
-
-        {/* Vector overlays. */}
-        <Polyline
-          coordinates={LINE}
-          strokeColor="#e2231a"
-          strokeColors={
-            gradientLine ? ['#ff0000', '#00ff00', '#0000ff'] : undefined
-          }
-          strokeWidth={4}
-          lineCap="round"
-          lineJoin="round"
-          tappable
-          onPress={() => pushLog('polyline onPress')}
-        />
-        <Polygon
-          coordinates={FENCE}
-          strokeColor="#1f6feb"
-          strokeWidth={2}
-          fillColor="rgba(31,111,235,0.2)"
-        />
-        <Circle
-          center={CIRCLE_CENTER}
-          radius={800}
-          strokeColor="#2e7d32"
-          strokeWidth={2}
-          fillColor="rgba(46,125,50,0.15)"
-        />
-        {showTiles && (
-          <UrlTile
-            urlTemplate="https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
-            maximumZ={19}
-            zIndex={-1}
-          />
-        )}
-        {showOverlay && (
-          <Overlay
-            image={{ uri: 'https://reactnative.dev/img/tiny_logo.png' }}
-            bounds={[
-              { latitude: 31.27, longitude: 121.44 },
-              { latitude: 31.19, longitude: 121.51 },
-            ]}
-            opacity={0.7}
-          />
-        )}
-        {showGeojson && (
-          <Geojson
-            geojson={SAMPLE_GEOJSON}
-            strokeColor="#8e24aa"
-            strokeWidth={3}
-            fillColor="rgba(142,36,170,0.2)"
-            pinColor="purple"
-          />
-        )}
-        {showHeatmap && <Heatmap points={HEATMAP_POINTS} radius={40} />}
-        {showWms && (
-          <WMSTile
-            urlTemplate={
-              'https://ows.terrestris.de/osm/service?SERVICE=WMS&VERSION=1.1.1' +
-              '&REQUEST=GetMap&LAYERS=OSM-WMS&STYLES=&FORMAT=image/png' +
-              '&TRANSPARENT=true&SRS=EPSG:3857&WIDTH={width}&HEIGHT={height}' +
-              '&BBOX={minX},{minY},{maxX},{maxY}'
-            }
-            maximumZ={19}
-            zIndex={-1}
-          />
-        )}
-      </MapView>
-
-      <View pointerEvents="none" style={styles.logOverlay}>
-        <Text style={styles.logLine}>{regionText}</Text>
-        <Text style={styles.logLine}>{pan}</Text>
-        {log.map((line, index) => (
-          <Text key={`${index}-${line}`} style={styles.logLine}>
-            {line}
-          </Text>
-        ))}
-      </View>
-
-      <ScrollView
-        style={styles.panel}
-        contentContainerStyle={styles.panelInner}
-      >
-        <Text style={styles.sectionTitle}>Camera / region</Text>
-        <View style={styles.buttonRow}>
-          <Pressable style={styles.button} onPress={flyToBeijing}>
-            <Text style={styles.buttonText}>Fly to Beijing (camera)</Text>
-          </Pressable>
-          <Pressable style={styles.button} onPress={backToShanghai}>
-            <Text style={styles.buttonText}>Back to Shanghai (animate)</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.sectionTitle}>Snapshot</Text>
-        <View style={styles.buttonRow}>
-          <Pressable style={styles.button} onPress={captureSnapshot}>
-            <Text style={styles.buttonText}>takeSnapshot</Text>
-          </Pressable>
-        </View>
-        {snapshotUri && (
-          <Image source={{ uri: snapshotUri }} style={styles.snapshot} />
-        )}
-
-        <Text style={styles.sectionTitle}>Commands</Text>
-        <View style={styles.buttonRow}>
-          <Pressable style={styles.button} onPress={limitToShanghai}>
-            <Text style={styles.buttonText}>setMapBoundaries</Text>
-          </Pressable>
-          <Pressable style={styles.button} onPress={logMarkerFrames}>
-            <Text style={styles.buttonText}>getMarkersFrames</Text>
-          </Pressable>
-          <Pressable style={styles.button} onPress={logAddress}>
-            <Text style={styles.buttonText}>addressForCoordinate</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.sectionTitle}>Markers</Text>
-        <View style={styles.buttonRow}>
-          <Pressable
-            style={styles.button}
-            onPress={() => customMarkerRef.current?.showCallout()}
-          >
-            <Text style={styles.buttonText}>Show callout (custom)</Text>
-          </Pressable>
-          <Pressable
-            style={styles.button}
-            onPress={() => {
-              setCustomLabel((n) => n + 1);
-              pushLog('custom marker label bumped');
-            }}
-          >
-            <Text style={styles.buttonText}>Bump custom label</Text>
-          </Pressable>
-          <Pressable
-            style={styles.button}
-            onPress={() => customMarkerRef.current?.redraw()}
-          >
-            <Text style={styles.buttonText}>Redraw custom</Text>
-          </Pressable>
-          <Pressable
-            style={styles.button}
-            onPress={() => {
-              draggableMarkerRef.current?.animateMarkerToCoordinate(
-                ANIMATE_TARGET,
-                1000
-              );
-              pushLog('animate draggable marker');
-            }}
-          >
-            <Text style={styles.buttonText}>Animate draggable</Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.sectionTitle}>provider</Text>
-        <View style={styles.buttonRow}>
-          {PROVIDERS.map((name) => (
-            <Pressable
-              key={name}
-              style={[styles.chip, provider === name && styles.chipActive]}
-              onPress={() => setProvider(name)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  provider === name && styles.chipTextActive,
-                ]}
-              >
-                {name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.hint}>
-          baidu / tencent need their provider packages + SDK keys installed;
-          otherwise the map stays blank.
-        </Text>
-
-        <Text style={styles.sectionTitle}>mapType</Text>
-        <View style={styles.buttonRow}>
-          {MAP_TYPES.map((type) => (
-            <Pressable
-              key={type}
-              style={[styles.chip, mapType === type && styles.chipActive]}
-              onPress={() => setMapType(type)}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  mapType === type && styles.chipTextActive,
-                ]}
-              >
-                {type}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>userInterfaceStyle: dark</Text>
-          <Switch value={dark} onValueChange={setDark} />
-        </View>
-
-        <Text style={styles.sectionTitle}>Tiles / Overlay</Text>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>UrlTile: OSM raster overlay</Text>
-          <Switch value={showTiles} onValueChange={setShowTiles} />
-        </View>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Overlay: image ground overlay</Text>
-          <Switch value={showOverlay} onValueChange={setShowOverlay} />
-        </View>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>
-            Geojson: point + line + polygon
-          </Text>
-          <Switch value={showGeojson} onValueChange={setShowGeojson} />
-        </View>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Polyline: gradient</Text>
-          <Switch value={gradientLine} onValueChange={setGradientLine} />
-        </View>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Heatmap: weighted points</Text>
-          <Switch value={showHeatmap} onValueChange={setShowHeatmap} />
-        </View>
-        <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>WMSTile: OSM-WMS</Text>
-          <Switch value={showWms} onValueChange={setShowWms} />
-        </View>
-
-        <Text style={styles.sectionTitle}>Display & gesture toggles</Text>
-        {TOGGLE_KEYS.map((key) => (
-          <View key={key} style={styles.toggleRow}>
-            <Text style={styles.toggleLabel}>{key}</Text>
-            <Switch value={flags[key]} onValueChange={setFlag(key)} />
-          </View>
-        ))}
-      </ScrollView>
+    <View
+      style={style}
+      onTouchStart={(e) => {
+        const t = e.nativeEvent.touches[0] ?? e.nativeEvent;
+        start.current = { x: t.pageX, y: t.pageY, t: Date.now() };
+      }}
+      onTouchEnd={(e) => {
+        const s = start.current;
+        start.current = null;
+        if (!s) return;
+        const t = e.nativeEvent.changedTouches[0] ?? e.nativeEvent;
+        // 位移超过阈值（滚动）或按住过久（长按）都不算点击
+        const moved =
+          Math.abs(t.pageX - s.x) > 10 || Math.abs(t.pageY - s.y) > 10;
+        if (!moved && Date.now() - s.t < 600) onPress();
+      }}
+    >
+      {children}
     </View>
   );
 }
 
+export default function App() {
+  const [demo, setDemo] = useState<[DemoComponent, string] | null>(null);
+  const [provider, setProvider] = useState<Provider>('amap');
+  const [search, setSearch] = useState('');
+
+  const filteredCategories = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return CATEGORIES;
+    return CATEGORIES.map((cat) => ({
+      ...cat,
+      items: cat.items.filter(([, title]) => title.toLowerCase().includes(q)),
+    })).filter((cat) => cat.items.length > 0);
+  }, [search]);
+
+  // ---- 示例详情页 ----
+  if (demo) {
+    const [Demo, title] = demo;
+    return (
+      <View style={styles.fill}>
+        <StatusBar barStyle="dark-content" />
+        <Demo key={`${title}-${provider}`} provider={provider} />
+
+        <View style={[styles.demoBackBtn, { top: SAFE_TOP + 8 }]}>
+          <Pressable style={styles.demoBackInner} onPress={() => setDemo(null)}>
+            <Text style={styles.demoBackArrow}>{'‹'}</Text>
+            <Text style={styles.demoBackLabel}>返回</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.demoTitleBadge}>
+          <Text style={styles.demoTitleText} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+
+        <View style={styles.demoProviderBar}>
+          <View style={styles.demoProviderInner}>
+            {PROVIDERS.map((p) => {
+              const active = provider === p.key;
+              return (
+                <Pressable
+                  key={p.key}
+                  style={[
+                    styles.demoChip,
+                    active && {
+                      backgroundColor: p.color,
+                      borderColor: p.color,
+                    },
+                  ]}
+                  onPress={() => setProvider(p.key)}
+                >
+                  <Text
+                    style={[
+                      styles.demoChipText,
+                      active ? styles.demoChipTextActive : { color: p.color },
+                    ]}
+                  >
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ---- 主页列表 ----
+  // RNOH 的 SafeAreaView 会异步更新 insets 导致滚动容器 frame 变化、
+  // 滚动位置被重置（表现为闪一下跳回顶部），改用 View + 固定 paddingTop。
+  const ListWrapper = IS_HARMONY ? View : SafeAreaView;
+
+  // 标题 / 搜索 / Provider 选择作为 FlatList 头部
+  const listHeader = (
+    <>
+      <View style={styles.header}>
+        <Text style={styles.title}>CN Maps</Text>
+        <Text style={styles.subtitle}>react-native-cn-maps 示例集</Text>
+      </View>
+
+      <View style={styles.searchWrap}>
+        <Text style={styles.searchIcon}>{'🔍'}</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="搜索示例..."
+          placeholderTextColor="#94A3B8"
+          value={search}
+          onChangeText={setSearch}
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+        />
+      </View>
+
+      <View style={styles.providerSection}>
+        <Text style={styles.providerLabel}>地图服务</Text>
+        <View style={styles.providerRow}>
+          {PROVIDERS.map((p) => {
+            const active = provider === p.key;
+            return (
+              <Tap
+                key={p.key}
+                style={[
+                  styles.providerChip,
+                  active && {
+                    backgroundColor: p.color,
+                    borderColor: p.color,
+                  },
+                ]}
+                onPress={() => setProvider(p.key)}
+              >
+                <Text
+                  style={[
+                    styles.providerChipText,
+                    active ? styles.providerChipTextActive : { color: p.color },
+                  ]}
+                >
+                  {p.label}
+                </Text>
+              </Tap>
+            );
+          })}
+        </View>
+      </View>
+    </>
+  );
+
+  return (
+    <View style={styles.fill}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+      <ListWrapper style={styles.safeArea}>
+        <FlatList
+          style={styles.scrollView}
+          data={filteredCategories}
+          keyExtractor={(cat) => cat.title}
+          renderItem={({ item: cat }) => (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionIcon}>{cat.icon}</Text>
+                <Text style={styles.sectionTitle}>{cat.title}</Text>
+                <View style={styles.sectionBadge}>
+                  <Text style={styles.sectionBadgeText}>
+                    {cat.items.length}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.card}>
+                {cat.items.map(([Comp, itemTitle], i) => (
+                  <Tap
+                    key={itemTitle}
+                    style={[
+                      styles.row,
+                      i < cat.items.length - 1 && styles.rowBorder,
+                    ]}
+                    pressedStyle={styles.rowPressed}
+                    onPress={() => setDemo([Comp, itemTitle])}
+                  >
+                    <Text style={styles.rowText}>{itemTitle}</Text>
+                    <Text style={styles.rowChevron}>{'›'}</Text>
+                  </Tap>
+                ))}
+              </View>
+            </View>
+          )}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>{'🔍'}</Text>
+              <Text style={styles.emptyText}>没有匹配的示例</Text>
+            </View>
+          }
+          ListFooterComponent={
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>共 {TOTAL_COUNT} 个示例</Text>
+            </View>
+          }
+          contentContainerStyle={
+            IS_HARMONY ? styles.scrollContentHarmony : styles.scrollContent
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          // 分类总共只有 9 个节点：一次全部渲染、关闭裁剪与虚拟化回收，
+          // 避免 RNOH 上滚动中增删子树引发闪帧
+          initialNumToRender={CATEGORIES.length}
+          windowSize={21}
+          removeClippedSubviews={false}
+        />
+      </ListWrapper>
+    </View>
+  );
+}
+
+// ---- 常量与样式 ----
+
+// RNOH 的 Platform.OS 是 'harmony'
+const IS_HARMONY = (Platform.OS as string) === 'harmony';
+
+const SAFE_TOP = IS_HARMONY
+  ? 44
+  : Platform.OS === 'android'
+    ? (StatusBar.currentHeight ?? 0)
+    : 54;
+
+const COLORS = {
+  bg: '#F1F5F9',
+  card: '#FFFFFF',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B',
+  textTertiary: '#94A3B8',
+  divider: '#F1F5F9',
+  searchBg: '#E2E8F0',
+  accent: '#3B82F6',
+};
+
+const SHADOW = Platform.select({
+  ios: {
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+  },
+  android: {
+    elevation: 2,
+  },
+  default: {},
+});
+
 const styles = StyleSheet.create({
-  container: {
+  fill: {
     flex: 1,
+    backgroundColor: COLORS.bg,
   },
-  map: {
+  safeArea: {
     flex: 1,
+    backgroundColor: COLORS.bg,
   },
-  logOverlay: {
-    position: 'absolute',
-    top: 48,
-    left: 12,
-    right: 12,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  scrollView: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
   },
-  logLine: {
-    color: '#fff',
-    fontSize: 11,
-    lineHeight: 16,
-    fontFamily: 'Courier',
+  scrollContent: {
+    paddingBottom: 48,
   },
-  panel: {
-    maxHeight: '42%',
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ccc',
+  scrollContentHarmony: {
+    paddingBottom: 48,
+    paddingTop: SAFE_TOP,
   },
-  panelInner: {
-    padding: 12,
-    paddingBottom: 32,
+
+  // 标题
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 4,
   },
-  snapshot: {
-    width: 160,
-    height: 100,
-    marginTop: 8,
-    borderRadius: 6,
-    backgroundColor: '#eee',
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#333',
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  hint: {
-    fontSize: 11,
-    color: '#888',
+  subtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
     marginTop: 4,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#1f6feb',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f6feb',
-  },
-  chipActive: {
-    backgroundColor: '#1f6feb',
-  },
-  chipText: {
-    color: '#1f6feb',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#fff',
-  },
-  toggleRow: {
+
+  // 搜索
+  searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
+    backgroundColor: COLORS.searchBg,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingHorizontal: 12,
+    height: 44,
   },
-  toggleLabel: {
-    fontSize: 13,
-    color: '#333',
-    flexShrink: 1,
-  },
-  customMarker: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: '#1f6feb',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  customMarkerText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  callout: {
-    padding: 8,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    minWidth: 160,
-  },
-  calloutTitle: {
+  searchIcon: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#111',
+    marginRight: 8,
+    opacity: 0.6,
   },
-  calloutBody: {
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    padding: 0,
+  },
+
+  // Provider 选择
+  providerSection: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+  },
+  providerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  providerRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  providerChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: COLORS.card,
+  },
+  providerChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  providerChipTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // 分类
+  section: {
+    marginTop: 28,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  sectionIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+    flex: 1,
+  },
+  sectionBadge: {
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  sectionBadgeText: {
     fontSize: 12,
-    color: '#555',
-    marginTop: 2,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    marginHorizontal: 16,
+    borderRadius: 14,
+    overflow: IS_HARMONY ? 'visible' : ('hidden' as const),
+    ...SHADOW,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rowPressed: {
+    backgroundColor: '#F1F5F9',
+  },
+  rowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+  },
+  rowText: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
+  rowChevron: {
+    fontSize: 22,
+    color: '#CBD5E1',
+    fontWeight: '300',
+    marginLeft: 8,
+  },
+
+  // 空状态
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 64,
+  },
+  emptyIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+    opacity: 0.5,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.textTertiary,
+  },
+
+  // 底部
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  footerText: {
+    fontSize: 13,
+    color: COLORS.textTertiary,
+  },
+
+  // ---- 示例详情页 ----
+  demoBackBtn: {
+    position: 'absolute',
+    left: 12,
+    zIndex: 10,
+  },
+  demoBackInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    ...SHADOW,
+  },
+  demoBackArrow: {
+    fontSize: 24,
+    color: COLORS.accent,
+    fontWeight: '300',
+    marginRight: 4,
+    marginTop: -2,
+  },
+  demoBackLabel: {
+    fontSize: 15,
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  demoTitleBadge: {
+    position: 'absolute',
+    top: SAFE_TOP + 8,
+    left: 100,
+    right: 16,
+    zIndex: 10,
+    alignItems: 'flex-end',
+  },
+  demoTitleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    overflow: 'hidden',
+    ...SHADOW,
+  },
+  demoProviderBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  demoProviderInner: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  demoChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  demoChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  demoChipTextActive: {
+    color: '#FFFFFF',
   },
 });

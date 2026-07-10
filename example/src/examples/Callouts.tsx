@@ -22,7 +22,6 @@ const SPACE = 0.01;
 function Callouts(props: any) {
   const marker1 = useRef<any>(null);
   const marker2 = useRef<any>(null);
-  const marker4 = useRef<any>(null);
 
   const [cnt, setCnt] = useState(0);
   const [region] = useState({
@@ -130,9 +129,6 @@ function Callouts(props: any) {
           </Callout>
         </Marker>
         <Marker
-          ref={(ref) => {
-            marker4.current = ref;
-          }}
           coordinate={markers[3].coordinate}
           title="也可以打开这个气泡"
           description="点击自定义气泡的透明区域即可触发。"

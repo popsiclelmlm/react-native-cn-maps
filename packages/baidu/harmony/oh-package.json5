@@ -1,0 +1,19 @@
+{
+  "name": "rn-cn-maps-baidu",
+  "version": "0.2.0",
+  "description": "Baidu (百度) provider for react-native-cn-maps on HarmonyOS (RNOH)",
+  "main": "Index.ets",
+  "author": "popsiclelmlm",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "rn-cn-maps": "file:../../core/harmony",
+    "@rnoh/react-native-openharmony": "0.72.38",
+    "@bdmap/base": "^2.0.5",
+    // @bdmap/map 的 .har 从华为 CDN 反复下载超时，故 vendor 进仓库 libs/。
+    // 待公共 registry 稳定后可换回 "^2.0.5"。
+    "@bdmap/map": "file:./libs/map-2.0.5.har"
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
+}
