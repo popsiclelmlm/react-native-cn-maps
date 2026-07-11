@@ -19,13 +19,9 @@ adapter packages**, with a runtime `provider` switch and experimental HarmonyOS 
   device-verified**, so iOS autolinking is disabled by default for these two.
 - **HarmonyOS Next (鸿蒙, via RNOH)** — *experimental / in progress*. ArkTS source
   for all three providers under each package's `harmony/`; example runs on the
-  emulator with an AMap placeholder. Not device-verified. See
-  [migration/harmony/06-integration-and-status.md](migration/harmony/06-integration-and-status.md).
+  emulator with an AMap placeholder. Not device-verified.
 - **`addressForCoordinate`** reverse geocoding (AMap, iOS + Android).
 - **`kmlSrc`** — parse KML to GeoJSON and render via `<Geojson>`, fires `onKmlReady`.
-- **react-native-maps migration guide** + parity matrix
-  ([docs/MIGRATION_FROM_RN_MAPS.md](docs/MIGRATION_FROM_RN_MAPS.md)) — most projects
-  migrate by changing the import.
 
 ### Notes
 

@@ -2,7 +2,7 @@
 
 完整的鸿蒙示例 = **本目录的 RN JS 工程(锁 0.72.5 + RNOH)** + **DevEco Stage 原生工程(entry/AppScope/...)**。与 iOS/Android 的 `example/`(RN 0.85)**解耦**,各用各的 RN 版本,互不干扰。
 
-> ⚠️ 实验性。RNOH 框架 API、三家地图 SDK API、各 `查证` 项见 [../../migration/harmony/06-integration-and-status.md](../../migration/harmony/06-integration-and-status.md)。
+> ⚠️ 实验性。RNOH 框架 API、三家地图 SDK API、各 `查证` 项均以真机验证为准。
 
 ## ✅ 现状：example 已能在鸿蒙模拟器上运行
 
@@ -89,7 +89,7 @@ hdc -t <connect-key> rport tcp:8081 tcp:8081   # 真机连上后转发(先 `hdc 
 1. **空壳出 RN**：先不接地图 SDK，App 能挂载、不崩、`onMapReady` 日志（地图区域空白，因 `@Builder` 还是占位）。→ 证明 RNOH 集成链路通。
 2. **接高德出图**：装高德鸿蒙 SDK、把 `AMapPackage.ets` 的占位 `Column()` 换成真实地图组件 + `attachController`、填 Key。→ P0 高德 go/no-go。
 3. **对齐 SDK 方法名**：`hdc hilog` 盯运行时 `xxx is not a function`，逐个把 `AMapAdapter` 的 `controller.xxx()` 对到真实 `.d.ts`。
-4. **跑回归矩阵**：照 [07-regression-matrix.md](../../migration/harmony/07-regression-matrix.md) 九类 × 三家。
+4. **跑回归矩阵**：九类 × 三家逐项验证。
 
 ## 关键文件
 - `package.json` / `metro.config.js` / `babel.config.js` —— RN 0.72.5 + RNOH harmony 预设。

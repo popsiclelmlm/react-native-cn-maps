@@ -31,13 +31,13 @@ Most code ports over by changing a single import.
 
 - 🔁 **Drop-in `react-native-maps` API** — `MapView`, `Marker`, `Callout`, `Polyline`, `Polygon`, `Circle`, `Overlay`, `UrlTile`, `LocalTile`, `WMSTile`, `Heatmap`, `Geojson`.
 - 📱 **iOS & Android**, verified on device + simulator.
-- 🟢 **HarmonyOS Next** (鸿蒙, via [RNOH](https://gitee.com/openharmony-sig/ohos_react_native)) — **experimental / in progress**, all three providers (AMap / Baidu / Tencent). Source under each package's `harmony/`; status + integration guide in [migration/harmony/06-integration-and-status.md](migration/harmony/06-integration-and-status.md). Min RN line 0.72.
+- 🟢 **HarmonyOS Next** (鸿蒙, via [RNOH](https://gitee.com/openharmony-sig/ohos_react_native)) — **experimental / in progress**, all three providers (AMap / Baidu / Tencent). Source under each package's `harmony/`. Min RN line 0.72.
 - 🧭 **Coordinate systems** — `gcj02` / `wgs84` / `bd09`, converted in JS so the native layer always speaks GCJ-02.
 - ⚡ **New Architecture only** — Fabric components + TurboModule, no bridge.
 - 🔒 **Privacy-first** — never auto-agrees; the host app declares PIPL consent explicitly.
 - 🇨🇳 **China providers** — AMap / 高德, Baidu / 百度, Tencent / 腾讯; all three verified rendering + authenticating on Android.
 
-> **Migrating from react-native-maps?** See [docs/MIGRATION_FROM_RN_MAPS.md](docs/MIGRATION_FROM_RN_MAPS.md) — most projects migrate by changing the import; the guide has the full parity matrix and the one real gotcha (coordinate systems). Android verification evidence: [docs/ANDROID_MULTI_PROVIDER_VERIFICATION.md](docs/ANDROID_MULTI_PROVIDER_VERIFICATION.md).
+> **Migrating from react-native-maps?** Most projects migrate by changing the import — the API mirrors react-native-maps, with the one real gotcha being coordinate systems.
 
 ## 📦 Installation
 
@@ -77,8 +77,6 @@ with the Baidu/Tencent SDKs), then pick one via the `provider` prop:
   (e.g. give it a `key={provider}`).
 - Each provider needs its SDK key configured natively — see that package's README
   (`react-native-cn-maps-<provider>`) and [Native setup](#-native-setup).
-- See [`docs/specs/p2-multi-provider.md`](docs/specs/p2-multi-provider.md) for the
-  architecture and per-provider capability notes.
 
 ## 🚀 Quick start
 
@@ -237,8 +235,7 @@ so iOS autolinking is disabled by default. To try it, enable `ios: {}` for that
 package in your **app's** `react-native.config.js` and verify on a device.
 
 - **HarmonyOS Next** is experimental across all providers (RNOH-based, not yet
-  device-verified) — see the
-  [integration & status doc](migration/harmony/06-integration-and-status.md).
+  device-verified).
 - `provider="google"` and **Web** are out of scope — this library targets China providers.
 
 ## 🤝 Contributing
