@@ -33,7 +33,7 @@ import hilog from '@ohos.hilog';
 // 真实高德鸿蒙 SDK 符号（@amap/amap_lbs_map3d，见 oh-package.json5）。仅相机/地图类型用
 // 真实类型；controller 仍保持 ESObject——覆盖物/监听器等大量方法尚未逐一对齐真实 AMap API。
 import {
-  LatLng, CameraUpdateFactory, MapType, MarkerOptions, PolylineOptions, PolygonOptions,
+  LatLng, CameraUpdateFactory, CameraPosition, MapType, MarkerOptions, PolylineOptions, PolygonOptions,
   CircleOptions, BitmapDescriptorFactory, GroundOverlayOptions, LatLngBounds
 } from '@amap/amap_lbs_map3d';
 
@@ -957,8 +957,10 @@ export class AMapAdapter implements CnMapAdapter {
     const cur: ESObject = this.controller.getCameraPosition();
     const zoom: number = camera.zoom > 0 ? camera.zoom : (cur !== null && cur !== undefined ? cur.zoom as number : 10);
     const target: ESObject = new LatLng(camera.latitude, camera.longitude);
-    // 第一版仅定位到 center+zoom；pitch/heading 后续用 newCameraPosition 迭代。
-    const update: ESObject = CameraUpdateFactory.newLatLngZoom(target, zoom);
+    // 完整应用 center + zoom + tilt(pitch) + bearing(heading)——否则相机命令的旋转/俯仰不生效
+    // （CameraPosition 构造参数顺序为 target, zoom, tilt, bearing）。
+    const pos: ESObject = new CameraPosition(target, zoom, camera.pitch, camera.heading);
+    const update: ESObject = CameraUpdateFactory.newCameraPosition(pos);
     this.applyCameraUpdate(update, animated, duration);
   }
 
