@@ -49,6 +49,7 @@ interface TrackedChild {
   handle: OverlayHandle;
   isMarker: boolean;
   identifier: string | null;
+  propsHash: string; // 上次同步时子 props 的快照，未变则跳过 update（避免滚动/无关刷新时重建覆盖物）
 }
 
 export class CnMapHostController implements CnMapAdapterDelegate {
@@ -213,17 +214,23 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     children.forEach((child) => {
       seen.add(child.tag);
       const existing = this.tracked.get(child.tag);
+      const hash = JSON.stringify(child.props);
+      // props 未变则跳过（子 descriptor 订阅可能因无关刷新触发 syncChildren）。
+      if (existing !== undefined && existing.propsHash === hash) {
+        return;
+      }
       if (child.componentName === MARKER_COMPONENT_NAME) {
         const model = buildMarkerModel(child.props);
         if (existing === undefined) {
           const handle = a.addMarker(model, `cn-${child.tag}`);
-          this.tracked.set(child.tag, { handle, isMarker: true, identifier: model.identifier });
+          this.tracked.set(child.tag, { handle, isMarker: true, identifier: model.identifier, propsHash: hash });
           if (model.identifier !== null) {
             this.markerHandlesByIdentifier.set(model.identifier, handle);
           }
         } else {
           a.updateMarker(existing.handle, model);
           existing.identifier = model.identifier;
+          existing.propsHash = hash;
           if (model.identifier !== null) {
             this.markerHandlesByIdentifier.set(model.identifier, existing.handle);
           }
@@ -236,9 +243,10 @@ export class CnMapHostController implements CnMapAdapterDelegate {
       }
       if (existing === undefined) {
         const handle = a.addOverlay(overlayModel, `cn-${child.tag}`);
-        this.tracked.set(child.tag, { handle, isMarker: false, identifier: null });
+        this.tracked.set(child.tag, { handle, isMarker: false, identifier: null, propsHash: hash });
       } else {
         a.updateOverlay(existing.handle, overlayModel);
+        existing.propsHash = hash;
       }
     });
 

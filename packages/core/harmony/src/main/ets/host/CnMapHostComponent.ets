@@ -35,6 +35,10 @@ export struct CnMapHostComponent {
   private controller: CnMapHostController | null = null;
   private unsubscribe: (() => void) | null = null;
   private unregisterCommand: (() => void) | null = null;
+  // 每个子节点（Marker/Overlay 等）的 descriptor 订阅。host 自身的订阅只在 childrenTags
+  // 变化（增删子）时触发；子 props 变化（改颜色/坐标等）只更新子 descriptor，故须逐个订阅，
+  // 子变即 syncChildren，否则动态更新（如切换描边色、标注移动）不生效。
+  private childUnsubscribes: (() => void)[] = [];
 
   aboutToAppear(): void {
     const descriptor = this.ctx.descriptorRegistry.getDescriptor<RNMapsMapViewDescriptor>(this.tag);
@@ -60,8 +64,11 @@ export struct CnMapHostComponent {
         this.descriptor = newDescriptor as RNMapsMapViewDescriptor;
         this.applyFrame(this.descriptor);
         this.controller?.applyProps(this.descriptor.props);
+        // childrenTags 可能变化（增删子），重建子订阅。
+        this.resubscribeChildren();
       }
     );
+    this.resubscribeChildren();
 
     this.unregisterCommand = this.ctx.componentCommandReceiver.registerCommandCallback(
       this.tag,
@@ -74,7 +81,27 @@ export struct CnMapHostComponent {
   aboutToDisappear(): void {
     this.unsubscribe?.();
     this.unregisterCommand?.();
+    this.childUnsubscribes.forEach((u) => u());
+    this.childUnsubscribes = [];
     this.controller?.destroy();
+  }
+
+  // 订阅当前每个子节点的 descriptor 变化：任一子变化即重新同步子树（子 props 变更传播）。
+  // 幂等：syncChildren 内以 propsHash 去重，未变的子不会触发覆盖物重建。
+  private resubscribeChildren(): void {
+    this.childUnsubscribes.forEach((u) => u());
+    this.childUnsubscribes = [];
+    const d = this.descriptor;
+    if (d === null) {
+      return;
+    }
+    d.childrenTags.forEach((childTag: Tag) => {
+      const unsub = this.ctx.descriptorRegistry.subscribeToDescriptorChanges(
+        childTag,
+        () => { this.controller?.syncChildren(); }
+      );
+      this.childUnsubscribes.push(unsub);
+    });
   }
 
   // Walk the Fabric child tags and read each dumb child's component type + props.
