@@ -78,10 +78,11 @@ export function buildMarkerModel(props: PropBag): CnMarkerModel {
     rotation: num(props, 'rotation', 0),
     flat: bool(props, 'flat', false),
     zIndex: num(props, 'zIndex', 0),
-    // 查证: custom-children rasterization + `image` decode to PixelMap is a Phase 4
-    // spike item (ArkUI component snapshot / image loader). Null for the MVP.
+    // customBitmap（自定义 React 子视图光栅化）仍是后续项；iconBitmap 由 adapter 从
+    // imageUri 异步解码后回填（Phase 4）。此处只透传原始 image uri。
     customBitmap: null,
     iconBitmap: null,
+    imageUri: str(props, 'image'),
     hasInfoWindowContent: (str(props, 'title') ?? '').length > 0,
   };
 }
@@ -207,9 +208,9 @@ function buildGroundOverlay(props: PropBag): CnGroundOverlayModel {
     kind: 'groundOverlay',
     southWest: { latitude: num(props, 'swLatitude', 0), longitude: num(props, 'swLongitude', 0) },
     northEast: { latitude: num(props, 'neLatitude', 0), longitude: num(props, 'neLongitude', 0) },
-    // 查证 Phase 4: decode the `image` URI → PixelMap (async, via an image loader,
-    // like marker icons). Null until wired ⇒ the ground overlay is skipped by the adapter.
+    // bitmap 由 adapter 从 imageUri 异步解码后回填（Phase 4）；此处只透传原始 image uri。
     bitmap: null,
+    imageUri: str(props, 'image'),
     bearing: num(props, 'bearing', 0),
     opacity: num(props, 'opacity', 1),
     zIndex: num(props, 'overlayZIndex', 0),

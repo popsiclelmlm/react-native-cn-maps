@@ -63,6 +63,7 @@ export interface CnMarkerModel {
   zIndex: number;
   customBitmap: image.PixelMap | null; // rasterized custom React children
   iconBitmap: image.PixelMap | null;   // decoded `image` prop
+  imageUri: string | null;             // 原始 `image` uri，由 adapter 异步解码为 PixelMap（Phase 4）
   hasInfoWindowContent: boolean;
 }
 
@@ -154,6 +155,7 @@ export interface CnGroundOverlayModel extends CnOverlayModelBase {
   southWest: CnLatLng | null;
   northEast: CnLatLng | null;
   bitmap: image.PixelMap | null;
+  imageUri: string | null;             // 原始 `image` uri，由 adapter 异步解码为 PixelMap（Phase 4）
   bearing: number;
   opacity: number;
   zIndex: number;

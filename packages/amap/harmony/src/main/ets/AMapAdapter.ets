@@ -21,6 +21,7 @@ import common from '@ohos.app.ability.common';
 import image from '@ohos.multimedia.image';
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';
+import http from '@ohos.net.http';
 import {
   CnAddress, CnCamera, CnCircleModel, CnEdgeInsets, CnGroundOverlayModel, CnHeatmapModel, CnLatLng,
   CnLocalTileModel, CnMapAdapter, CnMapAdapterDelegate, CnMarkerEvent, CnMarkerModel, CnOverlayModel,
@@ -33,7 +34,7 @@ import hilog from '@ohos.hilog';
 // 真实类型；controller 仍保持 ESObject——覆盖物/监听器等大量方法尚未逐一对齐真实 AMap API。
 import {
   LatLng, CameraUpdateFactory, MapType, MarkerOptions, PolylineOptions, PolygonOptions,
-  CircleOptions, BitmapDescriptorFactory
+  CircleOptions, BitmapDescriptorFactory, GroundOverlayOptions, LatLngBounds
 } from '@amap/amap_lbs_map3d';
 
 // 每个地图实例分配唯一 mapViewName，供 MapViewComponent 渲染 + MapViewManager 回调匹配。
@@ -66,6 +67,8 @@ export class AMapAdapter implements CnMapAdapter {
   private overlayModels: Map<OverlayHandle, CnOverlayModel> = new Map();
   // Buffer for markers/overlays added before the controller is ready.
   private pendingAdds: OverlayHandle[] = [];
+  // image uri → PixelMap 缓存（marker 图标 / 图片覆盖物），避免重复下载解码。
+  private imageCache: Map<string, image.PixelMap> = new Map();
 
   constructor(context: common.Context) {
     this.context = context;
@@ -91,12 +94,12 @@ export class AMapAdapter implements CnMapAdapter {
       buffered.forEach((handle) => {
         const marker = this.markerModels.get(handle);
         if (marker !== undefined) {
-          handle.sdkObject = this.createSdkMarker(marker, handle);
+          this.addSdkMarker(marker, handle);
           return;
         }
         const overlay = this.overlayModels.get(handle);
         if (overlay !== undefined) {
-          handle.sdkObject = this.buildOverlay(overlay);
+          this.materializeOverlay(overlay, handle);
         }
       });
     } catch (e) {
@@ -400,14 +403,15 @@ export class AMapAdapter implements CnMapAdapter {
     if (this.controller === null) {
       this.pendingAdds.push(handle);
     } else {
-      handle.sdkObject = this.createSdkMarker(model, handle);
+      this.addSdkMarker(model, handle);
     }
     return handle;
   }
 
-  private createSdkMarker(model: CnMarkerModel, handle: OverlayHandle): ESObject {
-    // 真实 AMap：new MarkerOptions().setXxx(...) 链式 → aMap.addMarker(options)。
-    // icon 优先级 custom > image > pinColor hue > 默认图钉。
+  // marker 加到地图。custom/image 位图同步可取、直接 add；默认彩色图钉的位图必须用
+  // applicationContext 异步 defaultMarkerASync 加载——传 uiAbilityContext 会 resolve 出无位图的
+  // 空 descriptor（marker 加进去却不可见）。故默认图钉「先 await 取图标 → 再 addMarker」。
+  private addSdkMarker(model: CnMarkerModel, handle: OverlayHandle): void {
     const options: ESObject = new MarkerOptions();
     options.setPosition(this.latLng({ latitude: model.latitude, longitude: model.longitude }));
     options.setDraggable(model.draggable);
@@ -416,13 +420,34 @@ export class AMapAdapter implements CnMapAdapter {
     options.setFlat(model.flat);
     options.setRotateAngle(rnRotationToAMap(model.rotation));
     options.setZIndex(model.zIndex);
-    const icon: ESObject = this.descriptorFor(model);
-    if (icon !== null) options.setIcon(icon);
+    options.setClickable(true);
     if (model.title !== null) options.setTitle(model.title);
     if (model.snippet !== null) options.setSnippet(model.snippet);
+    this.resolveMarkerIcon(model).then((icon: ESObject) => {
+      if (icon !== null && icon !== undefined) {
+        options.setIcon(icon);
+      }
+      this.commitSdkMarker(options, handle);
+    }).catch((e: ESObject) => {
+      hilog.warn(0x0000, 'cnmaps', 'amap resolveMarkerIcon failed: %{public}s', JSON.stringify(e));
+      this.commitSdkMarker(options, handle);
+    });
+  }
+
+  private commitSdkMarker(options: ESObject, handle: OverlayHandle): void {
+    if (this.controller === null) {
+      return;
+    }
     const marker: ESObject = this.controller.addMarker(options);
     marker.setObject(handle);
-    return marker;
+    handle.sdkObject = marker;
+  }
+
+  // 高德鸿蒙图标资源加载须用 applicationContext；uiAbilityContext 传给 defaultMarkerASync
+  // 拿不到位图。回退到自身以防运行时无该方法。
+  private applicationContext(): ESObject {
+    const c: ESObject = this.context;
+    return (c.getApplicationContext !== undefined) ? c.getApplicationContext() : c;
   }
 
   updateMarker(handle: OverlayHandle, model: CnMarkerModel): void {
@@ -444,8 +469,13 @@ export class AMapAdapter implements CnMapAdapter {
     if (previous === undefined ||
       previous.customBitmap !== model.customBitmap ||
       previous.iconBitmap !== model.iconBitmap ||
-      previous.pinColor !== model.pinColor) {
-      marker.setIcon(this.descriptorFor(model));
+      previous.pinColor !== model.pinColor ||
+      previous.imageUri !== model.imageUri) {
+      this.resolveMarkerIcon(model).then((icon: ESObject) => {
+        if (icon !== null && icon !== undefined) {
+          marker.setIcon(icon);
+        }
+      }).catch(() => {});
     }
     this.markerModels.set(handle, model);
   }
@@ -514,14 +544,72 @@ export class AMapAdapter implements CnMapAdapter {
     return { latitude: pos.latitude, longitude: pos.longitude };
   }
 
-  private descriptorFor(model: CnMarkerModel): ESObject {
-    // 真实 AMap：BitmapDescriptorFactory.fromPixelMapSync(自定义/图片) / defaultMarker(hue)。
-    // 注意：高德鸿蒙 marker 必须显式设 icon 才可见（不像 Android 有隐式默认图钉），
-    // 故无 pinColor 时也回退到默认红色图钉，而非不设 icon。
+  // 同步图标：只有已解码的 PixelMap（custom/image bitmap）能同步取 descriptor。
+  private syncDescriptorFor(model: CnMarkerModel): ESObject {
     if (model.customBitmap !== null) return BitmapDescriptorFactory.fromPixelMapSync(model.customBitmap);
     if (model.iconBitmap !== null) return BitmapDescriptorFactory.fromPixelMapSync(model.iconBitmap);
+    return null;
+  }
+
+  // 统一解析 marker 图标（异步）。优先级：custom/image 已解码位图(同步) > image uri(异步下载解码)
+  // > 默认彩色图钉(applicationContext 异步 defaultMarkerASync)。image 加载失败则回退默认图钉。
+  private async resolveMarkerIcon(model: CnMarkerModel): Promise<ESObject> {
+    const sync: ESObject = this.syncDescriptorFor(model);
+    if (sync !== null) {
+      return sync;
+    }
+    if (model.imageUri !== null) {
+      const pm = await this.loadPixelMapFromUri(model.imageUri);
+      if (pm !== null) {
+        return BitmapDescriptorFactory.fromPixelMapSync(pm);
+      }
+    }
     const hue = markerHue(model.pinColor);
-    return BitmapDescriptorFactory.defaultMarker(hue !== null ? hue : BitmapDescriptorFactory.HUE_RED);
+    const factory: ESObject = BitmapDescriptorFactory;
+    const appCtx: ESObject = this.applicationContext();
+    return hue !== null ? await factory.defaultMarkerASync(appCtx, hue) : await factory.defaultMarkerASync(appCtx);
+  }
+
+  // RN image uri (asset:// | data: | http(s)://) → PixelMap；失败返回 null。带 uri 缓存。
+  // Metro 模式下本地 require 图与网络图都是 http(s) URL，统一走 http 下载解码。
+  private async loadPixelMapFromUri(uri: string): Promise<image.PixelMap | null> {
+    const cached = this.imageCache.get(uri);
+    if (cached !== undefined) {
+      return cached;
+    }
+    let pm: image.PixelMap | null = null;
+    try {
+      if (uri.startsWith('asset://')) {
+        const ctx: ESObject = this.context;
+        const bytes: ESObject = ctx.resourceManager.getRawFileContentSync('assets/' + uri.substring(8));
+        const src: ESObject = image.createImageSource(bytes.buffer);
+        pm = src !== null ? await src.createPixelMap() : null;
+      } else if (uri.startsWith('data:')) {
+        const src: ESObject = image.createImageSource(uri);
+        pm = src !== null ? await src.createPixelMap() : null;
+      } else {
+        // Metro dev：RNOH resolveAssetSource 生成的 asset uri 形如
+        // `.../assets/../src/examples/assets/x.png`（路径相对 projectRoot=example/harmony、带
+        // /assets/ 前缀），但 Metro serverRoot 是仓库根，需转成相对仓库根的
+        // `.../example/src/examples/assets/x.png`（release bundle 用 asset://，不走此分支）。
+        const fetchUri = uri.replace('/assets/..', '/example');
+        const req = http.createHttp();
+        const resp = await req.request(fetchUri, { expectDataType: http.HttpDataType.ARRAY_BUFFER });
+        req.destroy();
+        const body: ESObject = resp.result;
+        if (body !== null && body !== undefined && (body as ArrayBuffer).byteLength > 0) {
+          const src: ESObject = image.createImageSource(body as ArrayBuffer);
+          pm = src !== null ? await src.createPixelMap() : null;
+        }
+      }
+    } catch (e) {
+      hilog.warn(0x0000, 'cnmaps', 'amap load image failed uri=%{public}s: %{public}s', uri, JSON.stringify(e));
+      pm = null;
+    }
+    if (pm !== null) {
+      this.imageCache.set(uri, pm);
+    }
+    return pm;
   }
 
   private removeSdkMarker(sdkObject: Object | null): void {
@@ -536,14 +624,17 @@ export class AMapAdapter implements CnMapAdapter {
     if (this.controller === null) {
       this.pendingAdds.push(handle);
     } else {
-      handle.sdkObject = this.buildOverlay(model);
+      this.materializeOverlay(model, handle);
     }
     return handle;
   }
 
   updateOverlay(handle: OverlayHandle, model: CnOverlayModel): void {
     this.removeSdkOverlay(handle.sdkObject);
-    handle.sdkObject = this.controller !== null ? this.buildOverlay(model) : null;
+    handle.sdkObject = null;
+    if (this.controller !== null) {
+      this.materializeOverlay(model, handle);
+    }
     this.overlayModels.set(handle, model);
   }
 
@@ -555,6 +646,27 @@ export class AMapAdapter implements CnMapAdapter {
 
   private removeSdkOverlay(sdkObject: Object | null): void {
     (sdkObject as ESObject)?.remove?.();
+  }
+
+  // overlay 上图。groundOverlay 的图片位图若尚未解码但有 imageUri，则异步下载解码后再上图。
+  private materializeOverlay(model: CnOverlayModel, handle: OverlayHandle): void {
+    if (model.kind === 'groundOverlay') {
+      const g = model as CnGroundOverlayModel;
+      if (g.bitmap === null && g.imageUri !== null) {
+        this.loadPixelMapFromUri(g.imageUri).then((pm: image.PixelMap | null) => {
+          if (pm !== null && this.controller !== null) {
+            g.bitmap = pm;
+            try {
+              handle.sdkObject = this.buildGroundOverlay(g);
+            } catch (e) {
+              hilog.warn(0x0000, 'cnmaps', 'amap groundOverlay build failed: %{public}s', JSON.stringify(e));
+            }
+          }
+        }).catch((e: ESObject) => hilog.warn(0x0000, 'cnmaps', 'amap groundOverlay image load failed: %{public}s', JSON.stringify(e)));
+        return;
+      }
+    }
+    handle.sdkObject = this.buildOverlay(model);
   }
 
   private buildOverlay(model: CnOverlayModel): ESObject {
@@ -644,14 +756,17 @@ export class AMapAdapter implements CnMapAdapter {
     const ne = model.northEast;
     const bmp = model.bitmap;
     if (sw === null || ne === null || bmp === null) {
-      return null; // bitmap decode (image URI → PixelMap) is Phase 4; skip until wired.
+      return null; // 位图未解码完成（materializeOverlay 会异步解码后重新上图）。
     }
-    const options: ESObject = this.controller.createGroundOverlayOptions();
+    // 鸿蒙 GroundOverlayOptions setter 为 setBearing/setZIndex/setTransparency（带 set 前缀）；
+    // 早前误用无前缀的 bearing()/transparency()/zIndex() 才抛异常。核心用 image + positionFromBounds。
+    const options: ESObject = new GroundOverlayOptions();
+    options.image(BitmapDescriptorFactory.fromPixelMapSync(bmp));
     options.positionFromBounds(this.latLngBounds(sw, ne));
-    options.image(this.controller.bitmapFromPixelMap(bmp));
-    options.bearing(model.bearing);
-    options.transparency(Math.max(0, Math.min(1, 1 - model.opacity)));
-    options.zIndex(model.zIndex);
+    options.visible(true);
+    options.setZIndex(model.zIndex);
+    const opacity = model.opacity;
+    if (opacity >= 0 && opacity <= 1) options.setTransparency(1 - opacity);
     return this.controller.addGroundOverlay(options);
   }
 
@@ -863,7 +978,7 @@ export class AMapAdapter implements CnMapAdapter {
 
   // SDK value constructors (查证 — map to real AMap HarmonyOS types) -------------
   private latLng(c: CnLatLng): ESObject { return new LatLng(c.latitude, c.longitude); }
-  private latLngBounds(sw: CnLatLng, ne: CnLatLng): ESObject { return this.controller.createLatLngBounds(this.latLng(sw), this.latLng(ne)); }
+  private latLngBounds(sw: CnLatLng, ne: CnLatLng): ESObject { return new LatLngBounds(this.latLng(sw), this.latLng(ne)); }
   private cameraPosition(lat: number, lng: number, zoom: number, tilt: number, bearing: number): ESObject {
     return this.controller.createCameraPosition(this.latLng({ latitude: lat, longitude: lng }), zoom, tilt, bearing);
   }
