@@ -26,6 +26,8 @@ export default defineConfig([
   {
     // harmony/ 目录是独立的 RNOH/ArkTS 构建（含 codegen 生成物），
     // 与 tsconfig 的 `**/harmony` exclude 保持一致，不纳入 JS/TS lint。
-    ignores: ['node_modules/', 'lib/', '**/harmony/**'],
+    // website/ 是独立的 Docusaurus 文档站（自带 npm 依赖与 lint），不纳入库的 lint。
+    // lib/ 用 **/lib/** 匹配各包的 bob 生成物（原 'lib/' 匹配不到 packages/*/lib，与 tsconfig 的 **/lib 对齐）。
+    ignores: ['node_modules/', '**/lib/**', '**/harmony/**', 'website/'],
   },
 ]);

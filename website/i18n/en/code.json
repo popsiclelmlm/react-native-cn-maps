@@ -1,0 +1,53 @@
+{
+  "homepage.title": {
+    "message": "China map components for React Native"
+  },
+  "homepage.tagline": {
+    "message": "A React Native map library for China, API-compatible with react-native-maps"
+  },
+  "homepage.meta": {
+    "message": "AMap · Baidu · Tencent · Huawei Map Kit ｜ iOS · Android · HarmonyOS Next ｜ New Architecture (Fabric)"
+  },
+  "homepage.cta.start": {
+    "message": "Get started →"
+  },
+  "homepage.cta.migrate": {
+    "message": "Migrate from react-native-maps"
+  },
+  "feature.parity.title": {
+    "message": "react-native-maps parity"
+  },
+  "feature.parity.desc": {
+    "message": "MapView, Marker, Callout, Polyline, Polygon, Circle, Overlay, tile layers, Heatmap, Geojson — the full set. Most migrations are a one-line import change."
+  },
+  "feature.providers.title": {
+    "message": "Multi-provider, install what you need"
+  },
+  "feature.providers.desc": {
+    "message": "AMap / Baidu / Tencent / Huawei ship as separate packages. Core and provider adapters are decoupled, so unused SDKs never enter your bundle."
+  },
+  "feature.coordinate.title": {
+    "message": "Automatic coordinate conversion"
+  },
+  "feature.coordinate.desc": {
+    "message": "Declare your input system (wgs84 / gcj02 / bd09); the library converts to the selected provider's native system in JS. No more offset drift."
+  },
+  "feature.harmony.title": {
+    "message": "Three platforms · New Architecture"
+  },
+  "feature.harmony.desc": {
+    "message": "iOS, Android, and HarmonyOS Next via RNOH. Pure Fabric components + TurboModule, no legacy bridge."
+  },
+  "feature.privacy.title": {
+    "message": "Privacy compliance first"
+  },
+  "feature.privacy.desc": {
+    "message": "The library never auto-agrees to a privacy policy. The host app declares consent explicitly per PIPL, satisfying app-store review."
+  },
+  "feature.native.title": {
+    "message": "Native power, exposed"
+  },
+  "feature.native.desc": {
+    "message": "Gradient polylines, ground image overlays, heatmaps, custom tiles, KML/GeoJSON — mapped straight onto each native SDK."
+  }
+}

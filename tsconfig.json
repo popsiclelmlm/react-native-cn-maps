@@ -4,7 +4,8 @@
     "**/node_modules",
     "**/lib",
     "**/harmony",
-    "docs/tmp"
+    "docs/tmp",
+    "website"
   ],
   "compilerOptions": {
     "rootDir": ".",

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- 左侧板：明亮绿松石 -->
+    <linearGradient id="plateLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a8ff78"/>
+      <stop offset="100%" stop-color="#78ffd6"/>
+    </linearGradient>
+    <!-- 中间板：科技深蓝 -->
+    <linearGradient id="plateMid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00c6ff"/>
+      <stop offset="100%" stop-color="#0072ff"/>
+    </linearGradient>
+    <!-- 右侧板：渐变青绿 -->
+    <linearGradient id="plateRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0575e6"/>
+      <stop offset="100%" stop-color="#00f260"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- 折纸地图左边 -->
+  <path d="M22 45 L50 32 V92 L22 105 Z" fill="url(#plateLeft)"/>
+  
+  <!-- 折纸地图中间 -->
+  <path d="M50 32 L74 45 V105 L50 92 Z" fill="url(#plateMid)"/>
+  
+  <!-- 折纸地图右边 -->
+  <path d="M74 45 L98 32 V92 L74 105 Z" fill="url(#plateRight)"/>
+
+  <!-- 悬浮的极简大头针 -->
+  <g filter="url(#softShadow)">
+    <path d="M62 14 C55 14 50 19 50 26 C50 35 62 48 62 48 C62 48 74 35 74 26 C74 19 69 14 62 14 Z" fill="#ff4757"/>
+    <circle cx="62" cy="25" r="3.5" fill="#ffffff"/>
+  </g>
+</svg>

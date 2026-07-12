@@ -1,0 +1,8 @@
+{
+  // Docusaurus 官方 tsconfig 预设（独立于仓库根 tsconfig，二者互不影响）。
+  "extends": "@docusaurus/tsconfig",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "exclude": [".docusaurus", "build"]
+}

@@ -1,0 +1,44 @@
+{
+  "link.title.文档": {
+    "message": "Docs"
+  },
+  "link.title.厂商": {
+    "message": "Providers"
+  },
+  "link.title.更多": {
+    "message": "More"
+  },
+  "link.item.label.快速开始": {
+    "message": "Quick start"
+  },
+  "link.item.label.坐标系专题": {
+    "message": "Coordinate systems"
+  },
+  "link.item.label.API 参考": {
+    "message": "API reference"
+  },
+  "link.item.label.高德 AMap": {
+    "message": "AMap"
+  },
+  "link.item.label.百度 Baidu": {
+    "message": "Baidu"
+  },
+  "link.item.label.腾讯 Tencent": {
+    "message": "Tencent"
+  },
+  "link.item.label.华为 Map Kit": {
+    "message": "Huawei Map Kit"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub"
+  },
+  "link.item.label.npm": {
+    "message": "npm"
+  },
+  "link.item.label.Discussions": {
+    "message": "Discussions"
+  },
+  "copyright": {
+    "message": "MIT Licensed · © 2026 react-native-cn-maps"
+  }
+}

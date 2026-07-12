@@ -1,0 +1,14 @@
+{
+  "item.label.文档": {
+    "message": "Docs"
+  },
+  "item.label.API": {
+    "message": "API"
+  },
+  "item.label.npm": {
+    "message": "npm"
+  },
+  "item.label.GitHub": {
+    "message": "GitHub"
+  }
+}
