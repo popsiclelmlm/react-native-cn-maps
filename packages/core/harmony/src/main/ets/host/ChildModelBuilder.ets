@@ -56,9 +56,53 @@ function coordList(props: PropBag, key: string): CnLatLng[] {
   });
 }
 
+// 常用 CSS 命名色 → ARGB int（示例里用了 green/red/black 等命名色）。
+const NAMED_COLORS: Record<string, number> = {
+  'transparent': 0x00000000, 'black': 0xff000000, 'white': 0xffffffff,
+  'red': 0xffff0000, 'green': 0xff008000, 'lime': 0xff00ff00, 'blue': 0xff0000ff,
+  'yellow': 0xffffff00, 'cyan': 0xff00ffff, 'aqua': 0xff00ffff, 'magenta': 0xffff00ff,
+  'fuchsia': 0xffff00ff, 'gray': 0xff808080, 'grey': 0xff808080, 'silver': 0xffc0c0c0,
+  'orange': 0xffffa500, 'purple': 0xff800080, 'pink': 0xffffc0cb, 'brown': 0xffa52a2a,
+  'navy': 0xff000080, 'teal': 0xff008080, 'olive': 0xff808000, 'maroon': 0xff800000,
+};
+
+// RNOH 把自定义组件的 SharedColor 属性序列化成 `rgba(r, g, b, a)` 字符串（不是 ARGB
+// int）；示例里也可能直接用命名色。这里统一解析成 ARGB int（0xAARRGGBB，正数，与
+// AMap SDK setStrokeColor 约定一致）。
+function parseColorString(s: string): number | null {
+  const named = NAMED_COLORS[s.toLowerCase()];
+  if (named !== undefined) return named;
+  const rgba = s.match(/rgba?\(([^)]+)\)/);
+  if (rgba !== null) {
+    const parts = rgba[1].split(',').map((x): string => x.trim());
+    if (parts.length >= 3) {
+      const r = Math.round(Number(parts[0])) & 0xff;
+      const g = Math.round(Number(parts[1])) & 0xff;
+      const b = Math.round(Number(parts[2])) & 0xff;
+      const a = parts.length >= 4 ? (Math.round(Number(parts[3]) * 255) & 0xff) : 0xff;
+      return ((a << 24) | (r << 16) | (g << 8) | b) >>> 0;
+    }
+  }
+  if (s.charAt(0) === '#') {
+    const hex = s.substring(1);
+    if (hex.length === 6) return (0xff000000 | parseInt(hex, 16)) >>> 0;
+    if (hex.length === 8) {
+      const rgb = parseInt(hex.substring(0, 6), 16);
+      const a = parseInt(hex.substring(6, 8), 16); // #rrggbbaa → alpha 在末尾
+      return ((a << 24) | rgb) >>> 0;
+    }
+  }
+  return null;
+}
+
 function colorOr(props: PropBag, key: string, fallback: number): number {
   const v = props[key];
-  return typeof v === 'number' ? v as number : fallback;
+  if (typeof v === 'number') return v as number;
+  if (typeof v === 'string') {
+    const parsed = parseColorString(v as string);
+    if (parsed !== null) return parsed;
+  }
+  return fallback;
 }
 
 export function buildMarkerModel(props: PropBag): CnMarkerModel {
