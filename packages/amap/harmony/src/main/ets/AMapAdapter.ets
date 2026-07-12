@@ -35,13 +35,66 @@ import hilog from '@ohos.hilog';
 import {
   LatLng, CameraUpdateFactory, CameraPosition, MapType, MarkerOptions, PolylineOptions, PolygonOptions,
   CircleOptions, BitmapDescriptorFactory, GroundOverlayOptions, LatLngBounds,
-  WeightedLatLng, HeatMapBuilder, HeatmapTileProvider, Gradient, TileOverlayOptions
+  WeightedLatLng, HeatMapBuilder, HeatmapTileProvider, Gradient, TileOverlayOptions,
+  TileProvider, Tile
 } from '@amap/amap_lbs_map3d';
 
 // 每个地图实例分配唯一 mapViewName，供 MapViewComponent 渲染 + MapViewManager 回调匹配。
 let amapViewSeq = 0;
 
 const MIN_DELTA = 0.000001;
+
+// 鸿蒙 SDK 没有 UrlTileProvider，只有抽象 TileProvider（getTile→Promise<Tile>）。这里各写
+// 一个子类：URL 版异步 http 取瓦片字节，本地版由回调同步取字节，都用 Tile.obtain 包成 Tile。
+// 早前用 controller.createUrlTileProvider/createTileProvider（Android 港来占位）导致瓦片不渲染。
+class CnUrlTileProvider extends TileProvider {
+  private size: number;
+  private urlFor: (x: number, y: number, z: number) => string | null;
+  constructor(size: number, urlFor: (x: number, y: number, z: number) => string | null) {
+    super();
+    this.size = size;
+    this.urlFor = urlFor;
+  }
+  getTileWidth(): number { return this.size; }
+  getTileHeight(): number { return this.size; }
+  async getTile(x: number, y: number, zoom: number): Promise<Tile | undefined> {
+    const url = this.urlFor(x, y, zoom);
+    if (url === null) {
+      return TileProvider.NO_TILE;
+    }
+    try {
+      const req: ESObject = http.createHttp();
+      const resp: ESObject = await req.request(url, { expectDataType: http.HttpDataType.ARRAY_BUFFER });
+      req.destroy();
+      const body: ESObject = resp.result;
+      if (body !== null && body !== undefined && (body as ArrayBuffer).byteLength > 0) {
+        return Tile.obtain(this.size, this.size, new Uint8Array(body as ArrayBuffer));
+      }
+    } catch (e) {
+      hilog.warn(0x0000, 'cnmaps', 'amap urlTile fetch failed: %{public}s', JSON.stringify(e));
+    }
+    return TileProvider.NO_TILE;
+  }
+}
+
+class CnLocalTileProvider extends TileProvider {
+  private size: number;
+  private bytesFor: (x: number, y: number, z: number) => ArrayBuffer | null;
+  constructor(size: number, bytesFor: (x: number, y: number, z: number) => ArrayBuffer | null) {
+    super();
+    this.size = size;
+    this.bytesFor = bytesFor;
+  }
+  getTileWidth(): number { return this.size; }
+  getTileHeight(): number { return this.size; }
+  async getTile(x: number, y: number, zoom: number): Promise<Tile | undefined> {
+    const buf = this.bytesFor(x, y, zoom);
+    if (buf === null || buf.byteLength === 0) {
+      return TileProvider.NO_TILE;
+    }
+    return Tile.obtain(this.size, this.size, new Uint8Array(buf));
+  }
+}
 
 export class AMapAdapter implements CnMapAdapter {
   private context: common.Context;
@@ -712,9 +765,9 @@ export class AMapAdapter implements CnMapAdapter {
     if (template === null) {
       return null;
     }
-    // 查证: AMap HarmonyOS UrlTileProvider equivalent (an object that, given x/y/z,
-    // returns a tile URL). The url-building logic below is ported 1:1 from Kotlin.
-    const provider: ESObject = this.controller.createUrlTileProvider(model.tileSize, model.tileSize, (x: number, y: number, zoom: number): string | null => {
+    // 真实 SDK：自定义 TileProvider 子类（getTile 异步取瓦片）+ new TileOverlayOptions()。
+    // TileOverlayOptions 无 diskCache 相关方法，磁盘缓存暂不透传。
+    const provider: ESObject = new CnUrlTileProvider(model.tileSize, (x: number, y: number, zoom: number): string | null => {
       if (zoom < model.minimumZ || zoom > model.maximumZ) {
         return null;
       }
@@ -724,11 +777,7 @@ export class AMapAdapter implements CnMapAdapter {
       const yy = model.flipY ? (1 << zoom) - 1 - y : y;
       return template.replace('{x}', `${x}`).replace('{y}', `${yy}`).replace('{z}', `${zoom}`);
     });
-    const options: ESObject = this.controller.createTileOverlayOptions().tileProvider(provider).zIndex(model.zIndex);
-    if (model.diskCacheDir !== null && model.diskCacheDir.length > 0) {
-      options.diskCacheEnabled(true).diskCacheDir(model.diskCacheDir);
-    }
-    return this.controller.addTileOverlay(options);
+    return this.controller.addTileOverlay(new TileOverlayOptions().tileProvider(provider).zIndex(model.zIndex));
   }
 
   private buildLocalTile(model: CnLocalTileModel): ESObject {
@@ -736,13 +785,11 @@ export class AMapAdapter implements CnMapAdapter {
     if (template === null) {
       return null;
     }
-    // 查证: read tile bytes from rawfile (useAssets) via resourceManager, else from
-    // the filesystem (@ohos.file.fs). The TileProvider returns the tile bytes.
-    const provider: ESObject = this.controller.createTileProvider(model.tileSize, model.tileSize, (x: number, y: number, zoom: number): ArrayBuffer | null => {
+    // 从 rawfile(useAssets) 经 resourceManager 或文件系统(@ohos.file.fs)读瓦片字节。
+    const provider: ESObject = new CnLocalTileProvider(model.tileSize, (x: number, y: number, zoom: number): ArrayBuffer | null => {
       const path = template.replace('{x}', `${x}`).replace('{y}', `${y}`).replace('{z}', `${zoom}`);
       try {
         if (model.useAssets) {
-          // 查证: this.context.resourceManager.getRawFileContentSync(path)
           return this.context.resourceManager.getRawFileContentSync(path).buffer as ArrayBuffer;
         }
         const file = fs.openSync(path, fs.OpenMode.READ_ONLY);
@@ -755,7 +802,7 @@ export class AMapAdapter implements CnMapAdapter {
         return null;
       }
     });
-    return this.controller.addTileOverlay(this.controller.createTileOverlayOptions().tileProvider(provider).zIndex(model.zIndex));
+    return this.controller.addTileOverlay(new TileOverlayOptions().tileProvider(provider).zIndex(model.zIndex));
   }
 
   private buildGroundOverlay(model: CnGroundOverlayModel): ESObject {
