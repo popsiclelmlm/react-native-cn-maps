@@ -165,20 +165,18 @@ function EventListener(props: any) {
       </MapView>
       <DemoPanel style={styles.eventList}>
         <Text style={styles.eventListTitle}>事件日志</Text>
-        {events.length === 0 ? (
-          <Text style={styles.eventListEmpty}>
-            点击、拖动地图或点击标注，对应事件会显示在这里
-          </Text>
-        ) : (
-          <ScrollView
-            style={styles.eventScroll}
-            contentContainerStyle={styles.eventScrollContent}
-          >
-            {events.map((event: any) => (
-              <Event key={event.id} event={event} />
-            ))}
-          </ScrollView>
-        )}
+        <ScrollView
+          style={styles.eventScroll}
+          contentContainerStyle={styles.eventScrollContent}
+        >
+          {events.length === 0 ? (
+            <Text style={styles.eventListEmpty}>
+              点击、拖动地图或点击标注，对应事件会显示在这里
+            </Text>
+          ) : (
+            events.map((event: any) => <Event key={event.id} event={event} />)
+          )}
+        </ScrollView>
       </DemoPanel>
     </View>
   );

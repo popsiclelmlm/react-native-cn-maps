@@ -92,9 +92,51 @@ function patchLazyForEachKey() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Patch 3: RNScrollView 内容 Stack 补 TopStart 对齐 —— 防止"事件日志顶部空白扩大"。
+//
+// ScrollView 的原生结构是 Scroll > Stack > 内容视图，其中 Stack 尺寸绑定 contentSize
+// 但没设对齐（ArkUI Stack 默认居中）；而内容视图 origin 恒为 (0,0)，RNViewBase 的
+// maybeAssignAttribute 对等于默认值 {x:0,y:0} 的 position 会跳过设置，位置完全交给
+// 父 Stack 对齐。子节点频繁增删时（如事件日志向头部插入），Stack 高度（contentSize）
+// 先增长、内容视图的 ArkUI 高度更新滞后，"居中"就把高度差的一半变成不断扩大的顶部
+// 空隙（实测 1 条 ≈35vp、2 条 ≈78vp，与差值÷2 吻合）。补 TopStart 后内容恒顶部对齐，
+// 高度差只落在底部，不再产生顶部空白。
+// ---------------------------------------------------------------------------
+function patchScrollViewStackAlign() {
+  const targetFile = path.join(
+    RNOH_ROOT,
+    'RNOHCorePackage/components/RNScrollView/RNScrollView.ets'
+  );
+  if (!fs.existsSync(targetFile)) {
+    console.log('[patch-rnoh] RNScrollView.ets not found. Skipping.');
+    return;
+  }
+  const target =
+    '.width(this.contentSize.width)\n      .height(this.contentSize.height)\n      .backgroundColor(Color.Transparent)';
+  const repl =
+    '.width(this.contentSize.width)\n      .height(this.contentSize.height)\n      .alignContent(Alignment.TopStart)\n      .backgroundColor(Color.Transparent)';
+  const content = fs.readFileSync(targetFile, 'utf8');
+  if (content.includes(repl)) {
+    console.log('[patch-rnoh] RNScrollView.ets already patched (align).');
+    return;
+  }
+  if (content.includes(target)) {
+    fs.writeFileSync(targetFile, content.replace(target, repl), 'utf8');
+    console.log(
+      '[patch-rnoh] Patched RNScrollView.ets (content Stack TopStart align).'
+    );
+  } else {
+    console.warn(
+      '[patch-rnoh] RNScrollView.ets align target pattern not found (structure changed?).'
+    );
+  }
+}
+
 try {
   patchRNSurface();
   patchLazyForEachKey();
+  patchScrollViewStackAlign();
 } catch (err) {
   console.error('[patch-rnoh] Error while patching RNOH:', err);
   process.exit(1);
