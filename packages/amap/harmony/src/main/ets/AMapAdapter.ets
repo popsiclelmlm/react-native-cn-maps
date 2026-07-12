@@ -786,7 +786,9 @@ export class AMapAdapter implements CnMapAdapter {
     options.setGeodesic(model.geodesic);
     options.setDottedLine(model.dashed);
     if (model.strokeColors.length > 1) {
-      options.setColorValues(model.strokeColors);
+      // 真实 SDK setColorValues 收 Int32Array（非 number[]）；ARGB 值可能超 int32 正范围，
+      // 用 `| 0` 折成有符号 32 位塞进 Int32Array。
+      options.setColorValues(Int32Array.from(model.strokeColors.map((c): number => c | 0)));
       options.setGradient(true);
     } else if (model.strokeColors.length === 1) {
       options.setColor(model.strokeColors[0]);
