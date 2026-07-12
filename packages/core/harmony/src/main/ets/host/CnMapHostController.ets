@@ -388,6 +388,39 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     }
   }
 
+  // 子节点（Marker）命令：RN 把 animateMarkerToCoordinate/showCallout/… 发在 Marker 子
+  // 组件自己的 tag 上（见 MarkerNativeComponent Commands），host 须为每个子 tag 单独注册
+  // 命令回调转发到此。与 onMarkerEvent（子事件）对称——子命令这一向此前完全没接。
+  handleChildCommand(childTag: number, command: string, args: Object[]): void {
+    const a = this.adapter;
+    if (a === null) {
+      return;
+    }
+    const t = this.tracked.get(childTag);
+    if (t === undefined || !t.isMarker) {
+      return;
+    }
+    switch (command) {
+      case 'animateMarkerToCoordinate':
+        a.animateMarker(t.handle, args[0] as number, args[1] as number, args[2] as number);
+        break;
+      case 'showCallout':
+        a.showCallout(t.handle);
+        break;
+      case 'hideCallout':
+        a.hideCallout(t.handle);
+        break;
+      case 'redrawCallout':
+        a.redrawCallout(t.handle);
+        break;
+      case 'redraw':
+        a.redrawCallout(t.handle);
+        break;
+      default:
+        break;
+    }
+  }
+
   // Nominal-type bridges: descriptor props (NativeRegionProp/NativeCameraProp) are
   // structurally identical to the adapter models but ArkTS has no structural typing,
   // so rebuild them explicitly as CnRegion/CnCamera at the boundary.

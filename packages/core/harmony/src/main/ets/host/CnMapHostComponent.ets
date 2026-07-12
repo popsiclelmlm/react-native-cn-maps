@@ -106,6 +106,15 @@ export struct CnMapHostComponent {
         () => { this.controller?.syncChildren(); }
       );
       this.childUnsubscribes.push(unsub);
+      // Marker 的命令式 API（animateMarkerToCoordinate/showCallout/…）由 RN 发在子 tag 上，
+      // 须逐个子 tag 注册命令回调转发到 controller.handleChildCommand（子事件的对称向）。
+      const unregCmd = this.ctx.componentCommandReceiver.registerCommandCallback(
+        childTag,
+        (command: string, args: Object[]) => {
+          this.controller?.handleChildCommand(childTag, command, args);
+        }
+      );
+      this.childUnsubscribes.push(unregCmd);
     });
   }
 
