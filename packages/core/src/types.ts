@@ -476,9 +476,13 @@ export type LocalTileProps = ViewProps & {
 
 // ---------- Other overlays ----------
 
+// A single corner may be given as a `{latitude, longitude}` object or, per
+// react-native-maps convention, as a `[latitude, longitude]` tuple.
+export type LatLngBoundsCorner = LatLng | [number, number];
+
 export type OverlayProps = ViewProps & {
-  image: ImageURISource | ImageRequireSource;
-  bounds: [LatLng, LatLng];
+  image: ImageURISource | ImageRequireSource | string;
+  bounds: [LatLngBoundsCorner, LatLngBoundsCorner];
   bearing?: number;
   opacity?: number;
   tappable?: boolean;

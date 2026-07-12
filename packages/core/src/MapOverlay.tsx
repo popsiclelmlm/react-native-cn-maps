@@ -3,7 +3,17 @@ import { Animated, Image } from 'react-native';
 import NativeOverlay from './OverlayNativeComponent';
 import { MapCoordinateSystemContext, MapProviderContext } from './MapContext';
 import { toProviderCoordinate } from './coordinate';
-import type { LatLng, OverlayProps } from './types';
+import type { LatLng, LatLngBoundsCorner, OverlayProps } from './types';
+
+/**
+ * Coerce a bounds corner into a `LatLng`. Accepts both a `{latitude, longitude}`
+ * object and a `[latitude, longitude]` tuple (react-native-maps convention).
+ */
+function toLatLng(corner: LatLngBoundsCorner): LatLng {
+  return Array.isArray(corner)
+    ? { latitude: corner[0], longitude: corner[1] }
+    : corner;
+}
 
 /**
  * Normalize two arbitrary corners into south-west / north-east corners
@@ -28,6 +38,11 @@ function resolveImageUri(source: OverlayProps['image'] | undefined) {
   if (source == null) {
     return undefined;
   }
+  // A bare URL string (react-native-maps allows it) isn't handled by
+  // resolveAssetSource — pass it straight through.
+  if (typeof source === 'string') {
+    return source;
+  }
   return Image.resolveAssetSource(source)?.uri;
 }
 
@@ -45,8 +60,8 @@ function OverlayComponent(props: OverlayProps) {
   const normalized =
     cornerA && cornerB
       ? normalizeOverlayBounds(
-          toProviderCoordinate(cornerA, coordinateSystem, provider),
-          toProviderCoordinate(cornerB, coordinateSystem, provider)
+          toProviderCoordinate(toLatLng(cornerA), coordinateSystem, provider),
+          toProviderCoordinate(toLatLng(cornerB), coordinateSystem, provider)
         )
       : undefined;
 
