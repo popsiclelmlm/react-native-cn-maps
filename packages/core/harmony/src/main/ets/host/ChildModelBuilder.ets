@@ -109,7 +109,16 @@ function colorOr(props: PropBag, key: string, fallback: number): number {
 // SharedColor 序列化成 `rgba()` 字符串，旧代码直接当 number[] 透传 → SDK 收到 NaN →
 // 渐变不渲染。这里逐元素解析成 ARGB int，无法解析的兜底黑色以保持与坐标点对齐。
 function colorArray(props: PropBag, key: string): number[] {
-  const raw = props[key];
+  let raw = props[key];
+  // MapPolyline 把 strokeColors 序列化成 JSON 字符串下发（codegen 不支持 ColorValue 数组），
+  // native 端须先 JSON.parse 还原成数组再逐元素解析。
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw as string);
+    } catch (_e) {
+      return [];
+    }
+  }
   if (!Array.isArray(raw)) return [];
   return (raw as Object[]).map((v): number => {
     if (typeof v === 'number') return v as number;
