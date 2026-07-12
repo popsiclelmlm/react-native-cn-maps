@@ -521,8 +521,8 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     this.emit(EVT.MAP_LOADED, EMPTY_PAYLOAD);
   }
 
-  // 由 host 的 ArkUI TapGesture/LongPressGesture 调用（RNOH 内嵌原生地图不会把单击/长按
-  // 透传给 SDK 的 onMapClick，故在 ArkUI 层并行识别）。入参为组件本地坐标（vp）。
+  // 由 host 的 ArkUI TapGesture/LongPressGesture/PanGesture 调用（RNOH 内嵌原生地图不会把
+  // 单击/长按/拖动透传给 SDK 的 onMapClick，故在 ArkUI 层并行识别）。入参为组件本地坐标（vp）。
   handleTapAt(xVp: number, yVp: number, kind: CnPressKind): void {
     const a = this.adapter;
     if (a === null) {

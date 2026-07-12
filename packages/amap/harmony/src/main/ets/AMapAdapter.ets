@@ -904,7 +904,8 @@ export class AMapAdapter implements CnMapAdapter {
         });
       });
     } catch (e) { hilog.warn(0x0000, 'cnmaps', 'amap polylineClick listener skipped: %{public}s', JSON.stringify(e)); }
-    // onDoublePress / onPanDrag 仍待接 ArkUI TapGesture(count:2)/PanGesture（AMap 无对应回调）。
+    // onPanDrag 已在 host 层用并行 PanGesture 接上（见 CnMapHostComponent）。onDoublePress
+    // 仍待接 ArkUI TapGesture(count:2)（AMap 无对应回调）。
   }
 
   private deliverDrag(marker: ESObject, event: CnMarkerEvent): void {

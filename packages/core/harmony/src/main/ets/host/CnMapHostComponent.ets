@@ -177,6 +177,15 @@ export struct CnMapHostComponent {
             if (f !== undefined && f !== null) {
               this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.LONG_PRESS);
             }
+          }),
+        // onPanDrag：与地图自身平移并行识别，拖动过程中持续把本地坐标转经纬度并派发。
+        // RNM 的绘制类示例（绘制折线）靠它，通常配合 scrollEnabled=false 让拖动只画不移图。
+        PanGesture({ fingers: 1 })
+          .onActionUpdate((event: GestureEvent) => {
+            const f = event.fingerList[0];
+            if (f !== undefined && f !== null) {
+              this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.PAN_DRAG);
+            }
           })
       )
     )
