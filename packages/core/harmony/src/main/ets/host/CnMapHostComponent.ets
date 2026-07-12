@@ -53,7 +53,11 @@ export struct CnMapHostComponent {
       (eventName: string, payload: Object) => {
         this.ctx.rnInstance.emitComponentEvent(this.tag, eventName, payload);
       },
-      (): ChildNode[] => this.readChildren()
+      (): ChildNode[] => this.readChildren(),
+      // Marker 事件发到 Marker 子节点自己的 tag（见 CnMapHostController.onMarkerEvent）。
+      (childTag: number, eventName: string, payload: Object) => {
+        this.ctx.rnInstance.emitComponentEvent(childTag, eventName, payload);
+      }
     );
 
     // Select provider + apply first props.
@@ -169,6 +173,13 @@ export struct CnMapHostComponent {
             const f = event.fingerList[0];
             if (f !== undefined && f !== null) {
               this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.PRESS);
+            }
+          }),
+        TapGesture({ count: 2, fingers: 1 })
+          .onAction((event: GestureEvent) => {
+            const f = event.fingerList[0];
+            if (f !== undefined && f !== null) {
+              this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.DOUBLE_PRESS);
             }
           }),
         LongPressGesture({ fingers: 1, repeat: false })

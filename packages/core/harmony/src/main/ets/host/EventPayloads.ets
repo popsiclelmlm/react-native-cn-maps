@@ -63,6 +63,12 @@ export interface MarkerEventP {
   coordinate: LatLngP;
 }
 
+// Marker 事件直接 emit 到 Marker 子节点自己的 tag（见 CnMapHostController.onMarkerEvent），
+// payload 与 Marker codegen（generated/components/RNMapsMarker.ts）一致：仅 coordinate。
+export interface MarkerChildEventP {
+  coordinate: LatLngP;
+}
+
 export interface OverlayPressEventP {
   childId: string;
 }

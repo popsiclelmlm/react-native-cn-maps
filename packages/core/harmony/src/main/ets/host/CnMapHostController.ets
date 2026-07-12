@@ -23,8 +23,8 @@ import { NativeCameraProp, NativeRegionProp, RNMapsMapViewProps } from './RNMaps
 import { buildMarkerModel, buildOverlayModel, MARKER_COMPONENT_NAME, PropBag } from './ChildModelBuilder';
 import {
   AddressDataP, BoundariesDataP, CameraDataP, CommandResultEventP, EMPTY_PAYLOAD, LatLngP,
-  MarkerEventP, MarkerFrameP, OverlayPressEventP, PoiClickEventP, PositionP, PressEventP,
-  RegionChangeEventP, SnapshotDataP, UserLocationChangeEventP
+  MarkerChildEventP, MarkerEventP, MarkerFrameP, OverlayPressEventP, PoiClickEventP, PositionP,
+  PressEventP, RegionChangeEventP, SnapshotDataP, UserLocationChangeEventP
 } from './EventPayloads';
 
 // RNOH 0.72 会在某些 prop 变化（如 camera）时 re-create 自定义组件（CnMapHostComponent
@@ -45,6 +45,10 @@ export interface ChildNode {
 // (see CnMapHostComponent where this is supplied).
 export type EmitEventFn = (eventName: string, payload: Object) => void;
 
+// 直接对某个子节点 tag 派发组件事件（用于 Marker 事件——它们发在 Marker 子节点上，
+// 不是 host 上）。由 CnMapHostComponent 用 rnInstance.emitComponentEvent(childTag,…) 提供。
+export type EmitChildEventFn = (childTag: number, eventName: string, payload: Object) => void;
+
 interface TrackedChild {
   handle: OverlayHandle;
   isMarker: boolean;
@@ -52,9 +56,32 @@ interface TrackedChild {
   propsHash: string; // 上次同步时子 props 的快照，未变则跳过 update（避免滚动/无关刷新时重建覆盖物）
 }
 
+// CnMarkerEvent → Marker 的 codegen 规范事件名（generated/components/RNMapsMarker.ts 的
+// EventPayloadByName：press/select/deselect/calloutPress/dragStart/drag/dragEnd）。
+function markerChildEventName(event: CnMarkerEvent): string | null {
+  switch (event) {
+    case CnMarkerEvent.PRESS: return 'press';
+    case CnMarkerEvent.SELECT: return 'select';
+    case CnMarkerEvent.DESELECT: return 'deselect';
+    case CnMarkerEvent.CALLOUT_PRESS: return 'calloutPress';
+    case CnMarkerEvent.DRAG_START: return 'dragStart';
+    case CnMarkerEvent.DRAG: return 'drag';
+    case CnMarkerEvent.DRAG_END: return 'dragEnd';
+    default: return null;
+  }
+}
+
+// childId 形如 "cn-<tag>"（见 syncChildren 里 addMarker(model, `cn-${child.tag}`)）→ 数字 tag。
+function childTagOf(childId: string): number | null {
+  const s = childId.startsWith('cn-') ? childId.substring(3) : childId;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 export class CnMapHostController implements CnMapAdapterDelegate {
   private context: common.Context;
   private emit: EmitEventFn;
+  private emitOnChild: EmitChildEventFn;
   private getChildren: () => ChildNode[];
 
   private adapter: CnMapAdapter | null = null;
@@ -72,9 +99,11 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   // before the async controller attached would otherwise be lost).
   private lastProps: RNMapsMapViewProps | null = null;
 
-  constructor(context: common.Context, emit: EmitEventFn, getChildren: () => ChildNode[]) {
+  constructor(context: common.Context, emit: EmitEventFn, getChildren: () => ChildNode[],
+      emitOnChild: EmitChildEventFn) {
     this.context = context;
     this.emit = emit;
+    this.emitOnChild = emitOnChild;
     this.getChildren = getChildren;
     try {
       this.density = display.getDefaultDisplaySync().densityPixels;
@@ -590,44 +619,39 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   }
 
   onMarkerEvent(childId: string, event: CnMarkerEvent, coordinate: CnLatLng): void {
-    // Marker events are emitted on the marker child node in react-native-maps. With
-    // the "host reads subtree" model the host owns child tags; emit a host-level
-    // marker event carrying childId so the JS facade can route it.
-    // 查证 Phase 4: confirm whether RNOH lets us emit on the child tag directly
-    // (preferred — matches Android's per-marker event) vs a host-level fan-out.
-    const name = this.markerEventName(event);
+    // Marker 事件在 react-native-maps 里发在 Marker 子节点上（onPress/onCalloutPress…）。
+    // 直接对子节点自己的 tag 用 Marker 的 codegen 规范事件名（press/select/…，见
+    // generated/components/RNMapsMarker.ts）emitComponentEvent，而非发 host 级事件——MapView
+    // codegen 里没有 marker 事件名，发在 host 上会被 RNOH 丢弃。childId 形如 "cn-<tag>"。
+    const name = markerChildEventName(event);
     if (name === null) {
       return;
     }
-    const payload: MarkerEventP = {
-      childId,
+    const childTag = childTagOf(childId);
+    if (childTag === null) {
+      return;
+    }
+    const payload: MarkerChildEventP = {
       coordinate: { latitude: coordinate.latitude, longitude: coordinate.longitude },
     };
-    this.emit(name, payload);
+    this.emitOnChild(childTag, name, payload);
   }
 
   onOverlayPress(childId: string): void {
-    const payload: OverlayPressEventP = { childId };
-    this.emit(EVT.OVERLAY_PRESS, payload);
+    // Overlay（Polyline/Polygon/Circle）的 onPress 同 Marker：发在覆盖物子节点自己的 tag 上，
+    // codegen 事件名 'press'、payload 为空（见 generated/components/RNMapsPolyline.ts）。发 host
+    // 级事件（MapView 无此名）会被 RNOH 丢弃。
+    const childTag = childTagOf(childId);
+    if (childTag === null) {
+      return;
+    }
+    this.emitOnChild(childTag, 'press', EMPTY_PAYLOAD);
   }
 
   infoWindowContentFor(childId: string): string | null {
     // MVP: default info window uses the marker title/snippet handled by the adapter.
     // Custom ArkUI callout content is a Phase 4 spike item.
     return null;
-  }
-
-  private markerEventName(event: CnMarkerEvent): string | null {
-    switch (event) {
-      case CnMarkerEvent.PRESS: return EVT.MARKER_PRESS;
-      case CnMarkerEvent.SELECT: return EVT.MARKER_SELECT;
-      case CnMarkerEvent.DESELECT: return EVT.MARKER_DESELECT;
-      case CnMarkerEvent.CALLOUT_PRESS: return EVT.CALLOUT_PRESS;
-      case CnMarkerEvent.DRAG_START: return EVT.MARKER_DRAG_START;
-      case CnMarkerEvent.DRAG: return EVT.MARKER_DRAG;
-      case CnMarkerEvent.DRAG_END: return EVT.MARKER_DRAG_END;
-      default: return null;
-    }
   }
 
   // Helpers --------------------------------------------------------------------
