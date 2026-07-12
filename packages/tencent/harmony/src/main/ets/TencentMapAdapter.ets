@@ -132,7 +132,6 @@ export class TencentMapAdapter implements CnMapAdapter {
     }
     const buffered = this.pendingAdds.slice();
     this.pendingAdds = [];
-    hilog.info(0x0000, 'cnmaps', 'tencent DIAG flush pendingAdds=%{public}s', String(buffered.length));
     buffered.forEach((handle) => {
       try {
         const marker = this.markerModels.get(handle);
@@ -393,7 +392,6 @@ export class TencentMapAdapter implements CnMapAdapter {
       this.delegate?.onMarkerEvent(childId, CnMarkerEvent.SELECT, coord);
     });
     const ok: ESObject = this.controller.addMarker(marker);
-    hilog.info(0x0000, 'cnmaps', 'tencent DIAG addMarker ok=%{public}s', String(ok));
     return marker;
   }
 
@@ -471,11 +469,8 @@ export class TencentMapAdapter implements CnMapAdapter {
     try {
       const rm: ESObject = this.context.resourceManager;
       const data: ESObject = rm.getRawFileContentSync('cnmaps_default_marker.png');
-      hilog.info(0x0000, 'cnmaps', 'tencent DIAG rawfile len=%{public}s', String(data !== null && data !== undefined ? data.length : -1));
       const source: ESObject = image.createImageSource(data.buffer as ArrayBuffer);
-      hilog.info(0x0000, 'cnmaps', 'tencent DIAG imageSource=%{public}s', (source !== null && source !== undefined) ? 'ok' : 'null');
       this.cachedDefaultIcon = source.createPixelMapSync();
-      hilog.info(0x0000, 'cnmaps', 'tencent DIAG pixelMap=%{public}s', (this.cachedDefaultIcon !== null && this.cachedDefaultIcon !== undefined) ? 'ok' : 'null');
     } catch (e) {
       hilog.warn(0x0000, 'cnmaps', 'tencent default marker load failed: %{public}s', (e as BusinessError).message ?? String(e));
     }
@@ -555,7 +550,6 @@ export class TencentMapAdapter implements CnMapAdapter {
     };
     const line: ESObject = new Line(opt);
     const ok: ESObject = this.controller.addLine(line);
-    hilog.info(0x0000, 'cnmaps', 'tencent DIAG addLine ok=%{public}s', String(ok));
     return line;
   }
 
@@ -574,7 +568,6 @@ export class TencentMapAdapter implements CnMapAdapter {
     };
     const poly: ESObject = new Polygon(opt);
     const ok: ESObject = this.controller.addPolygon(poly);
-    hilog.info(0x0000, 'cnmaps', 'tencent DIAG addPolygon ok=%{public}s', String(ok));
     return poly;
   }
 
@@ -590,7 +583,6 @@ export class TencentMapAdapter implements CnMapAdapter {
     };
     const circle: ESObject = new Circle(opt);
     const ok: ESObject = this.controller.addCircle(circle);
-    hilog.info(0x0000, 'cnmaps', 'tencent DIAG addCircle ok=%{public}s', String(ok));
     return circle;
   }
 
@@ -631,7 +623,6 @@ export class TencentMapAdapter implements CnMapAdapter {
     c.setScaleViewPosition?.(1, { x: 12, y: 72 });
     try {
       const lp: ESObject = c.getLogoPosition?.();
-      hilog.info(0x0000, 'cnmaps', 'tencent DIAG logoPos=%{public}s', (lp !== undefined && lp !== null) ? JSON.stringify(lp) : 'null');
     } catch (e) {
       hilog.warn(0x0000, 'cnmaps', 'tencent DIAG getLogoPosition err=%{public}s', (e as BusinessError).message ?? String(e));
     }
