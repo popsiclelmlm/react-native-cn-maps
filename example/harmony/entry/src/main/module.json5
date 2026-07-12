@@ -79,7 +79,7 @@
         //   ② 从 HarmonyOS 5.0.2(14) 起可免配 Client ID 与公钥指纹。
         // 尚未开通 AGC Map Kit 时为占位，底图会白屏（鉴权失败）。
         "name": "client_id",
-        "value": "YOUR_HUAWEI_AGC_CLIENT_ID"
+        "value": "1989374893304628480"
       }
     ]
   }

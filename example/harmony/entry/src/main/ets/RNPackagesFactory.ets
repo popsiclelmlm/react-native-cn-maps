@@ -13,8 +13,7 @@ import { CnMapsPackage } from 'rn-cn-maps';
 import { AMapPackage } from 'rn-cn-maps-amap';
 import { BaiduPackage } from 'rn-cn-maps-baidu';
 import { TencentPackage } from 'rn-cn-maps-tencent';
-// TODO(mapkit): rn-cn-maps-mapkit 包待创建（华为 Map Kit provider）；创建后取消下面两处注释。
-// import { MapKitPackage } from 'rn-cn-maps-mapkit';
+import { MapKitPackage } from 'rn-cn-maps-mapkit';
 
 export function createRNPackages(ctx: RNPackageContext): RNPackage[] {
   return [
@@ -26,7 +25,7 @@ export function createRNPackages(ctx: RNPackageContext): RNPackage[] {
     new BaiduPackage(ctx),
     new TencentPackage(ctx),
     // 华为 Map Kit（鸿蒙自带地图）。鉴权走 AGC client_id（module.json5 metadata），
-    // 无需 SDK Key/隐私 init。TODO(mapkit): rn-cn-maps-mapkit 包待创建，创建后取消注释。
-    // new MapKitPackage(ctx),
+    // 无需 SDK Key/隐私 init。
+    new MapKitPackage(ctx),
   ];
 }
