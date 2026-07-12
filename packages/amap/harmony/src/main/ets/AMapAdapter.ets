@@ -984,7 +984,8 @@ export class AMapAdapter implements CnMapAdapter {
   }
 
   private applyBounds(bounds: ESObject, edgePadding: CnEdgeInsets, animated: boolean): void {
-    const update: ESObject = this.controller.newLatLngBoundsRect(bounds, edgePadding.left, edgePadding.right, edgePadding.top, edgePadding.bottom);
+    // 真实 SDK：CameraUpdateFactory.newLatLngBoundsRect（静态），非 controller.newLatLngBoundsRect。
+    const update: ESObject = CameraUpdateFactory.newLatLngBoundsRect(bounds, edgePadding.left, edgePadding.right, edgePadding.top, edgePadding.bottom);
     this.applyCameraUpdate(update, animated, 300);
   }
 
@@ -995,7 +996,8 @@ export class AMapAdapter implements CnMapAdapter {
     return this.controller.createCameraPosition(this.latLng({ latitude: lat, longitude: lng }), zoom, tilt, bearing);
   }
   private boundsFromCoordinates(coords: CnLatLng[]): ESObject {
-    const builder: ESObject = this.controller.createLatLngBoundsBuilder();
+    // 真实 SDK：LatLngBounds.builder() 静态工厂，非 controller.createLatLngBoundsBuilder。
+    const builder: ESObject = LatLngBounds.builder();
     coords.forEach((c) => { builder.include(this.latLng(c)); });
     return builder.build();
   }
