@@ -26,7 +26,7 @@ import { mapCommon, map, MapComponent } from '@kit.MapKit';
 import {
   CnAddress, CnCamera, CnCircleModel, CnEdgeInsets, CnLatLng, CnMapAdapter, CnMapAdapterDelegate,
   CnMapAdapterFactory, CnMapBuilder, CnMarkerEvent, CnMarkerModel, CnOverlayModel, CnPolygonModel,
-  CnPolylineModel, CnPressKind, CnRegion, CnPoint, OverlayHandle, CnMapAdapterRegistry
+  CnPolylineModel, CnPressKind, CnRegion, CnPoint, OverlayHandle, CnMapAdapterRegistry, tintedPinPixelMap
 } from 'rn-cn-maps';
 import {
   RNPackage, TurboModulesFactory, TurboModule, TurboModuleContext, RNPackageContext
@@ -459,6 +459,10 @@ export class MapKitAdapter implements CnMapAdapter {
     if (model.iconBitmap !== null) {
       return model.iconBitmap;
     }
+    // pinColor：Map Kit 默认图钉不可调色，用共享自绘着色 pin。
+    if (model.pinColor !== null) {
+      return tintedPinPixelMap(model.pinColor);
+    }
     return null;
   }
 
@@ -535,6 +539,12 @@ export class MapKitAdapter implements CnMapAdapter {
       options.gradient = true;
     } else {
       options.color = model.strokeColor;
+    }
+    // dashed → PatternItem 虚线（DASH/GAP 交替），Map Kit 4.1+ 原生支持。
+    if (model.dashed) {
+      const dash: mapCommon.PatternItem = { type: mapCommon.PatternItemType.DASH, length: 20 };
+      const gap: mapCommon.PatternItem = { type: mapCommon.PatternItemType.GAP, length: 10 };
+      options.patterns = [dash, gap];
     }
     return this.controller.addPolyline(options);
   }
@@ -640,9 +650,17 @@ export class MapKitAdapter implements CnMapAdapter {
     if (this.controller === null) {
       return;
     }
+    // JS setCamera 部分更新时未传字段填 0（哨兵=保持不变），用当前相机值兜底——
+    // 否则 setCamera({heading}) 会把 zoom/pitch 一并归零（真机曾出现 zoom 10→3 全亚洲视野）。
+    const cur = this.currentCamera();
     const position: mapCommon.CameraPosition = {
-      target: { latitude: camera.latitude, longitude: camera.longitude },
-      zoom: camera.zoom, tilt: camera.pitch, bearing: camera.heading,
+      target: {
+        latitude: camera.latitude !== 0 ? camera.latitude : cur.latitude,
+        longitude: camera.longitude !== 0 ? camera.longitude : cur.longitude,
+      },
+      zoom: camera.zoom > 0 ? camera.zoom : cur.zoom,
+      tilt: camera.pitch > 0 ? camera.pitch : cur.pitch,
+      bearing: camera.heading > 0 ? camera.heading : cur.heading,
     };
     this.applyCameraUpdate(map.newCameraPosition(position), animated, duration);
   }

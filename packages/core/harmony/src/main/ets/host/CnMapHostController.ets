@@ -11,6 +11,7 @@
  */
 import common from '@ohos.app.ability.common';
 import display from '@ohos.display';
+import hilog from '@ohos.hilog';
 import { CnMapAdapter, CnMapBuilder } from '../adapter/CnMapAdapter';
 import { CnMapAdapterDelegate } from '../adapter/CnMapAdapterDelegate';
 import { CnMapAdapterRegistry } from '../adapter/CnMapAdapterRegistry';
@@ -98,6 +99,11 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   // Last props seen, replayed once the map controller is ready (config/children set
   // before the async controller attached would otherwise be lost).
   private lastProps: RNMapsMapViewProps | null = null;
+  // 诊断用实例标识（排查同一点击被多实例/多链路重复派发）
+  private readonly instId: number = Math.floor(Math.random() * 100000);
+  // press 去抖状态（见 onMapPress）
+  private lastPressAt: number = 0;
+  private lastPressKind: CnPressKind = CnPressKind.PAN_DRAG;
 
   constructor(context: common.Context, emit: EmitEventFn, getChildren: () => ChildNode[],
       emitOnChild: EmitChildEventFn) {
@@ -559,6 +565,8 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     }
     const px = Math.round(xVp * this.density);
     const py = Math.round(yVp * this.density);
+    hilog.info(0x0000, 'cnmaps', 'TAP inst=%{public}d kind=%{public}d x=%{public}d y=%{public}d',
+      this.instId, kind as number, px, py);
     const ll = a.coordinateForPoint(px, py);
     if (ll !== null) {
       this.onMapPress(kind, ll, { x: px, y: py });
@@ -566,6 +574,17 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   }
 
   onMapPress(kind: CnPressKind, coordinate: CnLatLng, screenPoint: CnPoint | null): void {
+    // 同一次物理点击可能经两路到达：ArkUI 并行手势 + 各家 SDK 点击监听（真机证实并存），
+    // 且手势层还可能因 build 重跑被叠加注册。统一在此去抖：300ms 内同 kind 视为同一次
+    // 点击丢弃（PAN_DRAG 高频连续序列属正常语义，不去抖）。
+    if (kind !== CnPressKind.PAN_DRAG) {
+      const now = Date.now();
+      if (kind === this.lastPressKind && now - this.lastPressAt < 300) {
+        return;
+      }
+      this.lastPressAt = now;
+      this.lastPressKind = kind;
+    }
     const eventName = kind === CnPressKind.PRESS ? EVT.PRESS
       : kind === CnPressKind.LONG_PRESS ? EVT.LONG_PRESS
       : kind === CnPressKind.DOUBLE_PRESS ? EVT.DOUBLE_PRESS

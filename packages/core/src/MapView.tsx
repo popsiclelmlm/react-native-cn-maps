@@ -527,6 +527,12 @@ export const MapView = React.forwardRef<MapViewHandle, MapViewProps>(
       ) =>
         handler
           ? (event: NativeSyntheticEvent<NativeMapPressEvent>) => {
+              // Marker/Overlay 子节点的 press 是 bubbling 事件，会沿 RN 树冒泡进 MapView 的
+              // onPress（payload 只有 coordinate、没有 position）。地图自身的 press 恒带
+              // position，据此过滤冒泡——对齐 iOS 语义：点标注不应触发地图 onPress。
+              if (!event.nativeEvent.position) {
+                return;
+              }
               handler({
                 nativeEvent: {
                   coordinate: fromProviderCoordinate(

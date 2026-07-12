@@ -17,3 +17,4 @@ export { CnMapAdapter, CnMapAdapterFactory, CnMapBuilder } from './src/main/ets/
 export { CnMapAdapterDelegate } from './src/main/ets/adapter/CnMapAdapterDelegate';
 export { CnMapAdapterRegistry } from './src/main/ets/adapter/CnMapAdapterRegistry';
 export { MapsPrivacy } from './src/main/ets/MapsPrivacy';
+export { tintedPinPixelMap, TINTED_PIN_WIDTH, TINTED_PIN_HEIGHT } from './src/main/ets/adapter/PinBitmap';

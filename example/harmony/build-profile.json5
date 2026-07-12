@@ -7,11 +7,11 @@
         "material": {
           "certpath": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BA2295A687FECE6D9033668B221BDA8D5EDF397B67C4B8AEC6D79027BF93071BF0BE37077BF9533",
+          "keyPassword": "0000001B2E3A1CDB8AD1650D84822B5F4D9ED013929A5FEDB7E0FD679B2C91AB92AEE49F0168BED043E7A4",
           "profile": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "/Users/liumin/.ohos/config/default_harmony_stmIFUPeswYdjgf3pjod6hyLeEdgFkveC5MWPyiybfw=.p12",
-          "storePassword": "0000001B9E9AA833A13671A1D9A15EF871DBB095BA4B56E34C4727E15AA9401AE5D25B105CFB70B3F9F82F"
+          "storePassword": "0000001BA007ABC75AB608D12BF0601373E8EB63B47CF1D0E8AAB5D867DFBD2A88A84D0BB43006C35BEFED"
         }
       }
     ],

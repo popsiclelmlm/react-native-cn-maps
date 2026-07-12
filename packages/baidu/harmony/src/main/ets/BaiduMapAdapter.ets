@@ -25,7 +25,7 @@ import {
   CnAddress, CnCamera, CnCircleModel, CnEdgeInsets, CnGroundOverlayModel, CnLatLng, CnMapAdapter,
   CnMapAdapterDelegate, CnMapAdapterFactory, CnMapBuilder, CnMarkerEvent, CnMarkerModel, CnOverlayModel,
   CnPoi, CnPolygonModel, CnPolylineModel, CnPressKind, CnRegion, CnUserLocation, CnPoint, OverlayHandle,
-  CnMapAdapterRegistry
+  CnMapAdapterRegistry, tintedPinPixelMap, TINTED_PIN_WIDTH, TINTED_PIN_HEIGHT
 } from 'rn-cn-maps';
 import {
   RNPackage, TurboModulesFactory, TurboModule, TurboModuleContext, RNPackageContext
@@ -496,6 +496,15 @@ export class BaiduMapAdapter implements CnMapAdapter {
       if (model.iconBitmap !== null) {
         return new ImageEntity(model.iconBitmap as image.PixelMap);
       }
+      // pinColor：百度 SDK 无带色相的默认 marker，用共享自绘着色 pin。
+      // SDK 把 PixelMap 按逻辑像素 ×DPI 显示，位图本身已用小逻辑尺寸（见 PinBitmap），
+      // 不再传宽高参数（实测传值不影响显示尺寸）。
+      if (model.pinColor !== null) {
+        const pm = tintedPinPixelMap(model.pinColor);
+        if (pm !== null) {
+          return new ImageEntity(pm, TINTED_PIN_WIDTH, TINTED_PIN_HEIGHT);
+        }
+      }
     } catch (_e) {
       return undefined;
     }
@@ -604,20 +613,9 @@ export class BaiduMapAdapter implements CnMapAdapter {
     if (c === null) {
       return;
     }
-    // 地图单击/长按（真实 API：controller.addEventListener(MapEvent.*)）。事件 e 为 EventBundle，
-    // 含 geo(LatLng) + left/top 屏幕坐标；不同事件字段名略有差异，做防御式取值。
-    c.addEventListener(MapEvent.CLICK, (e: ESObject) => {
-      const geo: ESObject = this.eventGeo(e);
-      if (geo !== null && geo !== undefined) {
-        this.delegate?.onMapPress(CnPressKind.PRESS, { latitude: geo.latitude, longitude: geo.longitude }, this.screenPoint(geo));
-      }
-    });
-    c.addEventListener(MapEvent.LONG_PRESS, (e: ESObject) => {
-      const geo: ESObject = this.eventGeo(e);
-      if (geo !== null && geo !== undefined) {
-        this.delegate?.onMapPress(CnPressKind.LONG_PRESS, { latitude: geo.latitude, longitude: geo.longitude }, this.screenPoint(geo));
-      }
-    });
+    // 单击/长按不在 SDK 层注册（百度 MapEvent.CLICK 能收到点击，而 host 层的 ArkUI
+    // 并行手势也会派发 onPress——两路同时注册会把每次点击派发两遍。统一走 host 手势，
+    // 与高德（SDK 收不到点击、只能靠 host 手势）保持同一条链路）。
     // 相机/地图状态变化（进行中 / 结束）。
     c.addEventListener(MapEvent.MAPSTATUSCHANGE, () => this.delegate?.onRegionChange(false, true));
     c.addEventListener(MapEvent.MAPSTATUSCHANGEFINISH, () => this.delegate?.onRegionChange(true, true));
@@ -677,12 +675,20 @@ export class BaiduMapAdapter implements CnMapAdapter {
     }
     // 注意：controller.setMapCenter 在本 SDK 上会让底图渲染空白（真机复现），改走 setViewport
     // ——由 zoom 反推经纬度跨度构造两角点，setViewport 自动拟合中心 + 级别（与 moveToRegion 同路径）。
-    // rotate/overlook 暂不支持（需 BaseMap.setMapStatus，parity TODO）。
     const zoom: number = camera.zoom > 0 ? camera.zoom : (this.controller.getZoom() as number);
     const delta = 360 / Math.pow(2, Math.max(1, zoom - 2));
     const sw: ESObject = this.latLng({ latitude: camera.latitude - delta / 2, longitude: camera.longitude - delta / 2 });
     const ne: ESObject = this.latLng({ latitude: camera.latitude + delta / 2, longitude: camera.longitude + delta / 2 });
     this.controller.setViewport([sw, ne], { isAnimate: animated, animationTime: Math.max(0, duration) } as ESObject);
+    // heading：经 controller.mapStatus（OpenMapStatus）.setRotate 应用，顺时针 [0,360]，
+    // 与 RNM heading 语义一致（overlook/pitch 语义未证实，暂不接）。
+    // 0 = 未传（JS setCamera 部分更新哨兵），保持当前旋转不动。
+    if (camera.heading > 0) {
+      const st: ESObject = this.controller.mapStatus;
+      if (st !== null && st !== undefined && typeof st.setRotate === 'function') {
+        st.setRotate(camera.heading % 360);
+      }
+    }
   }
 
   private screenPoint(ll: ESObject): CnPoint | null {

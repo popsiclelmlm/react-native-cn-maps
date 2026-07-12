@@ -13,13 +13,14 @@
  * 控制器异步经 MapComponent.onReady 到达，config/markers/overlays 先 BUFFER，attachController 后 flush。
  */
 import common from '@ohos.app.ability.common';
+import display from '@ohos.display';
 import image from '@ohos.multimedia.image';
 import fs from '@ohos.file.fs';
 import util from '@ohos.util';
 import {
   CnAddress, CnCamera, CnCircleModel, CnEdgeInsets, CnLatLng, CnMapAdapter, CnMapAdapterDelegate,
   CnMapAdapterFactory, CnMapBuilder, CnMarkerEvent, CnMarkerModel, CnOverlayModel, CnPoi, CnPolygonModel,
-  CnPolylineModel, CnPressKind, CnRegion, CnPoint, OverlayHandle, CnMapAdapterRegistry
+  CnPolylineModel, CnPressKind, CnRegion, CnPoint, OverlayHandle, CnMapAdapterRegistry, tintedPinPixelMap
 } from 'rn-cn-maps';
 import {
   RNPackage, TurboModulesFactory, TurboModule, TurboModuleContext, RNPackageContext
@@ -34,7 +35,8 @@ import {
   Marker, Line, Polygon, Circle, LatLng, LineType, ImageSourceType
 } from '@tencentmap/map';
 import type {
-  MarkerOptions, LineOptions, PolygonOptions, CircleOptions, NormalLineExtraParam, ImageEntity
+  MarkerOptions, LineOptions, PolygonOptions, CircleOptions, NormalLineExtraParam,
+  DottedLineExtraParam, Segment, ImageEntity
 } from '@tencentmap/map';
 
 // 腾讯 Key 存放在宿主 example 的 module.json5 metadata（与 Android meta-data 同名）。
@@ -452,6 +454,13 @@ export class TencentMapAdapter implements CnMapAdapter {
     if (model.iconBitmap !== null) {
       return { uri: model.iconBitmap as image.PixelMap, type: ImageSourceType.PixelMap };
     }
+    // pinColor：腾讯 SDK 无带色相默认 marker，用共享自绘着色 pin。
+    if (model.pinColor !== null) {
+      const tinted = tintedPinPixelMap(model.pinColor);
+      if (tinted !== null) {
+        return { uri: tinted as image.PixelMap, type: ImageSourceType.PixelMap };
+      }
+    }
     // ⚠️ 腾讯 SDK 无内置默认 pin，无 icon 的 marker 永不 LOADING_FINISH → 不可见。
     // RawFile uri 加载会报 nativeImageSource=null，改用从 rawfile 同步解码的 PixelMap 直传更可靠。
     const def: ESObject = this.defaultMarkerPixelMap();
@@ -538,13 +547,25 @@ export class TencentMapAdapter implements CnMapAdapter {
       return null;
     }
     // 真实 API：new Line(LineOptions) → controller.addLine。颜色在 param.segments[].color。
+    // dashed → LineType.DottedLine + DottedLineExtraParam（SDK 原生虚线）。
     const pts: ESObject = model.coordinates.map((c): ESObject => this.latLng(c));
     const col = model.strokeColors.length > 0 ? model.strokeColors[0] : model.strokeColor;
-    const param: NormalLineExtraParam = { segments: [{ color: this.colorToHex(col) }] };
+    let param: ESObject;
+    if (model.dashed) {
+      const dotted: DottedLineExtraParam = { color: this.colorToHex(col) };
+      param = dotted;
+    } else {
+      const seg: Segment = { color: this.colorToHex(col) };
+      const normal: NormalLineExtraParam = { segments: [seg] };
+      param = normal;
+    }
+    // 腾讯 Line.width 是物理像素（高德/百度/MapKit 为逻辑单位），3 逻辑 px 的半透明线
+    // 直传后在 3.25DPI 真机上几乎不可见——乘屏幕密度对齐视觉宽度。
+    const den = Math.max(1, display.getDefaultDisplaySync().densityPixels);
     const opt: LineOptions = {
       points: pts as LatLng[],
-      width: Math.round(model.strokeWidth),
-      lineType: LineType.NormalLine,
+      width: Math.max(2, Math.round(model.strokeWidth * den)),
+      lineType: model.dashed ? LineType.DottedLine : LineType.NormalLine,
       param,
       zIndex: Math.round(model.zIndex),
     };
@@ -666,14 +687,23 @@ export class TencentMapAdapter implements CnMapAdapter {
     if (camera.zoom > 0) {
       this.controller.setScaleLevel(Math.round(camera.zoom), animated);
     }
+    // heading/pitch：controller 原生支持 setRotate（顺时针角度）/ setSkew（俯仰），语义与 RNM 一致。
+    // 0 = 未传（JS setCamera 部分更新哨兵），保持当前值不动。
+    if (camera.heading > 0) {
+      this.controller.setRotate(camera.heading % 360);
+    }
+    if (camera.pitch > 0) {
+      this.controller.setSkew(camera.pitch);
+    }
   }
 
   private scaleForDelta(longitudeDelta: number): number {
     if (longitudeDelta <= 0) {
       return 16;
     }
-    // 腾讯 scaleLevel 视野比 Google zoom 偏大（同 delta 更远），+2 校准让初始视野贴近 region。
-    const level = Math.round(Math.log2(360 / longitudeDelta)) + 2;
+    // 真机对照高德/百度基准：腾讯 scaleLevel 与 Google zoom 语义一致，无需 +2 校准
+    // （旧 +2 是模拟器目测值，真机上导致视野近 4 倍——T-903 覆盖物占半屏）。
+    const level = Math.round(Math.log2(360 / longitudeDelta));
     return Math.max(3, Math.min(20, level));
   }
 
