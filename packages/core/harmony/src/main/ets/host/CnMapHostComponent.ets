@@ -14,15 +14,64 @@
  * Once `codegen-harmony` runs, the props/event/command types become generated.
  */
 import { RNComponentContext, RNOHContext, Tag } from '@rnoh/react-native-openharmony';
+import componentSnapshot from '@ohos.arkui.componentSnapshot';
+import image from '@ohos.multimedia.image';
 import { CnMapHostController, ChildNode } from './CnMapHostController';
 import { RNMapsMapViewDescriptor, RNMapsMapViewProps, RN_MAPS_MAP_VIEW_TYPE } from './RNMapsMapViewDescriptor';
-import { PropBag } from './ChildModelBuilder';
+import { PropBag, MARKER_COMPONENT_NAME, CALLOUT_COMPONENT_NAME } from './ChildModelBuilder';
 import { CnPressKind } from '../adapter/CnMapModels';
+
+// fromView 光栅化：离屏挂载注册表。@Observed 使 tags 变化只重渲 CnMarkerRasterLayer，
+// 不触发宿主 CnMapHostComponent 的 build() 重跑 → 不重载地图（宿主 build() 不读它）。
+@Observed
+class CnMarkerRasterRegistry {
+  tags: number[] = [];
+}
+
+// 离屏活跃挂载层：把 Marker 的自定义视图子树真正挂进 ArkUI 渲染树（位置移出屏外，仍参与布局
+// 与绘制，故含 Text 也能完整渲染——这是 createFromBuilder 离屏渲染不画 Text 字形的可靠替代）。
+// 每个子树布局完成（onAreaChange 尺寸>0）后 componentSnapshot.get(id) 截图，经 onRastered 推回。
+@Component
+struct CnMarkerRasterLayer {
+  ctx!: RNComponentContext;
+  @ObjectLink registry: CnMarkerRasterRegistry;
+  onRastered: (viewTag: number, pm: image.PixelMap) => void = (viewTag: number, pm: image.PixelMap) => {};
+
+  @Builder
+  content(tag: number) {
+    this.ctx.wrappedRNComponentBuilder.builder(this.ctx, tag)
+  }
+
+  build() {
+    Stack() {
+      ForEach(this.registry.tags, (tag: number) => {
+        Stack() {
+          this.content(tag)
+        }
+        .id(`cnmk-${tag}`)
+        .onAreaChange((_o: Area, n: Area) => {
+          if (Number(n.width) > 0 && Number(n.height) > 0) {
+            componentSnapshot.get(`cnmk-${tag}`).then((pm: image.PixelMap) => {
+              this.onRastered(tag, pm);
+            }).catch((_e: Object) => {});
+          }
+        })
+      }, (tag: number) => `${tag}`)
+    }
+    // 放在屏内左上角（0,0）而非移出屏外：ArkUI 会剔除完全离屏的组件（不绘制 → 截图只有 View
+    // 背景、缺 Text 字形）。放屏内确保完整绘制（含 Text）；由宿主把本层渲染在地图之下、被地图
+    // 完全遮住 → 不可见、不影响地图。截图按 id 取指定子树，与是否被遮挡无关。
+    .position({ x: 0, y: 0 })
+  }
+}
 
 @Component
 export struct CnMapHostComponent {
   ctx!: RNComponentContext;
   tag: Tag = 0;
+  // fromView：自定义视图 marker 的离屏挂载注册表（见 CnMarkerRasterLayer / requestRaster）。
+  // @State 满足 @ObjectLink 的观察链；只改 .tags（不换引用）→ 本 build() 不重跑 → 地图不重载。
+  @State private rasterRegistry: CnMarkerRasterRegistry = new CnMarkerRasterRegistry();
 
   // descriptor 只用于逻辑（读子节点 / 转发 props），不参与渲染，故用普通字段而非 @State——
   // 否则 RNOH 在滚动等场景频繁刷新 descriptor（对象引用每次都变）会触发 build() 重跑。
@@ -57,7 +106,10 @@ export struct CnMapHostComponent {
       // Marker 事件发到 Marker 子节点自己的 tag（见 CnMapHostController.onMarkerEvent）。
       (childTag: number, eventName: string, payload: Object) => {
         this.ctx.rnInstance.emitComponentEvent(childTag, eventName, payload);
-      }
+      },
+      // fromView：请求把 Marker 的自定义视图子 tag 挂进离屏活跃层（rasterRegistry），布局完成后
+      // 由 CnMarkerRasterLayer 的 onAreaChange 截图并经 controller.onRastered 回填。
+      (viewTag: number) => this.requestRaster(viewTag)
     );
 
     // Select provider + apply first props.
@@ -115,10 +167,31 @@ export struct CnMapHostComponent {
         }
       );
       this.childUnsubscribes.push(unregCmd);
+      // fromView：自定义视图 marker 的内容变化发生在 Marker 的孙节点（如价格数字 Text），
+      // Marker 自身 descriptor 不变 → 递归订阅其子树，任一层变化即 syncChildren 触发重光栅化。
+      this.subscribeDescendants(childTag);
+    });
+  }
+
+  // 递归订阅某 tag 的全部后代 descriptor 变化 → syncChildren（用于自定义视图 marker 内容更新）。
+  private subscribeDescendants(tag: Tag): void {
+    const cd = this.ctx.descriptorRegistry.getDescriptor(tag);
+    if (cd === undefined || cd === null) {
+      return;
+    }
+    cd.childrenTags.forEach((grandTag: Tag) => {
+      const unsub = this.ctx.descriptorRegistry.subscribeToDescriptorChanges(
+        grandTag,
+        () => { this.controller?.syncChildren(); }
+      );
+      this.childUnsubscribes.push(unsub);
+      this.subscribeDescendants(grandTag);
     });
   }
 
   // Walk the Fabric child tags and read each dumb child's component type + props.
+  // 对 Marker，额外找出其「自定义视图」子（非 Callout 孙节点）用于 fromView 光栅化，并递归
+  // 序列化该子树内容为 customViewHash（含深层 props，如价格数字），子树变化即触发重光栅化。
   private readChildren(): ChildNode[] {
     const d = this.descriptor;
     if (d === null) {
@@ -127,11 +200,48 @@ export struct CnMapHostComponent {
     const out: ChildNode[] = [];
     d.childrenTags.forEach((childTag: Tag) => {
       const cd = this.ctx.descriptorRegistry.getDescriptor(childTag);
-      if (cd !== undefined && cd !== null) {
-        out.push({ tag: childTag, componentName: cd.type, props: cd.props as PropBag });
+      if (cd === undefined || cd === null) {
+        return;
       }
+      let customViewTag: number | null = null;
+      let customViewHash: string | null = null;
+      if (cd.type === MARKER_COMPONENT_NAME && cd.childrenTags.length > 0) {
+        for (const grandTag of cd.childrenTags) {
+          const gd = this.ctx.descriptorRegistry.getDescriptor(grandTag);
+          if (gd !== undefined && gd !== null && gd.type !== CALLOUT_COMPONENT_NAME) {
+            customViewTag = grandTag;
+            customViewHash = this.serializeSubtree(grandTag);
+            break;
+          }
+        }
+      }
+      out.push({ tag: childTag, componentName: cd.type, props: cd.props as PropBag, customViewTag, customViewHash });
     });
     return out;
+  }
+
+  // 递归把一棵子树的 props 序列化成字符串，作为「内容指纹」——子树任意层 props 变化即变，
+  // 用于判定自定义视图 marker 是否需重光栅化（Marker 自身 props 不变但孙节点变时也能捕获）。
+  private serializeSubtree(tag: Tag): string {
+    const cd = this.ctx.descriptorRegistry.getDescriptor(tag);
+    if (cd === undefined || cd === null) {
+      return '';
+    }
+    let s = JSON.stringify(cd.props);
+    for (const child of cd.childrenTags) {
+      s += '|' + this.serializeSubtree(child);
+    }
+    return s;
+  }
+
+  // fromView：把 Marker 的自定义视图子 tag 加进离屏活跃层的挂载集合（rasterRegistry.tags）。
+  // 幂等——已在集合中则不重复挂载。挂载后由 CnMarkerRasterLayer 的 onAreaChange（布局完成）
+  // 触发 componentSnapshot.get 截图（离屏但活跃挂载 → Text 字形完整渲染，优于 createFromBuilder）。
+  // 用 @Observed 的 rasterRegistry：改它只重渲隐藏层，不重跑本组件 build() → 不触发地图重载。
+  private requestRaster(viewTag: number): void {
+    if (!this.rasterRegistry.tags.includes(viewTag)) {
+      this.rasterRegistry.tags = this.rasterRegistry.tags.concat([viewTag]);
+    }
   }
 
   // 把 Fabric 算好的 frame 同步到渲染用的 @State，但只在真正变化时才赋值：
@@ -157,6 +267,14 @@ export struct CnMapHostComponent {
 
   build() {
     Stack() {
+      // fromView 挂载层放在最底层（先渲染 = Stack 底部）、屏内(0,0)，随后被全屏地图完全遮住 →
+      // 不可见但完整绘制（含 Text）。它靠 @Observed registry 独立重渲，registry 变化不重跑本
+      // build() → 不重载地图。截图完成经 controller.onRastered 回填。
+      CnMarkerRasterLayer({
+        ctx: this.ctx,
+        registry: this.rasterRegistry,
+        onRastered: (viewTag: number, pm: image.PixelMap) => { this.controller?.onRastered(viewTag, pm); }
+      })
       // Render the current provider's ArkUI map. The factory's WrappedBuilder takes
       // the adapter so the provider can bind its map controller to it on map-ready.
       if (this.controller?.mapBuilder !== null && this.controller?.currentAdapter !== null) {

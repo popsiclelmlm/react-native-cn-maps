@@ -12,6 +12,7 @@
 import common from '@ohos.app.ability.common';
 import display from '@ohos.display';
 import hilog from '@ohos.hilog';
+import image from '@ohos.multimedia.image';
 import { CnMapAdapter, CnMapBuilder } from '../adapter/CnMapAdapter';
 import { CnMapAdapterDelegate } from '../adapter/CnMapAdapterDelegate';
 import { CnMapAdapterRegistry } from '../adapter/CnMapAdapterRegistry';
@@ -39,7 +40,17 @@ export interface ChildNode {
   tag: number;
   componentName: string;
   props: PropBag;
+  // Marker 的自定义视图（非 Callout 孙节点）根 tag，用于 fromView 光栅化；无则 null。
+  customViewTag: number | null;
+  // 自定义视图子树内容的哈希（含深层 props），变化即重新光栅化；无自定义视图则 null。
+  customViewHash: string | null;
 }
+
+// 请求把某个 RN 子树（viewTag，Marker 的自定义视图）离屏挂载并光栅化。由 CnMapHostComponent
+// 实现：把 viewTag 挂进离屏活跃层，其 onAreaChange（布局完成）后 componentSnapshot.get 截图，
+// 再经 controller.onRastered 回填。推模式——因 RNOH setTimeout 不可靠（见 T-506），不能靠
+// 定时器等挂载，故由「布局完成」事件驱动截图。
+export type RequestRasterFn = (viewTag: number) => void;
 
 // (eventName, payload) → RNOH component event. Payload is a typed object (see
 // EventPayloads). 查证: emit API + event-name strings must match codegen output
@@ -55,6 +66,11 @@ interface TrackedChild {
   isMarker: boolean;
   identifier: string | null;
   propsHash: string; // 上次同步时子 props 的快照，未变则跳过 update（避免滚动/无关刷新时重建覆盖物）
+  // fromView 自定义视图 marker：上次光栅化的 PixelMap 与其子树哈希（缓存，未变则复用不重拍）
+  customBitmap: image.PixelMap | null;
+  customViewHash: string | null;
+  customViewTag: number | null; // 该 marker 的自定义视图子 tag（onRastered 按此反查 marker）
+  markerProps: PropBag | null;  // marker 自身 props（onRastered 回填位图后重建 model 用）
 }
 
 // CnMarkerEvent → Marker 的 codegen 规范事件名（generated/components/RNMapsMarker.ts 的
@@ -84,6 +100,7 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   private emit: EmitEventFn;
   private emitOnChild: EmitChildEventFn;
   private getChildren: () => ChildNode[];
+  private requestRaster: RequestRasterFn;
 
   private adapter: CnMapAdapter | null = null;
   private currentProvider: string | null = null;
@@ -106,11 +123,12 @@ export class CnMapHostController implements CnMapAdapterDelegate {
   private lastPressKind: CnPressKind = CnPressKind.PAN_DRAG;
 
   constructor(context: common.Context, emit: EmitEventFn, getChildren: () => ChildNode[],
-      emitOnChild: EmitChildEventFn) {
+      emitOnChild: EmitChildEventFn, requestRaster: RequestRasterFn) {
     this.context = context;
     this.emit = emit;
     this.emitOnChild = emitOnChild;
     this.getChildren = getChildren;
+    this.requestRaster = requestRaster;
     try {
       this.density = display.getDefaultDisplaySync().densityPixels;
     } catch (_e) {
@@ -249,16 +267,34 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     children.forEach((child) => {
       seen.add(child.tag);
       const existing = this.tracked.get(child.tag);
-      const hash = JSON.stringify(child.props);
+      // 自定义视图子树内容（customViewHash）折进 hash：Marker 的孙节点（如价格气泡文字）变化
+      // 只更新孙 descriptor、不改 Marker 自身 props，须靠它触发重同步与重光栅化（T-310 更新）。
+      const hash = JSON.stringify(child.props) + '|cv:' + (child.customViewHash ?? '');
       // props 未变则跳过（子 descriptor 订阅可能因无关刷新触发 syncChildren）。
       if (existing !== undefined && existing.propsHash === hash) {
         return;
       }
       if (child.componentName === MARKER_COMPONENT_NAME) {
         const model = buildMarkerModel(child.props);
+        const cvTag = child.customViewTag;
+        // 自定义视图 marker：复用上次光栅化的位图作为当前图标——视图未变时是正解、刚变时是占位，
+        // 都避免闪回默认钉；仅在首次或视图变化时才需异步重拍。
+        let needRaster = false;
+        if (cvTag !== null) {
+          const cachedBmp = existing !== undefined ? existing.customBitmap : null;
+          const cachedHash = existing !== undefined ? existing.customViewHash : null;
+          if (cachedBmp !== null) {
+            model.customBitmap = cachedBmp;
+          }
+          needRaster = cachedBmp === null || cachedHash !== child.customViewHash;
+        }
         if (existing === undefined) {
           const handle = a.addMarker(model, `cn-${child.tag}`);
-          this.tracked.set(child.tag, { handle, isMarker: true, identifier: model.identifier, propsHash: hash });
+          this.tracked.set(child.tag, {
+            handle, isMarker: true, identifier: model.identifier, propsHash: hash,
+            customBitmap: model.customBitmap, customViewHash: cvTag !== null ? child.customViewHash : null,
+            customViewTag: cvTag, markerProps: child.props,
+          });
           if (model.identifier !== null) {
             this.markerHandlesByIdentifier.set(model.identifier, handle);
           }
@@ -266,9 +302,16 @@ export class CnMapHostController implements CnMapAdapterDelegate {
           a.updateMarker(existing.handle, model);
           existing.identifier = model.identifier;
           existing.propsHash = hash;
+          existing.customBitmap = model.customBitmap;
+          existing.customViewTag = cvTag;
+          existing.markerProps = child.props;
           if (model.identifier !== null) {
             this.markerHandlesByIdentifier.set(model.identifier, existing.handle);
           }
+        }
+        // 首次/视图变化 → 请求把自定义视图挂进离屏活跃层；截图完成经 onRastered 回填图标。
+        if (cvTag !== null && needRaster) {
+          this.requestRaster(cvTag);
         }
         return;
       }
@@ -278,7 +321,7 @@ export class CnMapHostController implements CnMapAdapterDelegate {
       }
       if (existing === undefined) {
         const handle = a.addOverlay(overlayModel, `cn-${child.tag}`);
-        this.tracked.set(child.tag, { handle, isMarker: false, identifier: null, propsHash: hash });
+        this.tracked.set(child.tag, { handle, isMarker: false, identifier: null, propsHash: hash, customBitmap: null, customViewHash: null, customViewTag: null, markerProps: null });
       } else {
         a.updateOverlay(existing.handle, overlayModel);
         existing.propsHash = hash;
@@ -386,6 +429,25 @@ export class CnMapHostController implements CnMapAdapterDelegate {
       default:
         break;
     }
+  }
+
+  // fromView：CnMapHostComponent 在离屏活跃层把自定义视图渲染完并 componentSnapshot.get 截图后，
+  // 把 (viewTag, PixelMap) 推回此处。按 viewTag 反查所有以它为自定义视图的 marker，重建 model
+  // （含新位图，须是新对象——adapter.updateMarker 以引用比较 customBitmap 决定是否换图标）并更新。
+  // onAreaChange 驱动：初次布局 + 尺寸变化（如价格数字位数变化）都会再次推来，故更新自动生效。
+  onRastered(viewTag: number, pm: image.PixelMap): void {
+    const a = this.adapter;
+    if (a === null) {
+      return;
+    }
+    this.tracked.forEach((t: TrackedChild) => {
+      if (t.isMarker && t.customViewTag === viewTag && t.markerProps !== null) {
+        t.customBitmap = pm;
+        const model = buildMarkerModel(t.markerProps);
+        model.customBitmap = pm;
+        a.updateMarker(t.handle, model);
+      }
+    });
   }
 
   // 子节点（Marker）命令：RN 把 animateMarkerToCoordinate/showCallout/… 发在 Marker 子

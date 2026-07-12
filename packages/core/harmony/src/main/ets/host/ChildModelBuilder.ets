@@ -325,3 +325,5 @@ export function buildOverlayModel(componentName: string, props: PropBag): CnOver
 }
 
 export const MARKER_COMPONENT_NAME: string = 'RNMapsMarker';
+// Marker 的 Callout 子（信息窗内容），区别于「自定义视图」子——fromView 光栅化时须排除它。
+export const CALLOUT_COMPONENT_NAME: string = 'RNMapsCallout';
