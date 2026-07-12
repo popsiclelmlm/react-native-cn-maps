@@ -271,7 +271,7 @@ export class BaiduMapAdapter implements CnMapAdapter {
       const t: ESObject = this.controller.getCenter();
       if (t !== null && t !== undefined) {
         resolved = {
-          latitude: t.latitude, longitude: t.longitude,
+          latitude: t.lat, longitude: t.lng,
           heading: camera.heading, pitch: camera.pitch, zoom: camera.zoom, altitude: camera.altitude,
         };
       }
@@ -290,7 +290,7 @@ export class BaiduMapAdapter implements CnMapAdapter {
     const zoom: number = this.controller.getZoom();
     // zoomForDelta 的逆运算：由 zoom 反推经纬度跨度（近似值）。
     const delta = 360 / Math.pow(2, Math.max(1, zoom - 2));
-    return { latitude: c.latitude, longitude: c.longitude, latitudeDelta: delta, longitudeDelta: delta };
+    return { latitude: c.lat, longitude: c.lng, latitudeDelta: delta, longitudeDelta: delta };
   }
 
   currentCamera(): CnCamera {
@@ -300,8 +300,8 @@ export class BaiduMapAdapter implements CnMapAdapter {
     const c: ESObject = this.controller.getCenter();
     const zoom: number = this.controller.getZoom();
     const rotate: number = this.controller.getRotate();
-    const lat: number = (c !== null && c !== undefined) ? (c.latitude as number) : 0;
-    const lng: number = (c !== null && c !== undefined) ? (c.longitude as number) : 0;
+    const lat: number = (c !== null && c !== undefined) ? (c.lat as number) : 0;
+    const lng: number = (c !== null && c !== undefined) ? (c.lng as number) : 0;
     return { latitude: lat, longitude: lng, heading: rotate, pitch: 0, zoom, altitude: 0 };
   }
 
@@ -349,8 +349,9 @@ export class BaiduMapAdapter implements CnMapAdapter {
     if (this.controller === null) {
       return null;
     }
+    // 百度 LatLng 字段是 lat/lng（非 latitude/longitude），读错字段会得 undefined。
     const ll: ESObject = this.controller.pixel2ll(xPx, yPx);
-    return (ll !== null && ll !== undefined) ? { latitude: ll.latitude, longitude: ll.longitude } : null;
+    return (ll !== null && ll !== undefined) ? { latitude: ll.lat, longitude: ll.lng } : null;
   }
 
   // Snapshot -------------------------------------------------------------------
@@ -483,7 +484,7 @@ export class BaiduMapAdapter implements CnMapAdapter {
       return null;
     }
     const pos: ESObject = marker.getPosition();
-    return (pos !== null && pos !== undefined) ? { latitude: pos.latitude, longitude: pos.longitude } : null;
+    return (pos !== null && pos !== undefined) ? { latitude: pos.lat, longitude: pos.lng } : null;
   }
 
   private descriptorFor(model: CnMarkerModel): ImageEntity | undefined {
