@@ -307,8 +307,9 @@ export class AMapAdapter implements CnMapAdapter {
       return null;
     }
     try {
-      const ll: ESObject = this.controller.getProjection().fromScreenLocation({ x: xPx, y: yPx }); // 查证
-      return { latitude: ll.latitude, longitude: ll.longitude };
+      // fromScreenLocation(point, callback) 是异步版；同步取值须用 fromScreenLocationSync。
+      const ll: ESObject = this.controller.getProjection().fromScreenLocationSync({ x: xPx, y: yPx });
+      return ll !== null && ll !== undefined ? { latitude: ll.latitude, longitude: ll.longitude } : null;
     } catch (_e) {
       return null;
     }

@@ -17,6 +17,7 @@ import { RNComponentContext, RNOHContext, Tag } from '@rnoh/react-native-openhar
 import { CnMapHostController, ChildNode } from './CnMapHostController';
 import { RNMapsMapViewDescriptor, RNMapsMapViewProps, RN_MAPS_MAP_VIEW_TYPE } from './RNMapsMapViewDescriptor';
 import { PropBag } from './ChildModelBuilder';
+import { CnPressKind } from '../adapter/CnMapModels';
 
 @Component
 export struct CnMapHostComponent {
@@ -158,6 +159,27 @@ export struct CnMapHostComponent {
     .onAreaChange(() => {
       this.controller?.onSizeChanged();
     })
+    // RNOH 内嵌的原生地图不会把单击/长按透传给 SDK 的 onMapClick/onMapLongClick（只透传
+    // 平移/缩放）。在 ArkUI 层用并行手势补上 onPress/onLongPress：与地图自身手势并行识别，
+    // 命中后把本地坐标转经纬度并派发（见 controller.handleTapAt）。
+    .parallelGesture(
+      GestureGroup(GestureMode.Parallel,
+        TapGesture({ count: 1, fingers: 1 })
+          .onAction((event: GestureEvent) => {
+            const f = event.fingerList[0];
+            if (f !== undefined && f !== null) {
+              this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.PRESS);
+            }
+          }),
+        LongPressGesture({ fingers: 1, repeat: false })
+          .onAction((event: GestureEvent) => {
+            const f = event.fingerList[0];
+            if (f !== undefined && f !== null) {
+              this.controller?.handleTapAt(f.localX, f.localY, CnPressKind.LONG_PRESS);
+            }
+          })
+      )
+    )
   }
 }
 

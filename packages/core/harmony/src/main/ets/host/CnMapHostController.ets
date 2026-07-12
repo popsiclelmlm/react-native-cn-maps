@@ -521,6 +521,21 @@ export class CnMapHostController implements CnMapAdapterDelegate {
     this.emit(EVT.MAP_LOADED, EMPTY_PAYLOAD);
   }
 
+  // 由 host 的 ArkUI TapGesture/LongPressGesture 调用（RNOH 内嵌原生地图不会把单击/长按
+  // 透传给 SDK 的 onMapClick，故在 ArkUI 层并行识别）。入参为组件本地坐标（vp）。
+  handleTapAt(xVp: number, yVp: number, kind: CnPressKind): void {
+    const a = this.adapter;
+    if (a === null) {
+      return;
+    }
+    const px = Math.round(xVp * this.density);
+    const py = Math.round(yVp * this.density);
+    const ll = a.coordinateForPoint(px, py);
+    if (ll !== null) {
+      this.onMapPress(kind, ll, { x: px, y: py });
+    }
+  }
+
   onMapPress(kind: CnPressKind, coordinate: CnLatLng, screenPoint: CnPoint | null): void {
     const eventName = kind === CnPressKind.PRESS ? EVT.PRESS
       : kind === CnPressKind.LONG_PRESS ? EVT.LONG_PRESS
@@ -661,17 +676,20 @@ export class CnMapHostController implements CnMapAdapterDelegate {
 // names for RNMapsMapView (the JS spec registers onPress as Bubbling `topPress`,
 // the rest as Direct). One place to reconcile during P1.
 class Events {
-  readonly MAP_READY = 'onMapReady';
-  readonly MAP_LOADED = 'onMapLoaded';
-  readonly REGION_CHANGE = 'onRegionChange';
-  readonly REGION_CHANGE_COMPLETE = 'onRegionChangeComplete';
-  readonly PRESS = 'onPress';
-  readonly LONG_PRESS = 'onLongPress';
-  readonly DOUBLE_PRESS = 'onDoublePress';
-  readonly PAN_DRAG = 'onPanDrag';
-  readonly POI_CLICK = 'onPoiClick';
-  readonly USER_LOCATION_CHANGE = 'onUserLocationChange';
-  readonly COMMAND_RESULT = 'onCommandResult';
+  // RNOH emitComponentEvent 用的是 codegen 规范事件名（无 "on" 前缀、首字母小写，见
+  // generated/components/RNMapsMapView.ts 的 EventPayloadByName）。此前误用 "onPress" 等
+  // 带前缀名，RNOH 无法路由，导致所有地图事件（CB-1）不达 JS。
+  readonly MAP_READY = 'mapReady';
+  readonly MAP_LOADED = 'mapLoaded';
+  readonly REGION_CHANGE = 'regionChange';
+  readonly REGION_CHANGE_COMPLETE = 'regionChangeComplete';
+  readonly PRESS = 'press';
+  readonly LONG_PRESS = 'longPress';
+  readonly DOUBLE_PRESS = 'doublePress';
+  readonly PAN_DRAG = 'panDrag';
+  readonly POI_CLICK = 'poiClick';
+  readonly USER_LOCATION_CHANGE = 'userLocationChange';
+  readonly COMMAND_RESULT = 'commandResult';
   // Marker/overlay child events (host-level fan-out carrying childId).
   readonly MARKER_PRESS = 'onMarkerPress';
   readonly MARKER_SELECT = 'onMarkerSelect';
