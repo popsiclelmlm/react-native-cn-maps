@@ -278,12 +278,14 @@ export default function App() {
               const active = provider === p.key;
               return (
                 <Pressable
-                  key={p.key}
+                  // RNOH 在 chip 切换选中态时不重绘变化了样式的 chip（底色/文字会残留或消失）。
+                  // key 带上 active，切换时强制整块 chip 重挂载，保证底色+文字都刷新。
+                  key={`${p.key}-${active ? 'on' : 'off'}`}
                   style={[
                     styles.demoChip,
                     active && {
-                      backgroundColor: p.color,
-                      borderColor: p.color,
+                      backgroundColor: COLORS.accent,
+                      borderColor: COLORS.accent,
                     },
                   ]}
                   onPress={() => setProvider(p.key)}
@@ -291,7 +293,9 @@ export default function App() {
                   <Text
                     style={[
                       styles.demoChipText,
-                      active ? styles.demoChipTextActive : { color: p.color },
+                      active
+                        ? styles.demoChipTextActive
+                        : { color: COLORS.accent },
                     ]}
                   >
                     {p.label}
@@ -338,12 +342,14 @@ export default function App() {
             const active = provider === p.key;
             return (
               <Tap
-                key={p.key}
+                // RNOH 在 chip 切换选中态时不重绘变化了样式的 chip（底色/文字会残留或消失）。
+                // key 带上 active，切换时强制整块 chip 重挂载，保证底色+文字都刷新。
+                key={`${p.key}-${active ? 'on' : 'off'}`}
                 style={[
                   styles.providerChip,
                   active && {
-                    backgroundColor: p.color,
-                    borderColor: p.color,
+                    backgroundColor: COLORS.accent,
+                    borderColor: COLORS.accent,
                   },
                 ]}
                 onPress={() => setProvider(p.key)}
@@ -351,7 +357,9 @@ export default function App() {
                 <Text
                   style={[
                     styles.providerChipText,
-                    active ? styles.providerChipTextActive : { color: p.color },
+                    active
+                      ? styles.providerChipTextActive
+                      : { color: COLORS.accent },
                   ]}
                 >
                   {p.label}
