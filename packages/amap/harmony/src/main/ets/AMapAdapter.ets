@@ -34,7 +34,8 @@ import hilog from '@ohos.hilog';
 // 真实类型；controller 仍保持 ESObject——覆盖物/监听器等大量方法尚未逐一对齐真实 AMap API。
 import {
   LatLng, CameraUpdateFactory, CameraPosition, MapType, MarkerOptions, PolylineOptions, PolygonOptions,
-  CircleOptions, BitmapDescriptorFactory, GroundOverlayOptions, LatLngBounds
+  CircleOptions, BitmapDescriptorFactory, GroundOverlayOptions, LatLngBounds,
+  WeightedLatLng, HeatMapBuilder, HeatmapTileProvider, Gradient, TileOverlayOptions
 } from '@amap/amap_lbs_map3d';
 
 // 每个地图实例分配唯一 mapViewName，供 MapViewComponent 渲染 + MapViewManager 回调匹配。
@@ -689,16 +690,21 @@ export class AMapAdapter implements CnMapAdapter {
     if (model.points.length === 0) {
       return null;
     }
-    const weighted: ESObject[] = model.points.map((p): ESObject => this.controller.createWeightedLatLng(this.latLng({ latitude: p.latitude, longitude: p.longitude }), p.weight));
-    const builder: ESObject = this.controller.createHeatmapTileProviderBuilder();
+    // 真实高德鸿蒙 SDK：new WeightedLatLng(latLng, intensity) → new HeatMapBuilder()
+    // .weightedData().setRadius().setGradient() → new HeatmapTileProvider(builder) →
+    // aMap.addTileOverlay(new TileOverlayOptions().tileProvider(provider))。
+    // 早前用 controller.createXxx 系列（Android 港来的占位方法，鸿蒙 SDK 无）导致热力图不渲染。
+    const weighted: ESObject[] = model.points.map((p): ESObject => new WeightedLatLng(this.latLng({ latitude: p.latitude, longitude: p.longitude }), p.weight));
+    const builder: ESObject = new HeatMapBuilder();
     builder.weightedData(weighted);
-    builder.radius(model.radius);
+    builder.setRadius(model.radius);
     const colors = model.gradientColors;
     const starts = model.gradientStartPoints;
     if (colors !== null && starts !== null && colors.length > 0 && colors.length === starts.length) {
-      builder.gradient(this.controller.createGradient(colors, starts));
+      builder.setGradient(new Gradient(colors, starts));
     }
-    return this.controller.addTileOverlay(this.controller.createTileOverlayOptions().tileProvider(builder.build()));
+    const provider: ESObject = new HeatmapTileProvider(builder);
+    return this.controller.addTileOverlay(new TileOverlayOptions().tileProvider(provider));
   }
 
   private buildUrlTile(model: CnUrlTileModel): ESObject {

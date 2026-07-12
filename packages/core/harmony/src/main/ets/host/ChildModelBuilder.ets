@@ -85,6 +85,13 @@ function parseColorString(s: string): number | null {
   }
   if (s.charAt(0) === '#') {
     const hex = s.substring(1);
+    if (hex.length === 3) {
+      // #rgb 简写 → #rrggbb
+      const r = hex.charAt(0);
+      const g = hex.charAt(1);
+      const b = hex.charAt(2);
+      return (0xff000000 | parseInt(r + r + g + g + b + b, 16)) >>> 0;
+    }
     if (hex.length === 6) return (0xff000000 | parseInt(hex, 16)) >>> 0;
     if (hex.length === 8) {
       const rgb = parseInt(hex.substring(0, 6), 16);
@@ -228,10 +235,18 @@ function buildHeatmap(props: PropBag): CnHeatmapModel {
   try {
     const g = JSON.parse(str(props, 'gradient') ?? 'null') as PropBag | null;
     if (g !== null) {
-      const c = g['colors'] as number[] | undefined;
+      const c = g['colors'] as Object[] | undefined;
       const s = g['startPoints'] as number[] | undefined;
-      if (c !== undefined && typeof c[0] === 'number') {
-        colors = c;
+      // colors 可能是 ARGB int 或 hex 串（示例用 '#00f' 之类）；逐元素解析成 ARGB int。
+      if (c !== undefined && c.length > 0) {
+        colors = c.map((v): number => {
+          if (typeof v === 'number') return v as number;
+          if (typeof v === 'string') {
+            const parsed = parseColorString(v as string);
+            if (parsed !== null) return parsed;
+          }
+          return 0xff000000;
+        });
       }
       if (s !== undefined) {
         startPoints = s;
