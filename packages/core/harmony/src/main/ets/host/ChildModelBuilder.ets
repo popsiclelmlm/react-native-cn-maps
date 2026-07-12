@@ -105,6 +105,22 @@ function colorOr(props: PropBag, key: string, fallback: number): number {
   return fallback;
 }
 
+// 颜色数组（如 Polyline.strokeColors 渐变色）。与单色 colorOr 同理：RNOH 把每个
+// SharedColor 序列化成 `rgba()` 字符串，旧代码直接当 number[] 透传 → SDK 收到 NaN →
+// 渐变不渲染。这里逐元素解析成 ARGB int，无法解析的兜底黑色以保持与坐标点对齐。
+function colorArray(props: PropBag, key: string): number[] {
+  const raw = props[key];
+  if (!Array.isArray(raw)) return [];
+  return (raw as Object[]).map((v): number => {
+    if (typeof v === 'number') return v as number;
+    if (typeof v === 'string') {
+      const parsed = parseColorString(v as string);
+      if (parsed !== null) return parsed;
+    }
+    return 0xff000000;
+  });
+}
+
 export function buildMarkerModel(props: PropBag): CnMarkerModel {
   const c = coord(props);
   const anchor = props['anchor'] as PropBag | undefined;
@@ -132,7 +148,7 @@ export function buildMarkerModel(props: PropBag): CnMarkerModel {
 }
 
 function buildPolyline(props: PropBag): CnPolylineModel {
-  const strokeColors = (props['strokeColors'] as number[] | undefined) ?? [];
+  const strokeColors = colorArray(props, 'strokeColors');
   return {
     kind: 'polyline',
     coordinates: coordList(props, 'coordinates'),
