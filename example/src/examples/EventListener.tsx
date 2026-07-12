@@ -1,5 +1,12 @@
 import { memo, useState } from 'react';
-import { StyleSheet, View, Text, Dimensions, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  Dimensions,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import MapView, {
   Marker,
   Polygon,
@@ -7,7 +14,7 @@ import MapView, {
   Callout,
 } from 'react-native-cn-maps';
 import PriceMarker from './PriceMarker';
-import { DemoPanel } from './_ui';
+import { DEMO, DemoPanel } from './_ui';
 
 const { width, height } = Dimensions.get('window');
 
@@ -157,11 +164,21 @@ function EventListener(props: any) {
         />
       </MapView>
       <DemoPanel style={styles.eventList}>
-        <ScrollView>
-          {events.map((event: any) => (
-            <Event key={event.id} event={event} />
-          ))}
-        </ScrollView>
+        <Text style={styles.eventListTitle}>事件日志</Text>
+        {events.length === 0 ? (
+          <Text style={styles.eventListEmpty}>
+            点击、拖动地图或点击标注，对应事件会显示在这里
+          </Text>
+        ) : (
+          <ScrollView
+            style={styles.eventScroll}
+            contentContainerStyle={styles.eventScrollContent}
+          >
+            {events.map((event: any) => (
+              <Event key={event.id} event={event} />
+            ))}
+          </ScrollView>
+        )}
       </DemoPanel>
     </View>
   );
@@ -169,23 +186,35 @@ function EventListener(props: any) {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  eventList: {
-    position: 'absolute',
-    top: (2 / 3) * height, // 从屏幕三分之二处开始
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
   },
   map: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: height / 3, // 调整为屏幕的三分之一
+    flex: 2, // 地图占上方三分之二
+  },
+  // 事件日志面板占下方三分之一；贴边铺满，只保留上侧圆角
+  eventList: {
+    flex: 1,
+    borderRadius: 0,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+  },
+  eventListTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: DEMO.text,
+    marginBottom: 6,
+  },
+  eventListEmpty: {
+    fontSize: 13,
+    color: DEMO.textMuted,
+    marginTop: 8,
+  },
+  eventScroll: {
+    flex: 1,
+  },
+  eventScrollContent: {
+    // 底部留白，避免最后一条事件被半透明 Provider 切换栏遮住
+    paddingBottom: DEMO.bottomClearance,
   },
   event: {
     borderBottomWidth: 1,
@@ -194,7 +223,8 @@ const styles = StyleSheet.create({
   },
   eventData: {
     fontSize: 10,
-    fontFamily: 'courier',
+    // 鸿蒙无 courier/monospace 别名，走系统默认字体
+    fontFamily: Platform.select({ ios: 'Courier', android: 'monospace' }),
     color: '#555',
   },
   eventName: {
